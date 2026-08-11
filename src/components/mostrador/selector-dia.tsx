@@ -84,7 +84,7 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
         >
           <Input
             type="date"
-            label="Escribir fecha"
+            aria-label="Escribir fecha"
             size="small"
             value={tipeada}
             error={error ?? false}
