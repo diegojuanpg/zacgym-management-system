@@ -231,24 +231,24 @@ export function NuevaVentaModal({
                 <TableRow>
                   <TableHead>Alumno</TableHead>
                   <TableHead>Producto</TableHead>
-                  <TableHead>Cant.</TableHead>
+                  <TableHead numeric>Cant.</TableHead>
                   <TableHead>Método</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead numeric>Total</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
-              <TableBody striped className="[&_td]:text-center [&_td]:tabular-nums">
+              <TableBody striped>
                 {lineas.map((l, i) => (
                   <TableRow key={i}>
                     <TableCell>{l.alumno}</TableCell>
                     <TableCell>{l.producto}</TableCell>
-                    <TableCell>{l.cantidad}</TableCell>
+                    <TableCell numeric>{l.cantidad}</TableCell>
                     <TableCell>
                       <Badge variant={l.metodo === "fiado" ? "amber-subtle" : "gray-subtle"}>
                         {l.metodo}
                       </Badge>
                     </TableCell>
-                    <TableCell>{pesos(l.precio * l.cantidad)}</TableCell>
+                    <TableCell numeric>{pesos(l.precio * l.cantidad)}</TableCell>
                     <TableCell>
                       <Button
                         variant="tertiary"
