@@ -5,7 +5,7 @@ import { anularVenta } from "@/lib/ventas";
 import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SelectorDia } from "@/components/mostrador/selector-dia";
 import { Card } from "@/components/ui/card";
 import { Description } from "@/components/ui/description";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -68,6 +68,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     supabase.from("productos").select("id, nombre, precio, stock").eq("activo", true).order("nombre"),
   ]);
 
+  const { data: diasConVentas } = await supabase
+    .from("dias_con_ventas")
+    .select("dia")
+    .order("dia", { ascending: false })
+    .overrideTypes<{ dia: string }[]>();
+
   const vivas = (ventas ?? []).filter((v) => !v.anulada_en);
   const totalPor = (metodo: VentaFila["metodo"]) =>
     vivas.filter((v) => v.metodo === metodo).reduce((suma, v) => suma + v.total, 0);
@@ -113,12 +119,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <form className="flex items-end gap-2">
-            <Input type="date" name="fecha" label="Día" defaultValue={dia} />
-            <Button type="submit" variant="secondary">
-              Ver
-            </Button>
-          </form>
+          <SelectorDia dia={dia} dias={(diasConVentas ?? []).map((d) => d.dia)} />
 
           <NuevaVentaModal alumnos={alumnos ?? []} productos={productos ?? []} />
         </div>

@@ -34,3 +34,92 @@ export function InvoiceIcon({ className, ...props }: { className?: string } & Re
     </svg>
   )
 }
+
+export function CalendarIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <g clipPath="url(#clip0_37_1504)">
+<path fillRule="evenodd" clipRule="evenodd" d="M5.5 0.5V2H10.5V0.5H12V2H15.5V13.5C15.5 14.163 15.2366 14.7989 14.7678 15.2678C14.2989 15.7366 13.663 16 13 16H3C2.6717 16 2.34661 15.9353 2.04329 15.8097C1.73998 15.6841 1.46438 15.4999 1.23223 15.2678C0.763392 14.7989 0.5 14.163 0.5 13.5V2H4V0.5H5.5ZM2 3.5H14V6H2V3.5ZM2 7.5V13.5C2 13.7652 2.10536 14.0196 2.29289 14.2071C2.48043 14.3946 2.73478 14.5 3 14.5H13C13.2652 14.5 13.5196 14.3946 13.7071 14.2071C13.8946 14.0196 14 13.7652 14 13.5V7.5H2Z" fill="currentColor"/>
+</g>
+<defs>
+<clipPath id="clip0_37_1504">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+    </svg>
+  )
+}
+
+export function ChevronDownIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M14.06 5.5L13.53 6.03L8.707 10.854C8.51947 11.0415 8.26517 11.1468 8 11.1468C7.73484 11.1468 7.48053 11.0415 7.293 10.854L2.47 6.03L1.94 5.5L3 4.44L3.53 4.97L8 9.44L12.47 4.97L13 4.44L14.06 5.5Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function ChevronLeftIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M10.5 14.06L9.97 13.53L5.146 8.707C4.95853 8.51947 4.85321 8.26517 4.85321 8C4.85321 7.73484 4.95853 7.48053 5.146 7.293L9.97 2.47L10.5 1.94L11.56 3L11.03 3.53L6.56 8L11.03 12.47L11.56 13L10.5 14.06Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function ChevronRightIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M5.5 1.94L6.03 2.47L10.854 7.293C11.0415 7.48053 11.1468 7.73484 11.1468 8C11.1468 8.26517 11.0415 8.51947 10.854 8.707L6.03 13.53L5.5 14.06L4.44 13L4.97 12.47L9.44 8L4.97 3.53L4.44 3L5.5 1.94Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function ClockIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <g clipPath="url(#clip0_37_1574)">
+<path fillRule="evenodd" clipRule="evenodd" d="M14.5 8C14.5 9.72391 13.8152 11.3772 12.5962 12.5962C11.3772 13.8152 9.72391 14.5 8 14.5C6.27609 14.5 4.62279 13.8152 3.40381 12.5962C2.18482 11.3772 1.5 9.72391 1.5 8C1.5 6.27609 2.18482 4.62279 3.40381 3.40381C4.62279 2.18482 6.27609 1.5 8 1.5C9.72391 1.5 11.3772 2.18482 12.5962 3.40381C13.8152 4.62279 14.5 6.27609 14.5 8ZM16 8C16 10.1217 15.1571 12.1566 13.6569 13.6569C12.1566 15.1571 10.1217 16 8 16C5.87827 16 3.84344 15.1571 2.34315 13.6569C0.842855 12.1566 0 10.1217 0 8C0 5.87827 0.842855 3.84344 2.34315 2.34315C3.84344 0.842855 5.87827 0 8 0C10.1217 0 12.1566 0.842855 13.6569 2.34315C15.1571 3.84344 16 5.87827 16 8ZM8.75 4.75V4H7.25V7.875C7.25 8.03024 7.28615 8.18336 7.35557 8.32221C7.425 8.46107 7.5258 8.58185 7.65 8.675L9.55 10.1L10.15 10.55L11.05 9.35L10.45 8.9L8.75 7.625V4.75Z" fill="currentColor"/>
+</g>
+<defs>
+<clipPath id="clip0_37_1574">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+    </svg>
+  )
+}
