@@ -6,6 +6,7 @@ import { registrarVentas, type ItemVenta } from "@/lib/ventas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Badge } from "@/components/ui/badge";
@@ -161,34 +162,39 @@ export function NuevaVentaModal({
           onSubmit={agregar}
           className="grid grid-cols-2 items-end gap-3 pb-4 sm:grid-cols-[1fr_1fr_4.5rem_9rem_auto]"
         >
-          <Select
-            label="Alumno"
-            placeholder="Elegí un alumno"
-            required
-            value={alumnoId}
-            onChange={(e) => setAlumnoId(e.target.value)}
-          >
-            {alumnos.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nombre_completo}
-              </option>
-            ))}
-          </Select>
+          <label className="flex flex-col gap-1">
+            <span className="text-label-13 text-muted-foreground">Alumno</span>
+            <Combobox
+              // Sin la coma, escribir "perez j" encuentra a "Perez, Juan": el
+              // combobox busca por substring y la coma cortaba la coincidencia.
+              options={alumnos.map((a) => ({
+                value: a.id,
+                label: a.nombre_completo.replace(",", ""),
+              }))}
+              value={alumnoId}
+              onValueChange={setAlumnoId}
+              placeholder="Buscar alumno..."
+              emptyMessage="Ningún alumno coincide"
+              width="100%"
+              clearable
+            />
+          </label>
 
-          <Select
-            label="Producto"
-            placeholder="Elegí un producto"
-            required
-            value={productoId}
-            onChange={(e) => setProductoId(e.target.value)}
-          >
-            {productos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre} — {pesos(p.precio)}
-                {p.stock !== null ? ` (stock ${p.stock})` : ""}
-              </option>
-            ))}
-          </Select>
+          <label className="flex flex-col gap-1">
+            <span className="text-label-13 text-muted-foreground">Producto</span>
+            <Combobox
+              options={productos.map((p) => ({
+                value: p.id,
+                label: `${p.nombre} — ${pesos(p.precio)}${p.stock !== null ? ` (stock ${p.stock})` : ""}`,
+              }))}
+              value={productoId}
+              onValueChange={setProductoId}
+              placeholder="Buscar producto..."
+              emptyMessage="Ningún producto coincide"
+              width="100%"
+              clearable
+            />
+          </label>
 
           <Input
             label="Cant."

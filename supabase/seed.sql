@@ -66,8 +66,15 @@ on conflict (nombre) do nothing;
 -- Alumnos temporales hasta importar el listado real.
 insert into public.alumnos (apellido, nombre) values
   ('Perez', 'Juan'),
+  ('Perez', 'Carla'),
+  ('Perez', 'Juan Manuel'),
   ('Gomez', 'Maria'),
+  ('Gomez', 'Lucas'),
+  ('Gomez', 'Ana Paula'),
   ('Radice', 'Mateo'),
+  ('Radice', 'Sofia'),
+  ('Radice', 'Tomas'),
+  ('Radice', 'Valentina'),
   ('Lord', 'Gaston'),
   ('Key', 'Jeronimo')
 on conflict do nothing;
