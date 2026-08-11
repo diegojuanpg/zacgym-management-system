@@ -3,6 +3,18 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { anularVenta } from "@/lib/ventas";
 import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  TableRoot,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
@@ -23,12 +35,11 @@ interface VentaFila {
   productos: { nombre: string } | null;
 }
 
-export default async function MostradorPage({
-  searchParams,
-}: PageProps<"/mostrador">) {
+export default async function MostradorPage({ searchParams }: PageProps<"/mostrador">) {
   const staff = await requireStaff();
   const { fecha } = await searchParams;
-  const dia = typeof fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnBuenosAires();
+  const dia =
+    typeof fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnBuenosAires();
 
   const supabase = await createClient();
   const desde = new Date(`${dia}T00:00:00-03:00`).toISOString();
@@ -38,12 +49,18 @@ export default async function MostradorPage({
   const [{ data: ventas }, { data: alumnos }, { data: productos }] = await Promise.all([
     supabase
       .from("ventas")
-      .select("id, cantidad, total, metodo, creado_en, anulada_en, alumnos(nombre_completo), productos(nombre)")
+      .select(
+        "id, cantidad, total, metodo, creado_en, anulada_en, alumnos(nombre_completo), productos(nombre)",
+      )
       .gte("creado_en", desde)
       .lt("creado_en", hasta.toISOString())
       .order("creado_en", { ascending: false })
       .overrideTypes<VentaFila[]>(),
-    supabase.from("alumnos").select("id, nombre_completo").eq("activo", true).order("nombre_completo"),
+    supabase
+      .from("alumnos")
+      .select("id, nombre_completo")
+      .eq("activo", true)
+      .order("nombre_completo"),
     supabase.from("productos").select("id, nombre, precio, stock").eq("activo", true).order("nombre"),
   ]);
 
@@ -74,20 +91,18 @@ export default async function MostradorPage({
     <>
       <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
         <div className="flex items-baseline gap-3">
-          <span className="text-base font-semibold">ZacGym</span>
-          <span className="text-sm text-muted">Mostrador</span>
+          <span className="text-heading-16">ZacGym</span>
+          <span className="text-label-14 text-muted-foreground">Mostrador</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted">
-            {staff.email} — {staff.role}
-          </span>
+          <span className="hidden text-copy-13 text-muted-foreground sm:inline">{staff.email}</span>
+          <Badge variant={staff.role === "admin" ? "gray-subtle" : "blue-subtle"}>
+            {staff.role}
+          </Badge>
           <form action={cerrarSesion}>
-            <button
-              type="submit"
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-foreground/5"
-            >
+            <Button type="submit" variant="secondary" size="sm">
               Salir
-            </button>
+            </Button>
           </form>
         </div>
       </header>
@@ -95,21 +110,10 @@ export default async function MostradorPage({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <form className="flex items-end gap-2">
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Día
-              <input
-                type="date"
-                name="fecha"
-                defaultValue={dia}
-                className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-md border border-border px-3 py-2 text-sm hover:bg-foreground/5"
-            >
+            <Input type="date" name="fecha" label="Día" defaultValue={dia} />
+            <Button type="submit" variant="secondary">
               Ver
-            </button>
+            </Button>
           </form>
 
           <NuevaVentaModal alumnos={alumnos ?? []} productos={productos ?? []} />
@@ -118,65 +122,76 @@ export default async function MostradorPage({
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {totales.map((t) => (
             <div key={t.etiqueta} className="rounded-lg border border-border px-4 py-3">
-              <p className="text-xs text-muted">{t.etiqueta}</p>
-              <p className="text-lg font-semibold">{pesos(t.monto)}</p>
+              <p className="text-label-13 text-muted-foreground">{t.etiqueta}</p>
+              <p className="text-heading-20">{pesos(t.monto)}</p>
             </div>
           ))}
         </section>
 
-        <section className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border text-left text-xs text-muted">
-              <tr>
-                <th className="px-4 py-2 font-normal">Hora</th>
-                <th className="px-4 py-2 font-normal">Alumno</th>
-                <th className="px-4 py-2 font-normal">Producto</th>
-                <th className="px-4 py-2 text-right font-normal">Cant.</th>
-                <th className="px-4 py-2 font-normal">Método</th>
-                <th className="px-4 py-2 text-right font-normal">Total</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
+        <TableRoot>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Hora</TableHead>
+                <TableHead>Alumno</TableHead>
+                <TableHead>Producto</TableHead>
+                <TableHead numeric>Cant.</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead numeric>Total</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody striped>
               {(ventas ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-muted">
-                    No hay ventas cargadas este día.
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <p className="py-10 text-center text-copy-14 text-muted-foreground">
+                      No hay ventas cargadas este día.
+                    </p>
+                  </TableCell>
+                </TableRow>
               )}
               {(ventas ?? []).map((v) => (
-                <tr
-                  key={v.id}
-                  className={`border-b border-border last:border-0 ${v.anulada_en ? "text-muted line-through" : ""}`}
-                >
-                  <td className="px-4 py-2">
+                <TableRow key={v.id} className={v.anulada_en ? "text-muted-foreground" : undefined}>
+                  <TableCell>
                     {new Date(v.creado_en).toLocaleTimeString("es-AR", {
                       timeZone: ZONA,
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
-                  </td>
-                  <td className="px-4 py-2">{v.alumnos?.nombre_completo}</td>
-                  <td className="px-4 py-2">{v.productos?.nombre}</td>
-                  <td className="px-4 py-2 text-right">{v.cantidad}</td>
-                  <td className="px-4 py-2 capitalize">{v.metodo}</td>
-                  <td className="px-4 py-2 text-right">{pesos(v.total)}</td>
-                  <td className="px-4 py-2 text-right">
+                  </TableCell>
+                  <TableCell>{v.alumnos?.nombre_completo}</TableCell>
+                  <TableCell>{v.productos?.nombre}</TableCell>
+                  <TableCell numeric>{v.cantidad}</TableCell>
+                  <TableCell>
+                    {v.anulada_en ? (
+                      <Badge variant="red-subtle">anulada</Badge>
+                    ) : (
+                      <Badge variant={v.metodo === "fiado" ? "amber-subtle" : "gray-subtle"}>
+                        {v.metodo}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell numeric>
+                    <span className={v.anulada_en ? "line-through" : undefined}>
+                      {pesos(v.total)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     {!v.anulada_en && (
                       <form action={anular}>
-                        <input type="hidden" name="id" value={v.id} />
-                        <button type="submit" className="text-xs text-muted hover:text-red-600">
+                        <Button type="submit" variant="tertiary" size="sm">
                           Anular
-                        </button>
+                        </Button>
+                        <input type="hidden" name="id" value={v.id} />
                       </form>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </section>
+            </TableBody>
+          </Table>
+        </TableRoot>
       </main>
     </>
   );

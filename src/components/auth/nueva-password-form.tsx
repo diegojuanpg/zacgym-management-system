@@ -3,12 +3,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Note } from "@/components/ui/note";
 
 const MIN_LENGTH = 8;
-const campo =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
-const boton =
-  "w-full rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50";
 
 export function NuevaPasswordForm() {
   const router = useRouter();
@@ -47,34 +46,32 @@ export function NuevaPasswordForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm">
-        Nueva contraseña
-        <input
-          className={campo}
-          type="password"
-          autoComplete="new-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        Repetir contraseña
-        <input
-          className={campo}
-          type="password"
-          autoComplete="new-password"
-          required
-          value={repeat}
-          onChange={(e) => setRepeat(e.target.value)}
-        />
-      </label>
+      <Input
+        label="Nueva contraseña"
+        type="password"
+        autoComplete="new-password"
+        required
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <Input
+        label="Repetir contraseña"
+        type="password"
+        autoComplete="new-password"
+        required
+        value={repeat}
+        onChange={(e) => setRepeat(e.target.value)}
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <Note type="error" fill>
+          {error}
+        </Note>
+      )}
 
-      <button type="submit" className={boton} disabled={loading}>
-        {loading ? "..." : "Guardar"}
-      </button>
+      <Button type="submit" size="lg" loading={loading} className="w-full">
+        Guardar
+      </Button>
     </form>
   );
 }

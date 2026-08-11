@@ -3,11 +3,9 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-const campo =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
-const boton =
-  "w-full rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Note } from "@/components/ui/note";
 
 export function LoginForm() {
   const router = useRouter();
@@ -55,50 +53,48 @@ export function LoginForm() {
 
   if (sent) {
     return (
-      <p className="rounded-md border border-border px-3 py-2 text-sm">
+      <Note type="success" fill>
         Si esa cuenta existe, le mandamos un mail con el link para cambiar la contraseña.
-      </p>
+      </Note>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm">
-        Email
-        <input
-          className={campo}
-          type="email"
-          autoComplete="username"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="vos@zacgym.com"
-        />
-      </label>
+      <Input
+        label="Email"
+        type="email"
+        autoComplete="username"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="vos@zacgym.com"
+      />
 
       {mode === "login" && (
-        <label className="flex flex-col gap-1 text-sm">
-          Contraseña
-          <input
-            className={campo}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        <Input
+          label="Contraseña"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <Note type="error" fill>
+          {error}
+        </Note>
+      )}
 
-      <button type="submit" className={boton} disabled={loading}>
-        {loading ? "..." : mode === "login" ? "Entrar" : "Mandar link de recuperación"}
-      </button>
+      <Button type="submit" size="lg" loading={loading} className="w-full">
+        {mode === "login" ? "Entrar" : "Mandar link de recuperación"}
+      </Button>
 
       <button
         type="button"
-        className="text-sm text-muted hover:text-foreground"
+        className="text-label-14 text-muted-foreground hover:text-foreground"
         onClick={() => {
           setMode(mode === "login" ? "recover" : "login");
           setError(null);
