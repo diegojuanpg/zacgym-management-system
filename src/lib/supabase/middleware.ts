@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { COOKIE_NAME } from "./cookie";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/nueva-password", "/auth"];
@@ -10,6 +11,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: COOKIE_NAME },
       cookies: {
         getAll() {
           return request.cookies.getAll();
