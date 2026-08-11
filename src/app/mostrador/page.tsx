@@ -151,7 +151,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead numeric>Cant.</TableHead>
                 <TableHead>Método</TableHead>
                 <TableHead numeric>Total</TableHead>
-                <TableHead />
+                <TableHead className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody striped>
@@ -181,7 +181,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       {pesos(v.total)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     {!v.anulada_en && (
                       <form action={anular}>
                         <Button type="submit" variant="tertiary" size="sm">

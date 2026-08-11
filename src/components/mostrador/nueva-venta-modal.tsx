@@ -234,7 +234,7 @@ export function NuevaVentaModal({
                   <TableHead numeric>Cant.</TableHead>
                   <TableHead>Método</TableHead>
                   <TableHead numeric>Total</TableHead>
-                  <TableHead />
+                  <TableHead className="text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody striped>
@@ -249,7 +249,7 @@ export function NuevaVentaModal({
                       </Badge>
                     </TableCell>
                     <TableCell numeric>{pesos(l.precio * l.cantidad)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="tertiary"
                         size="sm"
