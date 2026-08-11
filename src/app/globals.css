@@ -176,3 +176,21 @@
   box-shadow: none !important;
   opacity: 1 !important;
 }
+/* Tailwind v4 dejo de poner cursor:pointer en los botones (preflight usa el del
+   navegador, que es la flecha). Lo devolvemos para todo lo clickeable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  select:not(:disabled),
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
