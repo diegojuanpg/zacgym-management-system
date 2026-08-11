@@ -6,6 +6,10 @@ import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Description } from "@/components/ui/description";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CartIcon } from "@/components/icons";
 import {
   TableRoot,
   Table,
@@ -121,13 +125,22 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {totales.map((t) => (
-            <div key={t.etiqueta} className="rounded-lg border border-border px-4 py-3">
-              <p className="text-label-13 text-muted-foreground">{t.etiqueta}</p>
-              <p className="text-heading-20">{pesos(t.monto)}</p>
-            </div>
+            <Card key={t.etiqueta}>
+              <Description
+                title={t.etiqueta}
+                content={<span className="text-heading-20">{pesos(t.monto)}</span>}
+              />
+            </Card>
           ))}
         </section>
 
+        {(ventas ?? []).length === 0 ? (
+          <EmptyState
+            icon={<CartIcon />}
+            title="Sin ventas este día"
+            description="Cargá las ventas del mostrador con el botón de arriba y aparecen acá."
+          />
+        ) : (
         <TableRoot>
           <Table>
             <TableHeader>
@@ -142,15 +155,6 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
               </TableRow>
             </TableHeader>
             <TableBody striped>
-              {(ventas ?? []).length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7}>
-                    <p className="py-10 text-center text-copy-14 text-muted-foreground">
-                      No hay ventas cargadas este día.
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
               {(ventas ?? []).map((v) => (
                 <TableRow key={v.id} className={v.anulada_en ? "text-muted-foreground" : undefined}>
                   <TableCell>
@@ -192,6 +196,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             </TableBody>
           </Table>
         </TableRoot>
+        )}
       </main>
     </>
   );

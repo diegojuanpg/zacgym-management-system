@@ -92,16 +92,17 @@ export function LoginForm() {
         {mode === "login" ? "Entrar" : "Mandar link de recuperación"}
       </Button>
 
-      <button
+      <Button
         type="button"
-        className="text-label-14 text-muted-foreground hover:text-foreground"
+        variant="tertiary"
+        size="sm"
         onClick={() => {
           setMode(mode === "login" ? "recover" : "login");
           setError(null);
         }}
       >
         {mode === "login" ? "Olvidé mi contraseña" : "Volver al login"}
-      </button>
+      </Button>
     </form>
   );
 }

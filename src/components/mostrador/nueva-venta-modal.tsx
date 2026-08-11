@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InvoiceIcon } from "@/components/icons";
 import {
   TableRoot,
   Table,
@@ -54,6 +56,7 @@ export function NuevaVentaModal({
   const [metodo, setMetodo] = React.useState<ItemVenta["metodo"]>("efectivo");
   const [error, setError] = React.useState<string | null>(null);
   const [guardando, setGuardando] = React.useState(false);
+  const [confirmarDescarte, setConfirmarDescarte] = React.useState(false);
 
   const total = lineas.reduce((suma, l) => suma + l.precio * l.cantidad, 0);
 
@@ -104,15 +107,20 @@ export function NuevaVentaModal({
   }
 
   function cambiarApertura(abrir: boolean) {
-    // Cerrar con la lista cargada seria perder ventas: confirmamos antes.
-    if (!abrir && lineas.length > 0 && !window.confirm("Hay ventas sin confirmar. ¿Descartarlas?")) {
+    // Cerrar con la lista cargada seria perder ventas: preguntamos antes.
+    if (!abrir && lineas.length > 0) {
+      setConfirmarDescarte(true);
       return;
     }
-    if (!abrir) {
-      setLineas([]);
-      setError(null);
-    }
+    if (!abrir) setError(null);
     setAbierto(abrir);
+  }
+
+  function descartar() {
+    setLineas([]);
+    setError(null);
+    setConfirmarDescarte(false);
+    setAbierto(false);
   }
 
   return (
@@ -210,9 +218,12 @@ export function NuevaVentaModal({
         )}
 
         {lineas.length === 0 ? (
-          <p className="py-8 text-center text-copy-14 text-muted-foreground">
-            Todavía no cargaste nada. Añadí las ventas de a una y confirmá todo junto al final.
-          </p>
+          <EmptyState
+            variant="informational"
+            icon={<InvoiceIcon />}
+            title="La lista está vacía"
+            description="Añadí las ventas de a una y confirmá todo junto al final."
+          />
         ) : (
           <TableRoot>
             <Table>
@@ -254,6 +265,23 @@ export function NuevaVentaModal({
           </TableRoot>
         )}
       </Modal>
+
+      <Modal
+        open={confirmarDescarte}
+        onOpenChange={setConfirmarDescarte}
+        title="Descartar las ventas cargadas"
+        description={`Tenés ${lineas.length} ${lineas.length === 1 ? "venta" : "ventas"} sin confirmar. Si salís ahora se pierden.`}
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmarDescarte(false)}>
+              Seguir cargando
+            </Button>
+            <Button variant="error" onClick={descartar}>
+              Descartar
+            </Button>
+          </div>
+        }
+      />
     </>
   );
 }
