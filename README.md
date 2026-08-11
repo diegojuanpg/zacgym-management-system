@@ -45,6 +45,26 @@ Supabase de "Project X" (que ocupa 543xx).
 | `pnpm db:types`   | Regenera `src/lib/supabase/database.types.ts`     |
 | `pnpm mail`       | Abre Mailpit                                      |
 
+## Cuentas
+
+No hay signup publico (`enable_signup = false`). Las cuentas se crean a mano en la DB:
+
+```sql
+select public.create_staff('diego@zacgym.com', 'una-password-larga', 'admin');
+select public.create_staff('sole@zacgym.com',  'otra-password',      'employee');
+select public.set_staff_role('sole@zacgym.com', 'admin');   -- cambiar rol
+```
+
+Local: `docker exec supabase_db_zacgym-management-system psql -U postgres -d postgres -c "<sql>"`.
+Produccion: el SQL Editor del dashboard de Supabase.
+
+El rol (`admin` | `employee`) vive en `auth.users.raw_app_meta_data->>'role'` y viaja
+en el JWT — sin tabla de perfiles ni join por request. Se lee con `requireStaff()`
+(`src/lib/auth.ts`).
+
+Recuperar contraseña: link por mail (local cae en Mailpit) → `/auth/callback` →
+`/nueva-password`. Chequeo del circuito: `pnpm smoke:auth`.
+
 ## Credenciales
 
 - `.env.local` — valores del stack local. Ya completo, no tiene secretos reales.

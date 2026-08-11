@@ -1,0 +1,74 @@
+/* Geist materials (surface + floating) — extracted verbatim from https://vercel.com/geist/materials */
+
+:root {
+  --ds-shadow-background-border: 0 0 0 1px var(--ds-background-200);
+  --ds-shadow-border-base: 0 0 0 1px #00000014;
+  --ds-shadow-border-inset: inset 0 0 0 1px #00000014;
+  --ds-shadow-border: var(--ds-shadow-border-base), var(--ds-shadow-background-border);
+  --ds-shadow-2xs: 0px 1px 1px #0000000a;
+  --ds-shadow-xs: 0px 1px 2px #0000000a;
+  --ds-shadow-small: 0px 2px 2px #0000000a;
+  --ds-shadow-border-small: var(--ds-shadow-border-base), var(--ds-shadow-small), var(--ds-shadow-background-border);
+  --ds-shadow-medium: 0px 2px 2px #0000000a, 0px 8px 8px -8px #0000000a;
+  --ds-shadow-border-medium: var(--ds-shadow-border-base), var(--ds-shadow-medium), var(--ds-shadow-background-border);
+  --ds-shadow-large: 0px 2px 2px #0000000a, 0px 8px 16px -4px #0000000a;
+  --ds-shadow-border-large: var(--ds-shadow-border-base), var(--ds-shadow-large), var(--ds-shadow-background-border);
+  --ds-shadow-xl: 0px 1px 1px #00000005, 0px 4px 8px -4px #0000000a, 0px 16px 24px -8px #0000000f;
+  --ds-shadow-2xl: 0px 1px 1px #00000005, 0px 8px 16px -4px #0000000a, 0px 24px 32px -8px #0000000f;
+  --ds-shadow-tooltip: var(--ds-shadow-border-base), 0px 1px 1px #00000005, 0px 4px 8px #0000000a, var(--ds-shadow-background-border);
+  --ds-shadow-menu: var(--ds-shadow-border-base), 0px 1px 1px #00000005, 0px 4px 8px -4px #0000000a, 0px 16px 24px -8px #0000000f, var(--ds-shadow-background-border);
+  --ds-shadow-modal: var(--ds-shadow-border-base), 0px 1px 1px #00000005, 0px 8px 16px -4px #0000000a, 0px 24px 32px -8px #0000000f, var(--ds-shadow-background-border);
+  --ds-shadow-fullscreen: var(--ds-shadow-border-base), 0px 1px 1px #00000005, 0px 8px 16px -4px #0000000a, 0px 24px 32px -8px #0000000f, var(--ds-shadow-background-border);
+}
+
+.dark {
+  --ds-shadow-border-base: 0 0 0 1px #ffffff25;
+  --ds-shadow-border-inset: inset 0 0 0 1px #ffffff1a;
+  --ds-shadow-2xs: 0px 1px 1px #00000029;
+  --ds-shadow-xs: 0px 1px 2px #00000029;
+  --ds-shadow-small: 0px 1px 2px #00000029;
+  --ds-shadow-medium: 0px 2px 2px #00000052, 0px 8px 8px -8px #00000029;
+  --ds-shadow-large: 0px 2px 2px #0000000a, 0px 8px 16px -4px #0000000a;
+}
+
+@utility material-base {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-border);
+  border-radius: 6px;
+}
+@utility material-small {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-border-small);
+  border-radius: 6px;
+}
+@utility material-medium {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-border-medium);
+  border-radius: 12px;
+}
+@utility material-large {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-border-large);
+  border-radius: 12px;
+}
+@utility material-tooltip {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-tooltip);
+  border-radius: 6px;
+}
+@utility material-menu {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-menu);
+  border-radius: 12px;
+}
+@utility material-modal {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-modal);
+  border-radius: 12px;
+}
+@utility material-fullscreen {
+  background-color: var(--ds-background-100);
+  box-shadow: var(--ds-shadow-fullscreen);
+  border-radius: 16px;
+}
+
