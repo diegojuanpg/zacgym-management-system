@@ -38,17 +38,18 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
     router.push(`/mostrador?fecha=${destino}`);
   }
 
-  function confirmarTipeada(event: React.FormEvent) {
-    event.preventDefault();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(tipeada)) {
-      setError("Fecha incompleta.");
+  /** El input de fecha solo emite la fecha entera: al completarla, se aplica sola. */
+  function alTipear(valor: string) {
+    setTipeada(valor);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+      setError(null);
       return;
     }
-    if (!conVentas.has(tipeada)) {
+    if (!conVentas.has(valor)) {
       setError("Ese día no tiene ventas cargadas.");
       return;
     }
-    ir(tipeada);
+    ir(valor);
   }
 
   const etiqueta = seleccionado.toLocaleDateString("es-AR", {
@@ -81,22 +82,14 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
           aria-label="Elegir día"
           className="material-menu absolute top-full left-0 z-50 mt-1 flex w-max flex-col gap-3 p-3"
         >
-          <form onSubmit={confirmarTipeada} className="flex items-end gap-2">
-            <Input
-              type="date"
-              label="Escribir fecha"
-              size="small"
-              value={tipeada}
-              error={error ?? false}
-              onChange={(e) => {
-                setTipeada(e.target.value);
-                setError(null);
-              }}
-            />
-            <Button type="submit" variant="secondary" size="sm">
-              Ir
-            </Button>
-          </form>
+          <Input
+            type="date"
+            label="Escribir fecha"
+            size="small"
+            value={tipeada}
+            error={error ?? false}
+            onChange={(e) => alTipear(e.target.value)}
+          />
 
           <CalendarGrid
             mode="single"
