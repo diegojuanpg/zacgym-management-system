@@ -181,10 +181,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       {pesos(v.total)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     {!v.anulada_en && (
                       <form action={anular}>
-                        <Button type="submit" variant="tertiary" size="sm">
+                        <Button
+                          type="submit"
+                          variant="tertiary"
+                          size="sm"
+                          className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
+                        >
                           Anular
                         </Button>
                         <input type="hidden" name="id" value={v.id} />
