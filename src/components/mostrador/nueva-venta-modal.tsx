@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { InvoiceIcon } from "@/components/icons";
+import { InvoiceIcon, PlusIcon } from "@/components/icons";
 import {
   TableRoot,
   Table,
@@ -125,7 +125,9 @@ export function NuevaVentaModal({
 
   return (
     <>
-      <Button onClick={() => setAbierto(true)}>Agregar ventas</Button>
+      <Button onClick={() => setAbierto(true)} prefix={<PlusIcon />}>
+        Agregar ventas
+      </Button>
 
       <Modal
         open={abierto}

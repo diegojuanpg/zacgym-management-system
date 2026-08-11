@@ -123,3 +123,18 @@ export function ClockIcon({ className, ...props }: { className?: string } & Reac
     </svg>
   )
 }
+
+export function PlusIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M8.75 1.75V1H7.25V6.75H1.5V8.25H7.25V14H8.75V8.25H14.5V6.75H8.75V1.75Z" fill="currentColor"/>
+    </svg>
+  )
+}
