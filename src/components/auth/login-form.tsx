@@ -3,9 +3,11 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Note } from "@/components/ui/note";
+
+const campo =
+  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
+const boton =
+  "w-full rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50";
 
 export function LoginForm() {
   const router = useRouter();
@@ -53,48 +55,50 @@ export function LoginForm() {
 
   if (sent) {
     return (
-      <Note type="success" fill>
+      <p className="rounded-md border border-border px-3 py-2 text-sm">
         Si esa cuenta existe, le mandamos un mail con el link para cambiar la contraseña.
-      </Note>
+      </p>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
-      <Input
-        label="Email"
-        type="email"
-        autoComplete="username"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="vos@zacgym.com"
-      />
+      <label className="flex flex-col gap-1 text-sm">
+        Email
+        <input
+          className={campo}
+          type="email"
+          autoComplete="username"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="vos@zacgym.com"
+        />
+      </label>
 
       {mode === "login" && (
-        <Input
-          label="Contraseña"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <label className="flex flex-col gap-1 text-sm">
+          Contraseña
+          <input
+            className={campo}
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
       )}
 
-      {error && (
-        <Note type="error" fill>
-          {error}
-        </Note>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button type="submit" size="lg" loading={loading} className="w-full">
-        {mode === "login" ? "Entrar" : "Mandar link de recuperación"}
-      </Button>
+      <button type="submit" className={boton} disabled={loading}>
+        {loading ? "..." : mode === "login" ? "Entrar" : "Mandar link de recuperación"}
+      </button>
 
       <button
         type="button"
-        className="text-label-14 text-muted-foreground hover:text-foreground"
+        className="text-sm text-muted hover:text-foreground"
         onClick={() => {
           setMode(mode === "login" ? "recover" : "login");
           setError(null);

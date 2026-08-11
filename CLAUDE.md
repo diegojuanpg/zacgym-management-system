@@ -7,9 +7,12 @@ checkins, vencimientos, apps-script) — mirar ahi antes de modelar el schema.
 ## Stack
 
 - Next.js 16 (App Router) + React 19 + TypeScript strict
-- Tailwind CSS v4
+- Tailwind CSS v4 (sin design system por ahora: markup plano)
 - Supabase (`@supabase/ssr` — clientes en `src/lib/supabase/`)
 - pnpm, ESLint
+
+Lo unico construido hoy es la auth: login por email/password, recuperacion por
+mail y roles admin/employee. Todo lo demas (pagos, stock, caja) esta por hacer.
 
 ## Entorno local
 

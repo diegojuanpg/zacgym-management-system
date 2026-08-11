@@ -36,6 +36,7 @@ Supabase de "Project X" (que ocupa 543xx).
 | Comando           | Que hace                                          |
 | ----------------- | ------------------------------------------------- |
 | `pnpm dev`        | Dev server                                        |
+| `pnpm smoke:auth` | Chequea login, signup cerrado y recuperación      |
 | `pnpm check`      | lint + typecheck + build (correr antes de commit) |
 | `pnpm db:start`   | Levanta Supabase local                            |
 | `pnpm db:stop`    | Apaga Supabase local                              |

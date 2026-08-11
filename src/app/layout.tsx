@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,20 +14,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ZacGym",
-  description: "Gestión de pagos ZacGym",
+  description: "Gestión interna ZacGym",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <body className="flex min-h-full flex-col bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="system">
-          {children}
-        </ThemeProvider>
+    <html lang="es" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        {children}
       </body>
     </html>
   );
