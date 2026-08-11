@@ -148,13 +148,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead>Hora</TableHead>
                 <TableHead>Alumno</TableHead>
                 <TableHead>Producto</TableHead>
-                <TableHead numeric>Cant.</TableHead>
+                <TableHead>Cant.</TableHead>
                 <TableHead>Método</TableHead>
-                <TableHead numeric>Total</TableHead>
+                <TableHead>Total</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
-            <TableBody striped>
+            <TableBody striped className="[&_td]:text-center [&_td]:tabular-nums">
               {(ventas ?? []).map((v) => (
                 <TableRow key={v.id} className={v.anulada_en ? "text-muted-foreground" : undefined}>
                   <TableCell>
@@ -166,7 +166,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                   </TableCell>
                   <TableCell>{v.alumnos?.nombre_completo}</TableCell>
                   <TableCell>{v.productos?.nombre}</TableCell>
-                  <TableCell numeric>{v.cantidad}</TableCell>
+                  <TableCell>{v.cantidad}</TableCell>
                   <TableCell>
                     {v.anulada_en ? (
                       <Badge variant="red-subtle">anulada</Badge>
@@ -176,7 +176,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell numeric>
+                  <TableCell>
                     <span className={v.anulada_en ? "line-through" : undefined}>
                       {pesos(v.total)}
                     </span>
