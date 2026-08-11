@@ -231,10 +231,10 @@ export function NuevaVentaModal({
                 <TableRow>
                   <TableHead>Alumno</TableHead>
                   <TableHead>Producto</TableHead>
-                  <TableHead numeric>Cant.</TableHead>
+                  <TableHead>Cant.</TableHead>
                   <TableHead>Método</TableHead>
                   <TableHead numeric>Total</TableHead>
-                  <TableHead className="text-right" />
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody striped>
@@ -242,14 +242,14 @@ export function NuevaVentaModal({
                   <TableRow key={i}>
                     <TableCell>{l.alumno}</TableCell>
                     <TableCell>{l.producto}</TableCell>
-                    <TableCell numeric>{l.cantidad}</TableCell>
+                    <TableCell>{l.cantidad}</TableCell>
                     <TableCell>
                       <Badge variant={l.metodo === "fiado" ? "amber-subtle" : "gray-subtle"}>
                         {l.metodo}
                       </Badge>
                     </TableCell>
                     <TableCell numeric>{pesos(l.precio * l.cantidad)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Button
                         variant="tertiary"
                         size="sm"

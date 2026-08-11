@@ -148,10 +148,10 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead>Hora</TableHead>
                 <TableHead>Alumno</TableHead>
                 <TableHead>Producto</TableHead>
-                <TableHead numeric>Cant.</TableHead>
+                <TableHead>Cant.</TableHead>
                 <TableHead>Método</TableHead>
                 <TableHead numeric>Total</TableHead>
-                <TableHead className="text-right" />
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody striped>
@@ -166,7 +166,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                   </TableCell>
                   <TableCell>{v.alumnos?.nombre_completo}</TableCell>
                   <TableCell>{v.productos?.nombre}</TableCell>
-                  <TableCell numeric>{v.cantidad}</TableCell>
+                  <TableCell>{v.cantidad}</TableCell>
                   <TableCell>
                     {v.anulada_en ? (
                       <Badge variant="red-subtle">anulada</Badge>
@@ -181,7 +181,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       {pesos(v.total)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell>
                     {!v.anulada_en && (
                       <form action={anular}>
                         <Button type="submit" variant="tertiary" size="sm">
