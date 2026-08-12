@@ -260,7 +260,7 @@ export function NuevaVentaModal({
                   <TableHead>Cant.</TableHead>
                   <TableHead>Método</TableHead>
                   <TableHead numeric>Total</TableHead>
-                  <TableHead />
+                  <TableHead className="text-center" />
                 </TableRow>
               </TableHeader>
               <TableBody striped>
@@ -275,10 +275,11 @@ export function NuevaVentaModal({
                       </Badge>
                     </TableCell>
                     <TableCell numeric>{pesos(l.precio * l.cantidad)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Button
                         variant="tertiary"
                         size="sm"
+                        className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
                         onClick={() => setLineas((previas) => previas.filter((_, j) => j !== i))}
                       >
                         Quitar
