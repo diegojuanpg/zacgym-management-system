@@ -161,7 +161,7 @@ export function NuevaVentaModal({
         }
       >
         <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
-          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_10rem]">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
           <label className="flex flex-col gap-1">
             <span className="text-label-13 text-muted-foreground">Alumno</span>
             <Combobox
@@ -211,15 +211,16 @@ export function NuevaVentaModal({
             <option value="fiado">Fiado</option>
           </Select>
 
+          {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
+          <div className="flex flex-col gap-1">
+            <span className="text-label-13 text-muted-foreground">Total</span>
+            <span className="flex h-9 items-center justify-end text-heading-20 tabular-nums">
+              {totalLinea === null ? "—" : pesos(totalLinea)}
+            </span>
+          </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-label-14 text-muted-foreground">Total</span>
-              <span className="text-heading-24">
-                {totalLinea === null ? "—" : pesos(totalLinea)}
-              </span>
-            </div>
+          <div className="flex justify-end border-t border-border pt-4">
             <Button type="submit" variant="secondary" prefix={<PlusIcon />}>
               Añadir
             </Button>
