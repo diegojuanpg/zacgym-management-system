@@ -222,7 +222,7 @@ export function NuevaVentaModal({
         }
       >
         <form onSubmit={agregar} className="flex flex-col gap-1 pb-4">
-          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem]">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
           <div>
             <Label>Alumno</Label>
             <Combobox
@@ -281,6 +281,13 @@ export function NuevaVentaModal({
             </Select>
           </div>
 
+          {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
+          <div className="flex flex-col items-end">
+            <Label>Total</Label>
+            <span className="flex h-10 items-center text-heading-20 tabular-nums">
+              {totalLinea === null ? "—" : pesos(totalLinea)}
+            </span>
+          </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
@@ -325,19 +332,9 @@ export function NuevaVentaModal({
           )}
             </div>
 
-            <div className="flex items-end gap-4">
-              {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
-              <div className="flex flex-col items-end">
-                <Label>Total</Label>
-                <span className="flex h-10 items-center text-heading-20 tabular-nums">
-                  {totalLinea === null ? "—" : pesos(totalLinea)}
-                </span>
-              </div>
-
-              <Button type="submit" variant="secondary" size="lg" prefix={<PlusIcon />}>
-                Añadir
-              </Button>
-            </div>
+            <Button type="submit" variant="secondary" size="lg" prefix={<PlusIcon />}>
+              Añadir
+            </Button>
           </div>
 
           {/* Alto reservado siempre: que aparezca la deuda no debe mover la fila. */}
