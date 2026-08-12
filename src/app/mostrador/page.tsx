@@ -23,6 +23,13 @@ import {
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
+function nombreMetodo(efectivo: number, transferencia: number) {
+  if (efectivo > 0 && transferencia > 0) return "Mixto";
+  if (efectivo > 0) return "Efectivo";
+  if (transferencia > 0) return "Transferencia";
+  return "—";
+}
+
 /** Hoy en Buenos Aires, no en la zona del servidor. */
 function hoyEnBuenosAires() {
   return new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
@@ -78,11 +85,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const suma = (campo: "efectivo" | "transferencia" | "saldo") =>
     vivas.reduce((acumulado, v) => acumulado + v[campo], 0);
 
+  // Deuda y a favor no se netean: son dos cosas distintas para el que cierra caja.
+  const deuda = vivas.reduce((acumulado, v) => acumulado + Math.max(0, v.saldo), 0);
+  const aFavor = vivas.reduce((acumulado, v) => acumulado + Math.max(0, -v.saldo), 0);
+
   const totales = [
     { etiqueta: "Efectivo", monto: suma("efectivo") },
     { etiqueta: "Transferencia", monto: suma("transferencia") },
-    { etiqueta: "Deuda", monto: suma("saldo") },
-    { etiqueta: "Cobrado", monto: suma("efectivo") + suma("transferencia") },
+    { etiqueta: "Deuda", monto: deuda },
+    { etiqueta: "A favor", monto: aFavor },
   ];
 
   async function anular(formData: FormData) {
@@ -150,7 +161,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead>Alumno</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>Cant.</TableHead>
-                <TableHead>Pago</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead numeric>Pago</TableHead>
                 <TableHead numeric>Total</TableHead>
                 <TableHead />
               </TableRow>
@@ -172,18 +184,19 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                     {v.anulada_en ? (
                       <Badge variant="red-subtle">anulada</Badge>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-1">
-                        {v.efectivo > 0 && (
-                          <Badge variant="gray-subtle">Efvo {pesos(v.efectivo)}</Badge>
-                        )}
-                        {v.transferencia > 0 && (
-                          <Badge variant="gray-subtle">Transf {pesos(v.transferencia)}</Badge>
-                        )}
-                        {v.saldo > 0 && (
-                          <Badge variant="amber-subtle">Debe {pesos(v.saldo)}</Badge>
-                        )}
-                      </div>
+                      nombreMetodo(v.efectivo, v.transferencia)
                     )}
+                  </TableCell>
+                  <TableCell numeric>
+                    <div className="flex items-center justify-end gap-2">
+                      {pesos(v.efectivo + v.transferencia)}
+                      {v.saldo > 0 && (
+                        <Badge variant="amber-subtle">Debe {pesos(v.saldo)}</Badge>
+                      )}
+                      {v.saldo < 0 && (
+                        <Badge variant="blue-subtle">A favor {pesos(-v.saldo)}</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell numeric>
                     <span className={v.anulada_en ? "line-through" : undefined}>

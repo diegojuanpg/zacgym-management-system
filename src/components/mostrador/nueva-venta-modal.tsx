@@ -44,6 +44,13 @@ type Metodo = "efectivo" | "transferencia" | "mixto" | "fiado";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
+function nombreMetodo(efectivo: number, transferencia: number) {
+  if (efectivo > 0 && transferencia > 0) return "Mixto";
+  if (efectivo > 0) return "Efectivo";
+  if (transferencia > 0) return "Transferencia";
+  return "—";
+}
+
 export function NuevaVentaModal({
   alumnos,
   productos,
@@ -68,7 +75,11 @@ export function NuevaVentaModal({
   const totalPor = (m: "efectivo" | "transferencia") =>
     lineas.reduce((suma, l) => suma + l[m], 0);
   const adeudado = lineas.reduce(
-    (suma, l) => suma + (l.precio * l.cantidad - l.efectivo - l.transferencia),
+    (suma, l) => suma + Math.max(0, l.precio * l.cantidad - l.efectivo - l.transferencia),
+    0,
+  );
+  const aFavor = lineas.reduce(
+    (suma, l) => suma + Math.max(0, l.efectivo + l.transferencia - l.precio * l.cantidad),
     0,
   );
   const productoElegido = productos.find((p) => p.id === productoId);
@@ -101,10 +112,6 @@ export function NuevaVentaModal({
 
     const total = producto.precio * unidades;
     const { efectivo, transferencia } = cobro(total);
-    if (efectivo + transferencia > total) {
-      setError(`El pago supera el total de la venta (${pesos(total)}).`);
-      return;
-    }
 
     setLineas((previas) => [
       ...previas,
@@ -203,6 +210,12 @@ export function NuevaVentaModal({
                 <span>
                   Debe{" "}
                   <strong className="text-foreground tabular-nums">{pesos(adeudado)}</strong>
+                </span>
+              )}
+              {aFavor > 0 && (
+                <span>
+                  A favor{" "}
+                  <strong className="text-foreground tabular-nums">{pesos(aFavor)}</strong>
                 </span>
               )}
             </div>
@@ -337,9 +350,18 @@ export function NuevaVentaModal({
             </Button>
           </div>
 
-          {/* Alto reservado siempre: que aparezca la deuda no debe mover la fila. */}
-          <div className="flex min-h-5 justify-end text-copy-13 text-[var(--ds-amber-900)]">
-            {restaLinea > 0 && `Queda debiendo ${pesos(restaLinea)}`}
+          {/* Alto reservado siempre: que aparezca el aviso no debe mover la fila. */}
+          <div className="flex min-h-5 justify-end text-copy-13">
+            {restaLinea > 0 && (
+              <span className="text-[var(--ds-amber-900)]">
+                Queda debiendo {pesos(restaLinea)}
+              </span>
+            )}
+            {restaLinea < 0 && (
+              <span className="text-[var(--ds-blue-900)]">
+                Le quedan {pesos(-restaLinea)} a favor
+              </span>
+            )}
           </div>
         </form>
 
@@ -368,7 +390,8 @@ export function NuevaVentaModal({
                   <TableHead>Alumno</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Cant.</TableHead>
-                  <TableHead>Pago</TableHead>
+                  <TableHead>Método</TableHead>
+                  <TableHead numeric>Pago</TableHead>
                   <TableHead numeric>Total</TableHead>
                   <TableHead className="text-center" />
                 </TableRow>
@@ -379,17 +402,18 @@ export function NuevaVentaModal({
                     <TableCell>{l.alumno}</TableCell>
                     <TableCell>{l.producto}</TableCell>
                     <TableCell>{l.cantidad}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {l.efectivo > 0 && (
-                          <Badge variant="gray-subtle">Efvo {pesos(l.efectivo)}</Badge>
-                        )}
-                        {l.transferencia > 0 && (
-                          <Badge variant="gray-subtle">Transf {pesos(l.transferencia)}</Badge>
-                        )}
+                    <TableCell>{nombreMetodo(l.efectivo, l.transferencia)}</TableCell>
+                    <TableCell numeric>
+                      <div className="flex items-center justify-end gap-2">
+                        {pesos(l.efectivo + l.transferencia)}
                         {l.precio * l.cantidad - l.efectivo - l.transferencia > 0 && (
                           <Badge variant="amber-subtle">
                             Debe {pesos(l.precio * l.cantidad - l.efectivo - l.transferencia)}
+                          </Badge>
+                        )}
+                        {l.efectivo + l.transferencia - l.precio * l.cantidad > 0 && (
+                          <Badge variant="blue-subtle">
+                            A favor {pesos(l.efectivo + l.transferencia - l.precio * l.cantidad)}
                           </Badge>
                         )}
                       </div>
