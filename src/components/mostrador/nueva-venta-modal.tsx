@@ -226,20 +226,22 @@ export function NuevaVentaModal({
           </div>
         </form>
 
-        {error && (
-          <Note type="error" fill className="mb-4">
-            {error}
-          </Note>
-        )}
+        <div className="h-72 overflow-y-auto">
+          {error && (
+            <Note type="error" fill className="mb-4">
+              {error}
+            </Note>
+          )}
 
-        {lineas.length === 0 ? (
-          <EmptyState
-            variant="informational"
-            icon={<InvoiceIcon />}
-            title="La lista está vacía"
-            description="Añadí las ventas de a una y confirmá todo junto al final."
-          />
-        ) : (
+          {lineas.length === 0 ? (
+            <EmptyState
+              variant="informational"
+              icon={<InvoiceIcon />}
+              title="La lista está vacía"
+              description="Añadí las ventas de a una y confirmá todo junto al final."
+              className="h-full"
+            />
+          ) : (
           <TableRoot>
             <Table>
               <TableHeader>
@@ -276,9 +278,10 @@ export function NuevaVentaModal({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </TableRoot>
-        )}
+              </Table>
+            </TableRoot>
+          )}
+        </div>
       </Modal>
 
       <Modal
