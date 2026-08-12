@@ -10,7 +10,6 @@ import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Badge } from "@/components/ui/badge";
-import { Description } from "@/components/ui/description";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InvoiceIcon, PlusIcon } from "@/components/icons";
 import {
@@ -161,10 +160,8 @@ export function NuevaVentaModal({
           </div>
         }
       >
-        <form
-          onSubmit={agregar}
-          className="grid grid-cols-2 items-end gap-3 pb-4 sm:grid-cols-[1fr_1fr_4.5rem_9rem_auto_auto]"
-        >
+        <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_10rem]">
           <label className="flex flex-col gap-1">
             <span className="text-label-13 text-muted-foreground">Alumno</span>
             <Combobox
@@ -214,16 +211,19 @@ export function NuevaVentaModal({
             <option value="fiado">Fiado</option>
           </Select>
 
-          <Description
-            title="Total"
-            content={
-              <span className="text-heading-16">{totalLinea === null ? "—" : pesos(totalLinea)}</span>
-            }
-          />
+          </div>
 
-          <Button type="submit" variant="secondary">
-            Añadir
-          </Button>
+          <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-label-14 text-muted-foreground">Total</span>
+              <span className="text-heading-24">
+                {totalLinea === null ? "—" : pesos(totalLinea)}
+              </span>
+            </div>
+            <Button type="submit" variant="secondary" prefix={<PlusIcon />}>
+              Añadir
+            </Button>
+          </div>
         </form>
 
         {error && (
