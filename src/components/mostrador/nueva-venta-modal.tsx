@@ -226,22 +226,24 @@ export function NuevaVentaModal({
           </div>
         </form>
 
-        <div className="h-72 overflow-y-auto">
+        {/* Alto fijo: el modal no salta al apilar lineas ni al aparecer un error;
+            lo que se achica es la lista, no la ventana. */}
+        <div className="flex h-72 flex-col gap-3">
           {error && (
-            <Note type="error" fill className="mb-4">
+            <Note type="error" fill>
               {error}
             </Note>
           )}
 
           {lineas.length === 0 ? (
             <EmptyState
-              variant="informational"
               icon={<InvoiceIcon />}
               title="La lista está vacía"
               description="Añadí las ventas de a una y confirmá todo junto al final."
-              className="h-full"
+              className="min-h-0 flex-1"
             />
           ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
           <TableRoot>
             <Table>
               <TableHeader>
@@ -278,8 +280,9 @@ export function NuevaVentaModal({
                   </TableRow>
                 ))}
               </TableBody>
-              </Table>
-            </TableRoot>
+                </Table>
+              </TableRoot>
+            </div>
           )}
         </div>
       </Modal>
