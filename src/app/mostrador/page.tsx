@@ -162,7 +162,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead>Producto</TableHead>
                 <TableHead>Cant.</TableHead>
                 <TableHead>Método</TableHead>
-                <TableHead numeric>Pago</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead numeric>Total</TableHead>
                 <TableHead />
               </TableRow>
@@ -187,8 +187,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       nombreMetodo(v.efectivo, v.transferencia)
                     )}
                   </TableCell>
-                  <TableCell numeric>
-                    <div className="flex items-center justify-end gap-2">
+                  <TableCell>
+                    <div className="flex items-center gap-2">
                       {pesos(v.efectivo + v.transferencia)}
                       {v.saldo > 0 && (
                         <Badge variant="amber-subtle">Debe {pesos(v.saldo)}</Badge>

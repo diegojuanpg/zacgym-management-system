@@ -391,7 +391,7 @@ export function NuevaVentaModal({
                   <TableHead>Producto</TableHead>
                   <TableHead>Cant.</TableHead>
                   <TableHead>Método</TableHead>
-                  <TableHead numeric>Pago</TableHead>
+                  <TableHead>Pago</TableHead>
                   <TableHead numeric>Total</TableHead>
                   <TableHead className="text-center" />
                 </TableRow>
@@ -403,8 +403,8 @@ export function NuevaVentaModal({
                     <TableCell>{l.producto}</TableCell>
                     <TableCell>{l.cantidad}</TableCell>
                     <TableCell>{nombreMetodo(l.efectivo, l.transferencia)}</TableCell>
-                    <TableCell numeric>
-                      <div className="flex items-center justify-end gap-2">
+                    <TableCell>
+                      <div className="flex items-center gap-2">
                         {pesos(l.efectivo + l.transferencia)}
                         {l.precio * l.cantidad - l.efectivo - l.transferencia > 0 && (
                           <Badge variant="amber-subtle">
