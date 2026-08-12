@@ -60,7 +60,9 @@ export function NuevaVentaModal({
   const [guardando, setGuardando] = React.useState(false);
   const [confirmarDescarte, setConfirmarDescarte] = React.useState(false);
 
-  const total = lineas.reduce((suma, l) => suma + l.precio * l.cantidad, 0);
+  const totalPor = (m: ItemVenta["metodo"]) =>
+    lineas.filter((l) => l.metodo === m).reduce((suma, l) => suma + l.precio * l.cantidad, 0);
+  const fiado = totalPor("fiado");
   const productoElegido = productos.find((p) => p.id === productoId);
   const unidades = Math.max(1, Number(cantidad) || 1);
   const totalLinea = productoElegido ? productoElegido.precio * unidades : null;
@@ -143,10 +145,29 @@ export function NuevaVentaModal({
         sticky
         footer={
           <div className="flex w-full items-center justify-between gap-4">
-            <span className="text-copy-14 text-muted-foreground">
-              {lineas.length} {lineas.length === 1 ? "venta" : "ventas"} ·{" "}
-              <strong className="text-foreground">{pesos(total)}</strong>
-            </span>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-copy-14 text-muted-foreground">
+              <span>
+                {lineas.length} {lineas.length === 1 ? "venta" : "ventas"}
+              </span>
+              <span>
+                Efectivo{" "}
+                <strong className="text-foreground tabular-nums">
+                  {pesos(totalPor("efectivo"))}
+                </strong>
+              </span>
+              <span>
+                Transferencia{" "}
+                <strong className="text-foreground tabular-nums">
+                  {pesos(totalPor("transferencia"))}
+                </strong>
+              </span>
+              {/* La deuda no es plata que entro: solo aparece si hay. */}
+              {fiado > 0 && (
+                <span>
+                  Fiado <strong className="text-foreground tabular-nums">{pesos(fiado)}</strong>
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => cambiarApertura(false)}>
                 Cancelar
