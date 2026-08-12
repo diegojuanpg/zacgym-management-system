@@ -53,7 +53,7 @@ export function NuevaVentaModal({
   const [lineas, setLineas] = React.useState<Linea[]>([]);
   const [alumnoId, setAlumnoId] = React.useState("");
   const [productoId, setProductoId] = React.useState("");
-  const [cantidad, setCantidad] = React.useState(1);
+  const [cantidad, setCantidad] = React.useState("1");
   const [metodo, setMetodo] = React.useState<ItemVenta["metodo"]>("efectivo");
   const [error, setError] = React.useState<string | null>(null);
   const [guardando, setGuardando] = React.useState(false);
@@ -61,7 +61,8 @@ export function NuevaVentaModal({
 
   const total = lineas.reduce((suma, l) => suma + l.precio * l.cantidad, 0);
   const productoElegido = productos.find((p) => p.id === productoId);
-  const totalLinea = productoElegido ? productoElegido.precio * cantidad : null;
+  const unidades = Math.max(1, Number(cantidad) || 1);
+  const totalLinea = productoElegido ? productoElegido.precio * unidades : null;
 
   function agregar(event: React.FormEvent) {
     event.preventDefault();
@@ -74,7 +75,7 @@ export function NuevaVentaModal({
       {
         alumno_id: alumno.id,
         producto_id: producto.id,
-        cantidad,
+        cantidad: unidades,
         metodo,
         alumno: alumno.nombre_completo,
         producto: producto.nombre,
@@ -84,7 +85,7 @@ export function NuevaVentaModal({
     // El método queda pegado: lo normal es que varios paguen igual.
     setAlumnoId("");
     setProductoId("");
-    setCantidad(1);
+    setCantidad("1");
     setError(null);
   }
 
@@ -137,7 +138,7 @@ export function NuevaVentaModal({
         onOpenChange={cambiarApertura}
         title="Cargar ventas"
         description="Apilá todas las ventas y confirmá una sola vez."
-        className="w-[min(52rem,96vw)]"
+        className="w-[min(60rem,94vw)]"
         sticky
         footer={
           <div className="flex w-full items-center justify-between gap-4">
@@ -161,7 +162,7 @@ export function NuevaVentaModal({
         }
       >
         <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
-          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1.3fr_1fr_5rem_9rem_minmax(7rem,auto)]">
           <label className="flex flex-col gap-1">
             <span className="text-label-13 text-muted-foreground">Alumno</span>
             <Combobox
@@ -195,10 +196,9 @@ export function NuevaVentaModal({
 
           <Input
             label="Cant."
-            type="number"
-            min={1}
+            inputMode="numeric"
             value={cantidad}
-            onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
+            onChange={(e) => setCantidad(e.target.value.replace(/\D/g, ""))}
           />
 
           <Select
