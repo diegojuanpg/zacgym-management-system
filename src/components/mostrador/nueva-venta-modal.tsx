@@ -40,6 +40,8 @@ interface Linea extends ItemVenta {
   precio: number;
 }
 
+type Metodo = "efectivo" | "transferencia" | "mixto" | "fiado";
+
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
 export function NuevaVentaModal({
@@ -55,17 +57,41 @@ export function NuevaVentaModal({
   const [alumnoId, setAlumnoId] = React.useState("");
   const [productoId, setProductoId] = React.useState("");
   const [cantidad, setCantidad] = React.useState("1");
-  const [metodo, setMetodo] = React.useState<ItemVenta["metodo"]>("efectivo");
+  const [metodo, setMetodo] = React.useState<Metodo>("efectivo");
+  // Montos tipeados. Vacio = "todo lo que corresponda", que es el caso comun.
+  const [pagaEfectivo, setPagaEfectivo] = React.useState("");
+  const [pagaTransferencia, setPagaTransferencia] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [guardando, setGuardando] = React.useState(false);
   const [confirmarDescarte, setConfirmarDescarte] = React.useState(false);
 
-  const totalPor = (m: ItemVenta["metodo"]) =>
-    lineas.filter((l) => l.metodo === m).reduce((suma, l) => suma + l.precio * l.cantidad, 0);
-  const fiado = totalPor("fiado");
+  const totalPor = (m: "efectivo" | "transferencia") =>
+    lineas.reduce((suma, l) => suma + l[m], 0);
+  const adeudado = lineas.reduce(
+    (suma, l) => suma + (l.precio * l.cantidad - l.efectivo - l.transferencia),
+    0,
+  );
   const productoElegido = productos.find((p) => p.id === productoId);
   const unidades = Math.max(1, Number(cantidad) || 1);
   const totalLinea = productoElegido ? productoElegido.precio * unidades : null;
+
+  // Cuanto entra en cada forma segun el metodo elegido. Un campo vacio en mixto
+  // cuenta como cero; con un solo metodo, vacio significa el total.
+  const cobro = (total: number) => {
+    const efe = Number(pagaEfectivo) || 0;
+    const tra = Number(pagaTransferencia) || 0;
+    if (metodo === "fiado") return { efectivo: 0, transferencia: 0 };
+    if (metodo === "mixto") return { efectivo: efe, transferencia: tra };
+    const monto = pagaEfectivo === "" ? total : efe;
+    return metodo === "efectivo"
+      ? { efectivo: monto, transferencia: 0 }
+      : { efectivo: 0, transferencia: monto };
+  };
+
+  const cobroLinea = totalLinea === null ? null : cobro(totalLinea);
+  const restaLinea = totalLinea === null || cobroLinea === null
+    ? 0
+    : totalLinea - cobroLinea.efectivo - cobroLinea.transferencia;
 
   function agregar(event: React.FormEvent) {
     event.preventDefault();
@@ -73,13 +99,21 @@ export function NuevaVentaModal({
     const producto = productos.find((p) => p.id === productoId);
     if (!alumno || !producto) return;
 
+    const total = producto.precio * unidades;
+    const { efectivo, transferencia } = cobro(total);
+    if (efectivo + transferencia > total) {
+      setError(`El pago supera el total de la venta (${pesos(total)}).`);
+      return;
+    }
+
     setLineas((previas) => [
       ...previas,
       {
         alumno_id: alumno.id,
         producto_id: producto.id,
         cantidad: unidades,
-        metodo,
+        efectivo,
+        transferencia,
         alumno: alumno.nombre_completo,
         producto: producto.nombre,
         precio: producto.precio,
@@ -89,6 +123,8 @@ export function NuevaVentaModal({
     setAlumnoId("");
     setProductoId("");
     setCantidad("1");
+    setPagaEfectivo("");
+    setPagaTransferencia("");
     setError(null);
   }
 
@@ -96,11 +132,12 @@ export function NuevaVentaModal({
     setGuardando(true);
     setError(null);
     const { error } = await registrarVentas(
-      lineas.map(({ alumno_id, producto_id, cantidad, metodo }) => ({
+      lineas.map(({ alumno_id, producto_id, cantidad, efectivo, transferencia }) => ({
         alumno_id,
         producto_id,
         cantidad,
-        metodo,
+        efectivo,
+        transferencia,
       })),
     );
     setGuardando(false);
@@ -162,9 +199,10 @@ export function NuevaVentaModal({
                 </strong>
               </span>
               {/* La deuda no es plata que entro: solo aparece si hay. */}
-              {fiado > 0 && (
+              {adeudado > 0 && (
                 <span>
-                  Fiado <strong className="text-foreground tabular-nums">{pesos(fiado)}</strong>
+                  Debe{" "}
+                  <strong className="text-foreground tabular-nums">{pesos(adeudado)}</strong>
                 </span>
               )}
             </div>
@@ -183,8 +221,16 @@ export function NuevaVentaModal({
           </div>
         }
       >
-        <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
-          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)_auto]">
+        <form onSubmit={agregar} className="flex flex-col gap-1 pb-4">
+          <div
+            className={`grid grid-cols-2 items-end gap-3 ${
+              metodo === "mixto"
+                ? "sm:grid-cols-[1fr_1fr_4.5rem_8rem_7rem_7rem_minmax(6.5rem,auto)_auto]"
+                : metodo === "fiado"
+                  ? "sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)_auto]"
+                  : "sm:grid-cols-[1fr_1fr_4.5rem_8.5rem_7.5rem_minmax(7rem,auto)_auto]"
+            }`}
+          >
           <div>
             <Label>Alumno</Label>
             <Combobox
@@ -230,13 +276,51 @@ export function NuevaVentaModal({
               id="metodo"
               size="large"
               value={metodo}
-              onChange={(e) => setMetodo(e.target.value as ItemVenta["metodo"])}
+              onChange={(e) => {
+                setMetodo(e.target.value as Metodo);
+                setPagaEfectivo("");
+                setPagaTransferencia("");
+              }}
             >
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
+              <option value="mixto">Mixto</option>
               <option value="fiado">Fiado</option>
             </Select>
           </div>
+
+          {metodo === "mixto" ? (
+            <>
+              <Input
+                label="Efectivo"
+                size="large"
+                inputMode="numeric"
+                prefix="$"
+                placeholder="0"
+                value={pagaEfectivo}
+                onChange={(e) => setPagaEfectivo(e.target.value.replace(/\D/g, ""))}
+              />
+              <Input
+                label="Transfer."
+                size="large"
+                inputMode="numeric"
+                prefix="$"
+                placeholder="0"
+                value={pagaTransferencia}
+                onChange={(e) => setPagaTransferencia(e.target.value.replace(/\D/g, ""))}
+              />
+            </>
+          ) : metodo === "fiado" ? null : (
+            <Input
+              label="Paga"
+              size="large"
+              inputMode="numeric"
+              prefix="$"
+              placeholder={totalLinea === null ? "0" : String(totalLinea)}
+              value={pagaEfectivo}
+              onChange={(e) => setPagaEfectivo(e.target.value.replace(/\D/g, ""))}
+            />
+          )}
 
           {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
           <div className="flex flex-col items-end">
@@ -254,6 +338,11 @@ export function NuevaVentaModal({
           >
             <PlusIcon className="size-4" />
           </Button>
+          </div>
+
+          {/* Alto reservado siempre: que aparezca la deuda no debe mover la fila. */}
+          <div className="flex min-h-5 justify-end text-copy-13 text-[var(--ds-amber-900)]">
+            {restaLinea > 0 && `Queda debiendo ${pesos(restaLinea)}`}
           </div>
         </form>
 
@@ -282,7 +371,7 @@ export function NuevaVentaModal({
                   <TableHead>Alumno</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Cant.</TableHead>
-                  <TableHead>Método</TableHead>
+                  <TableHead>Pago</TableHead>
                   <TableHead numeric>Total</TableHead>
                   <TableHead className="text-center" />
                 </TableRow>
@@ -294,9 +383,19 @@ export function NuevaVentaModal({
                     <TableCell>{l.producto}</TableCell>
                     <TableCell>{l.cantidad}</TableCell>
                     <TableCell>
-                      <Badge variant={l.metodo === "fiado" ? "amber-subtle" : "gray-subtle"}>
-                        {l.metodo}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {l.efectivo > 0 && (
+                          <Badge variant="gray-subtle">Efvo {pesos(l.efectivo)}</Badge>
+                        )}
+                        {l.transferencia > 0 && (
+                          <Badge variant="gray-subtle">Transf {pesos(l.transferencia)}</Badge>
+                        )}
+                        {l.precio * l.cantidad - l.efectivo - l.transferencia > 0 && (
+                          <Badge variant="amber-subtle">
+                            Debe {pesos(l.precio * l.cantidad - l.efectivo - l.transferencia)}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell numeric>{pesos(l.precio * l.cantidad)}</TableCell>
                     <TableCell className="text-center">

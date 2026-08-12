@@ -30,13 +30,15 @@ function hoyEnBuenosAires() {
 
 interface VentaFila {
   id: string;
+  alumno: string;
+  producto: string;
   cantidad: number;
   total: number;
-  metodo: "efectivo" | "transferencia" | "fiado";
+  efectivo: number;
+  transferencia: number;
+  saldo: number;
   creado_en: string;
   anulada_en: string | null;
-  alumnos: { nombre_completo: string } | null;
-  productos: { nombre: string } | null;
 }
 
 export default async function MostradorPage({ searchParams }: PageProps<"/mostrador">) {
@@ -52,10 +54,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
   const [{ data: ventas }, { data: alumnos }, { data: productos }] = await Promise.all([
     supabase
-      .from("ventas")
-      .select(
-        "id, cantidad, total, metodo, creado_en, anulada_en, alumnos(nombre_completo), productos(nombre)",
-      )
+      .from("ventas_saldo")
+      .select("id, alumno, producto, cantidad, total, efectivo, transferencia, saldo, creado_en, anulada_en")
       .gte("creado_en", desde)
       .lt("creado_en", hasta.toISOString())
       .order("creado_en", { ascending: false })
@@ -75,14 +75,14 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     .overrideTypes<{ dia: string }[]>();
 
   const vivas = (ventas ?? []).filter((v) => !v.anulada_en);
-  const totalPor = (metodo: VentaFila["metodo"]) =>
-    vivas.filter((v) => v.metodo === metodo).reduce((suma, v) => suma + v.total, 0);
+  const suma = (campo: "efectivo" | "transferencia" | "saldo") =>
+    vivas.reduce((acumulado, v) => acumulado + v[campo], 0);
 
   const totales = [
-    { etiqueta: "Efectivo", monto: totalPor("efectivo") },
-    { etiqueta: "Transferencia", monto: totalPor("transferencia") },
-    { etiqueta: "Fiado", monto: totalPor("fiado") },
-    { etiqueta: "Cobrado", monto: totalPor("efectivo") + totalPor("transferencia") },
+    { etiqueta: "Efectivo", monto: suma("efectivo") },
+    { etiqueta: "Transferencia", monto: suma("transferencia") },
+    { etiqueta: "Deuda", monto: suma("saldo") },
+    { etiqueta: "Cobrado", monto: suma("efectivo") + suma("transferencia") },
   ];
 
   async function anular(formData: FormData) {
@@ -150,7 +150,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <TableHead>Alumno</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>Cant.</TableHead>
-                <TableHead>Método</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead numeric>Total</TableHead>
                 <TableHead />
               </TableRow>
@@ -165,16 +165,24 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       minute: "2-digit",
                     })}
                   </TableCell>
-                  <TableCell>{v.alumnos?.nombre_completo}</TableCell>
-                  <TableCell>{v.productos?.nombre}</TableCell>
+                  <TableCell>{v.alumno}</TableCell>
+                  <TableCell>{v.producto}</TableCell>
                   <TableCell>{v.cantidad}</TableCell>
                   <TableCell>
                     {v.anulada_en ? (
                       <Badge variant="red-subtle">anulada</Badge>
                     ) : (
-                      <Badge variant={v.metodo === "fiado" ? "amber-subtle" : "gray-subtle"}>
-                        {v.metodo}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {v.efectivo > 0 && (
+                          <Badge variant="gray-subtle">Efvo {pesos(v.efectivo)}</Badge>
+                        )}
+                        {v.transferencia > 0 && (
+                          <Badge variant="gray-subtle">Transf {pesos(v.transferencia)}</Badge>
+                        )}
+                        {v.saldo > 0 && (
+                          <Badge variant="amber-subtle">Debe {pesos(v.saldo)}</Badge>
+                        )}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell numeric>
