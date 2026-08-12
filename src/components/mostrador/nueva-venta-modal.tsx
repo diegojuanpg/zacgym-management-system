@@ -26,6 +26,8 @@ import {
 export interface Alumno {
   id: string;
   nombre_completo: string;
+  /** Cuenta corriente: positivo debe, negativo tiene a favor. */
+  saldo: number;
 }
 export interface Producto {
   id: string;
@@ -38,6 +40,9 @@ interface Linea extends ItemVenta {
   alumno: string;
   producto: string;
   precio: number;
+  /** Saldo a favor que esta linea consume. No viaja a la base: la cuenta del
+   *  alumno lo netea sola, esto es solo para no mostrarlo como deuda nueva. */
+  creditoAplicado: number;
 }
 
 type Metodo = "efectivo" | "transferencia" | "mixto" | "fiado";
@@ -74,35 +79,44 @@ export function NuevaVentaModal({
 
   const totalPor = (m: "efectivo" | "transferencia") =>
     lineas.reduce((suma, l) => suma + l[m], 0);
-  const adeudado = lineas.reduce(
-    (suma, l) => suma + Math.max(0, l.precio * l.cantidad - l.efectivo - l.transferencia),
-    0,
-  );
-  const aFavor = lineas.reduce(
-    (suma, l) => suma + Math.max(0, l.efectivo + l.transferencia - l.precio * l.cantidad),
-    0,
-  );
+  const faltante = (l: Linea) =>
+    l.precio * l.cantidad - l.efectivo - l.transferencia - l.creditoAplicado;
+  const adeudado = lineas.reduce((suma, l) => suma + Math.max(0, faltante(l)), 0);
+  const aFavor = lineas.reduce((suma, l) => suma + Math.max(0, -faltante(l)), 0);
   const productoElegido = productos.find((p) => p.id === productoId);
+  const alumnoElegido = alumnos.find((a) => a.id === alumnoId);
   const unidades = Math.max(1, Number(cantidad) || 1);
   const totalLinea = productoElegido ? productoElegido.precio * unidades : null;
 
+  // La cuenta ya viene neteada: un alumno no puede deber y tener a favor a la vez.
+  const debePrevio = Math.max(0, alumnoElegido?.saldo ?? 0);
+  // Descontamos lo que ya consumieron otras lineas del lote para el mismo alumno.
+  const creditoUsado = lineas
+    .filter((l) => l.alumno_id === alumnoId)
+    .reduce((suma, l) => suma + l.creditoAplicado, 0);
+  const aFavorPrevio = Math.max(0, -(alumnoElegido?.saldo ?? 0) - creditoUsado);
+  // Lo que tiene a favor se descuenta de lo que hay que cobrarle hoy. Lo que debe
+  // de antes no se suma: es otra deuda, se cobra aparte.
+  const aCobrar = totalLinea === null ? null : Math.max(0, totalLinea - aFavorPrevio);
+
   // Cuanto entra en cada forma segun el metodo elegido. Un campo vacio en mixto
   // cuenta como cero; con un solo metodo, vacio significa el total.
-  const cobro = (total: number) => {
+  const cobro = (sugerido: number) => {
     const efe = Number(pagaEfectivo) || 0;
     const tra = Number(pagaTransferencia) || 0;
     if (metodo === "fiado") return { efectivo: 0, transferencia: 0 };
     if (metodo === "mixto") return { efectivo: efe, transferencia: tra };
-    const monto = pagaEfectivo === "" ? total : efe;
+    const monto = pagaEfectivo === "" ? sugerido : efe;
     return metodo === "efectivo"
       ? { efectivo: monto, transferencia: 0 }
       : { efectivo: 0, transferencia: monto };
   };
 
-  const cobroLinea = totalLinea === null ? null : cobro(totalLinea);
-  const restaLinea = totalLinea === null || cobroLinea === null
-    ? 0
-    : totalLinea - cobroLinea.efectivo - cobroLinea.transferencia;
+  const cobroLinea = aCobrar === null ? null : cobro(aCobrar);
+  const restaLinea =
+    aCobrar === null || cobroLinea === null
+      ? 0
+      : aCobrar - cobroLinea.efectivo - cobroLinea.transferencia;
 
   function agregar(event: React.FormEvent) {
     event.preventDefault();
@@ -111,7 +125,8 @@ export function NuevaVentaModal({
     if (!alumno || !producto) return;
 
     const total = producto.precio * unidades;
-    const { efectivo, transferencia } = cobro(total);
+    const creditoAplicado = Math.min(aFavorPrevio, total);
+    const { efectivo, transferencia } = cobro(total - creditoAplicado);
 
     setLineas((previas) => [
       ...previas,
@@ -121,6 +136,7 @@ export function NuevaVentaModal({
         cantidad: unidades,
         efectivo,
         transferencia,
+        creditoAplicado,
         alumno: alumno.nombre_completo,
         producto: producto.nombre,
         precio: producto.precio,
@@ -337,7 +353,7 @@ export function NuevaVentaModal({
               size="large"
               inputMode="numeric"
               prefix="$"
-              placeholder={totalLinea === null ? "0" : String(totalLinea)}
+              placeholder={aCobrar === null ? "0" : String(aCobrar)}
               value={pagaEfectivo}
               onChange={(e) => setPagaEfectivo(e.target.value.replace(/\D/g, ""))}
             />
@@ -351,7 +367,21 @@ export function NuevaVentaModal({
           </div>
 
           {/* Alto reservado siempre: que aparezca el aviso no debe mover la fila. */}
-          <div className="flex min-h-5 justify-end text-copy-13">
+          <div className="flex min-h-5 items-center justify-between gap-4 text-copy-13">
+            <span>
+              {debePrevio > 0 && (
+                <span className="text-[var(--ds-amber-900)]">
+                  Debe {pesos(debePrevio)} de antes
+                </span>
+              )}
+              {aFavorPrevio > 0 && (
+                <span className="text-[var(--ds-blue-900)]">
+                  Tiene {pesos(aFavorPrevio)} a favor
+                  {aCobrar !== null && ` · se le cobra ${pesos(aCobrar)}`}
+                </span>
+              )}
+            </span>
+            <span>
             {restaLinea > 0 && (
               <span className="text-[var(--ds-amber-900)]">
                 Queda debiendo {pesos(restaLinea)}
@@ -362,6 +392,7 @@ export function NuevaVentaModal({
                 Le quedan {pesos(-restaLinea)} a favor
               </span>
             )}
+            </span>
           </div>
         </form>
 
@@ -406,15 +437,16 @@ export function NuevaVentaModal({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {pesos(l.efectivo + l.transferencia)}
-                        {l.precio * l.cantidad - l.efectivo - l.transferencia > 0 && (
-                          <Badge variant="amber-subtle">
-                            Debe {pesos(l.precio * l.cantidad - l.efectivo - l.transferencia)}
+                        {l.creditoAplicado > 0 && (
+                          <Badge variant="blue-subtle">
+                            Usó {pesos(l.creditoAplicado)} a favor
                           </Badge>
                         )}
-                        {l.efectivo + l.transferencia - l.precio * l.cantidad > 0 && (
-                          <Badge variant="blue-subtle">
-                            A favor {pesos(l.efectivo + l.transferencia - l.precio * l.cantidad)}
-                          </Badge>
+                        {faltante(l) > 0 && (
+                          <Badge variant="amber-subtle">Debe {pesos(faltante(l))}</Badge>
+                        )}
+                        {faltante(l) < 0 && (
+                          <Badge variant="blue-subtle">A favor {pesos(-faltante(l))}</Badge>
                         )}
                       </div>
                     </TableCell>

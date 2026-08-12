@@ -68,10 +68,11 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       .order("creado_en", { ascending: false })
       .overrideTypes<VentaFila[]>(),
     supabase
-      .from("alumnos")
-      .select("id, nombre_completo")
+      .from("alumnos_cuenta")
+      .select("id, nombre_completo, saldo")
       .eq("activo", true)
-      .order("nombre_completo"),
+      .order("nombre_completo")
+      .overrideTypes<{ id: string; nombre_completo: string; saldo: number }[]>(),
     supabase.from("productos").select("id, nombre, precio, stock").eq("activo", true).order("nombre"),
   ]);
 
