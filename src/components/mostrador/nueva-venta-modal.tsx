@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { registrarVentas, type ItemVenta } from "@/lib/ventas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
@@ -163,8 +164,8 @@ export function NuevaVentaModal({
       >
         <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
           <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
-          <label className="flex flex-col gap-1">
-            <span className="text-label-13 text-muted-foreground">Alumno</span>
+          <div>
+            <Label>Alumno</Label>
             <Combobox
               // Sin la coma, escribir "perez j" encuentra a "Perez, Juan": el
               // combobox busca por substring y la coma cortaba la coincidencia.
@@ -179,10 +180,10 @@ export function NuevaVentaModal({
               width="100%"
               clearable
             />
-          </label>
+          </div>
 
-          <label className="flex flex-col gap-1">
-            <span className="text-label-13 text-muted-foreground">Producto</span>
+          <div>
+            <Label>Producto</Label>
             <Combobox
               options={productos.map((p) => ({ value: p.id, label: p.nombre }))}
               value={productoId}
@@ -192,29 +193,34 @@ export function NuevaVentaModal({
               width="100%"
               clearable
             />
-          </label>
+          </div>
 
           <Input
             label="Cant."
+            size="large"
             inputMode="numeric"
             value={cantidad}
             onChange={(e) => setCantidad(e.target.value.replace(/\D/g, ""))}
           />
 
-          <Select
-            label="Método"
-            value={metodo}
-            onChange={(e) => setMetodo(e.target.value as ItemVenta["metodo"])}
-          >
-            <option value="efectivo">Efectivo</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="fiado">Fiado</option>
-          </Select>
+          <div>
+            <Label htmlFor="metodo">Método</Label>
+            <Select
+              id="metodo"
+              size="large"
+              value={metodo}
+              onChange={(e) => setMetodo(e.target.value as ItemVenta["metodo"])}
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="fiado">Fiado</option>
+            </Select>
+          </div>
 
           {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-label-13 text-muted-foreground">Total</span>
-            <span className="flex h-9 items-center text-heading-20 tabular-nums">
+          <div className="flex flex-col items-end">
+            <Label>Total</Label>
+            <span className="flex h-10 items-center text-heading-20 tabular-nums">
               {totalLinea === null ? "—" : pesos(totalLinea)}
             </span>
           </div>
