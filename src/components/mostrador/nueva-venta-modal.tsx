@@ -222,15 +222,7 @@ export function NuevaVentaModal({
         }
       >
         <form onSubmit={agregar} className="flex flex-col gap-1 pb-4">
-          <div
-            className={`grid grid-cols-2 items-end gap-3 ${
-              metodo === "mixto"
-                ? "sm:grid-cols-[1fr_1fr_4.5rem_8rem_7rem_7rem_minmax(6.5rem,auto)_auto]"
-                : metodo === "fiado"
-                  ? "sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)_auto]"
-                  : "sm:grid-cols-[1fr_1fr_4.5rem_8.5rem_7.5rem_minmax(7rem,auto)_auto]"
-            }`}
-          >
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem]">
           <div>
             <Label>Alumno</Label>
             <Combobox
@@ -289,8 +281,13 @@ export function NuevaVentaModal({
             </Select>
           </div>
 
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+            <div className="flex flex-wrap items-end gap-3">
           {metodo === "mixto" ? (
             <>
+              <div className="w-40">
               <Input
                 label="Efectivo"
                 size="large"
@@ -300,6 +297,8 @@ export function NuevaVentaModal({
                 value={pagaEfectivo}
                 onChange={(e) => setPagaEfectivo(e.target.value.replace(/\D/g, ""))}
               />
+              </div>
+              <div className="w-40">
               <Input
                 label="Transfer."
                 size="large"
@@ -309,8 +308,10 @@ export function NuevaVentaModal({
                 value={pagaTransferencia}
                 onChange={(e) => setPagaTransferencia(e.target.value.replace(/\D/g, ""))}
               />
+              </div>
             </>
           ) : metodo === "fiado" ? null : (
+            <div className="w-40">
             <Input
               label="Paga"
               size="large"
@@ -320,24 +321,23 @@ export function NuevaVentaModal({
               value={pagaEfectivo}
               onChange={(e) => setPagaEfectivo(e.target.value.replace(/\D/g, ""))}
             />
+            </div>
           )}
+            </div>
 
-          {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
-          <div className="flex flex-col items-end">
-            <Label>Total</Label>
-            <span className="flex h-10 items-center text-heading-20 tabular-nums">
-              {totalLinea === null ? "—" : pesos(totalLinea)}
-            </span>
-          </div>
+            <div className="flex items-end gap-4">
+              {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
+              <div className="flex flex-col items-end">
+                <Label>Total</Label>
+                <span className="flex h-10 items-center text-heading-20 tabular-nums">
+                  {totalLinea === null ? "—" : pesos(totalLinea)}
+                </span>
+              </div>
 
-          <Button
-            type="submit"
-            variant="secondary"
-            size="icon-lg"
-            aria-label="Añadir a la lista"
-          >
-            <PlusIcon className="size-4" />
-          </Button>
+              <Button type="submit" variant="secondary" size="lg" prefix={<PlusIcon />}>
+                Añadir
+              </Button>
+            </div>
           </div>
 
           {/* Alto reservado siempre: que aparezca la deuda no debe mover la fila. */}
