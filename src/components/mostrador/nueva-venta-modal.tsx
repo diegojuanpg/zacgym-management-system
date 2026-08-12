@@ -212,9 +212,9 @@ export function NuevaVentaModal({
           </Select>
 
           {/* Resultado, no campo: sin caja, alineado a la base de los inputs. */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col items-end gap-1">
             <span className="text-label-13 text-muted-foreground">Total</span>
-            <span className="flex h-9 items-center justify-end text-heading-20 tabular-nums">
+            <span className="flex h-9 items-center text-heading-20 tabular-nums">
               {totalLinea === null ? "—" : pesos(totalLinea)}
             </span>
           </div>
