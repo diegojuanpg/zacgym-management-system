@@ -162,7 +162,7 @@ export function NuevaVentaModal({
         }
       >
         <form onSubmit={agregar} className="flex flex-col gap-4 pb-4">
-          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1.3fr_1fr_5rem_9rem_minmax(7rem,auto)]">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
           <label className="flex flex-col gap-1">
             <span className="text-label-13 text-muted-foreground">Alumno</span>
             <Combobox
