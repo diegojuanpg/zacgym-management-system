@@ -45,7 +45,7 @@ interface Linea extends ItemVenta {
   creditoAplicado: number;
 }
 
-type Metodo = "efectivo" | "transferencia" | "mixto" | "fiado";
+type Metodo = "efectivo" | "transferencia" | "mixto" | "debe";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
@@ -104,7 +104,7 @@ export function NuevaVentaModal({
   const cobro = (sugerido: number) => {
     const efe = Number(pagaEfectivo) || 0;
     const tra = Number(pagaTransferencia) || 0;
-    if (metodo === "fiado") return { efectivo: 0, transferencia: 0 };
+    if (metodo === "debe") return { efectivo: 0, transferencia: 0 };
     if (metodo === "mixto") return { efectivo: efe, transferencia: tra };
     const monto = pagaEfectivo === "" ? sugerido : efe;
     return metodo === "efectivo"
@@ -306,7 +306,7 @@ export function NuevaVentaModal({
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="mixto">Mixto</option>
-              <option value="fiado">Fiado</option>
+              <option value="debe">Debe</option>
             </Select>
           </div>
 
@@ -346,7 +346,7 @@ export function NuevaVentaModal({
               />
               </div>
             </>
-          ) : metodo === "fiado" ? null : (
+          ) : metodo === "debe" ? null : (
             <div className="w-40">
             <Input
               label="Paga"
