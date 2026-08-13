@@ -154,6 +154,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             description="Cargá las ventas del mostrador con el botón de arriba y aparecen acá."
           />
         ) : (
+        <div className="rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
         <TableRoot>
           <Table>
             <TableHeader>
@@ -224,6 +225,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             </TableBody>
           </Table>
         </TableRoot>
+        </div>
         )}
       </main>
     </>
