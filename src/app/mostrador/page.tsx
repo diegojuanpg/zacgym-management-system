@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { anularVenta } from "@/lib/ventas";
-import { anularMovimiento } from "@/lib/caja";
-import { MovimientoModal } from "@/components/mostrador/movimiento-modal";
+import { anularVenta, anularMovimiento } from "@/lib/ventas";
 import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,6 +124,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { etiqueta: "A favor", monto: aFavor },
   ];
 
+  type Registro =
+    | ({ clase: "venta" } & VentaFila)
+    | ({ clase: "movimiento" } & MovimientoFila);
+
+  const registros: Registro[] = [
+    ...(ventas ?? []).map((v) => ({ clase: "venta" as const, ...v })),
+    ...(movimientos ?? []).map((m) => ({ clase: "movimiento" as const, ...m })),
+  ].sort((a, b) => b.creado_en.localeCompare(a.creado_en));
+
   async function anularMov(formData: FormData) {
     "use server";
     await anularMovimiento(String(formData.get("id")));
@@ -167,10 +174,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SelectorDia dia={dia} dias={(diasConVentas ?? []).map((d) => d.dia)} />
 
-          <div className="flex items-center gap-2">
-            <MovimientoModal />
-            <NuevaVentaModal alumnos={alumnos ?? []} productos={productos ?? []} />
-          </div>
+          <NuevaVentaModal alumnos={alumnos ?? []} productos={productos ?? []} />
         </div>
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -184,148 +188,127 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           ))}
         </section>
 
-        {(ventas ?? []).length === 0 ? (
+        {registros.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
-            title="Sin ventas este día"
-            description="Cargá las ventas del mostrador con el botón de arriba y aparecen acá."
+            title="Sin movimientos este día"
+            description="Cargá las ventas y los movimientos de caja con el botón de arriba y aparecen acá."
           />
         ) : (
-        <div className="rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
-        <TableRoot>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Hora</TableHead>
-                <TableHead>Alumno</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>Cant.</TableHead>
-                <TableHead>Método</TableHead>
-                <TableHead>Pago</TableHead>
-                <TableHead numeric>Total</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody striped>
-              {(ventas ?? []).map((v) => (
-                <TableRow key={v.id} className={v.anulada_en ? "text-muted-foreground" : undefined}>
-                  <TableCell>
-                    {new Date(v.creado_en).toLocaleTimeString("es-AR", {
-                      timeZone: ZONA,
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </TableCell>
-                  <TableCell>{v.alumno}</TableCell>
-                  <TableCell>{v.producto}</TableCell>
-                  <TableCell>{v.cantidad}</TableCell>
-                  <TableCell>
-                    {v.anulada_en ? (
-                      <Badge variant="red-subtle">anulada</Badge>
-                    ) : (
-                      nombreMetodo(v.efectivo, v.transferencia)
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {pesos(v.efectivo + v.transferencia)}
-                      {v.saldo > 0 && (
-                        <Badge variant="amber-subtle">Debe {pesos(v.saldo)}</Badge>
-                      )}
-                      {v.saldo < 0 && (
-                        <Badge variant="blue-subtle">A favor {pesos(-v.saldo)}</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell numeric>
-                    <span className={v.anulada_en ? "line-through" : undefined}>
-                      {pesos(v.total)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {!v.anulada_en && (
-                      <form action={anular}>
-                        <Button
-                          type="submit"
-                          variant="tertiary"
-                          size="sm"
-                          className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
-                        >
-                          Anular
-                        </Button>
-                        <input type="hidden" name="id" value={v.id} />
-                      </form>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableRoot>
-        </div>
-        )}
-
-        {movimientosVivos.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-heading-16">Movimientos de caja</h2>
-            <div className="rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
-              <TableRoot>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Hora</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead>Caja</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead numeric>Monto</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody striped>
-                    {movimientosVivos.map((m) => (
-                      <TableRow key={m.id}>
+          <div className="rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
+            <TableRoot>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Hora</TableHead>
+                    <TableHead>Alumno</TableHead>
+                    <TableHead>Detalle</TableHead>
+                    <TableHead>Cant.</TableHead>
+                    <TableHead>Método</TableHead>
+                    <TableHead>Pago</TableHead>
+                    <TableHead numeric>Total</TableHead>
+                    <TableHead className="text-center" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody striped>
+                  {registros.map((r) => {
+                    const anulado = r.clase === "venta" ? r.anulada_en : r.anulado_en;
+                    return (
+                      <TableRow
+                        key={`${r.clase}-${r.id}`}
+                        className={anulado ? "text-muted-foreground" : undefined}
+                      >
                         <TableCell>
-                          {new Date(m.creado_en).toLocaleTimeString("es-AR", {
+                          {new Date(r.creado_en).toLocaleTimeString("es-AR", {
                             timeZone: ZONA,
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </TableCell>
-                        <TableCell>{m.motivo}</TableCell>
-                        <TableCell className="capitalize">{m.caja}</TableCell>
-                        <TableCell className="capitalize">{m.metodo}</TableCell>
-                        <TableCell numeric>
-                          <span
-                            className={
-                              m.tipo === "ingreso"
-                                ? "text-[var(--ds-green-900)]"
-                                : "text-[var(--ds-amber-900)]"
-                            }
-                          >
-                            {m.tipo === "ingreso" ? "+" : "−"}
-                            {pesos(m.monto)}
-                          </span>
-                        </TableCell>
+
+                        {r.clase === "venta" ? (
+                          <>
+                            <TableCell>{r.alumno}</TableCell>
+                            <TableCell>{r.producto}</TableCell>
+                            <TableCell>{r.cantidad}</TableCell>
+                            <TableCell>
+                              {anulado ? (
+                                <Badge variant="red-subtle">anulada</Badge>
+                              ) : (
+                                nombreMetodo(r.efectivo, r.transferencia)
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {pesos(r.efectivo + r.transferencia)}
+                                {r.saldo > 0 && (
+                                  <Badge variant="amber-subtle">Debe {pesos(r.saldo)}</Badge>
+                                )}
+                                {r.saldo < 0 && (
+                                  <Badge variant="blue-subtle">A favor {pesos(-r.saldo)}</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell numeric>
+                              <span className={anulado ? "line-through" : undefined}>
+                                {pesos(r.total)}
+                              </span>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="text-muted-foreground capitalize">
+                              Caja {r.caja}
+                            </TableCell>
+                            <TableCell>{r.motivo}</TableCell>
+                            <TableCell>—</TableCell>
+                            <TableCell>
+                              {anulado ? (
+                                <Badge variant="red-subtle">anulado</Badge>
+                              ) : (
+                                <span className="capitalize">{r.metodo}</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={
+                                  anulado
+                                    ? "line-through"
+                                    : r.tipo === "ingreso"
+                                      ? "text-[var(--ds-green-900)]"
+                                      : "text-[var(--ds-amber-900)]"
+                                }
+                              >
+                                {r.tipo === "ingreso" ? "+" : "−"}
+                                {pesos(r.monto)}
+                              </span>
+                            </TableCell>
+                            <TableCell numeric>—</TableCell>
+                          </>
+                        )}
+
                         <TableCell className="text-center">
-                          <form action={anularMov}>
-                            <Button
-                              type="submit"
-                              variant="tertiary"
-                              size="sm"
-                              className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
-                            >
-                              Anular
-                            </Button>
-                            <input type="hidden" name="id" value={m.id} />
-                          </form>
+                          {!anulado && (
+                            <form action={r.clase === "venta" ? anular : anularMov}>
+                              <Button
+                                type="submit"
+                                variant="tertiary"
+                                size="sm"
+                                className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
+                              >
+                                Anular
+                              </Button>
+                              <input type="hidden" name="id" value={r.id} />
+                            </form>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableRoot>
-            </div>
-          </section>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableRoot>
+          </div>
         )}
       </main>
     </>
