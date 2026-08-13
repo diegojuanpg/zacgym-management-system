@@ -6,6 +6,7 @@ import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SelectorDia } from "@/components/mostrador/selector-dia";
+import { FiltroColumna, type OpcionFiltro } from "@/components/mostrador/filtro-columna";
 import { Card } from "@/components/ui/card";
 import { Description } from "@/components/ui/description";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -22,6 +23,8 @@ import {
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
+
+const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function nombreMetodo(efectivo: number, transferencia: number) {
   if (efectivo > 0 && transferencia > 0) return "Mixto";
@@ -62,7 +65,8 @@ interface VentaFila {
 
 export default async function MostradorPage({ searchParams }: PageProps<"/mostrador">) {
   const staff = await requireStaff();
-  const { fecha } = await searchParams;
+  const { fecha, orden, alumno, apellido, detalle, metodo } = await searchParams;
+  const texto = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   const dia =
     typeof fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnBuenosAires();
 
@@ -128,10 +132,63 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     | ({ clase: "venta" } & VentaFila)
     | ({ clase: "movimiento" } & MovimientoFila);
 
-  const registros: Registro[] = [
+  const todos: Registro[] = [
     ...(ventas ?? []).map((v) => ({ clase: "venta" as const, ...v })),
     ...(movimientos ?? []).map((m) => ({ clase: "movimiento" as const, ...m })),
-  ].sort((a, b) => b.creado_en.localeCompare(a.creado_en));
+  ];
+
+  // Opciones de los menús: solo lo que aparece en el día, para no listar 200 alumnos.
+  const nombres = [...new Set(todos.flatMap((r) => (r.clase === "venta" ? [r.alumno] : [])))].sort();
+  const apellidos = [...new Set(nombres.map((n) => n.split(",")[0].trim()))].sort();
+  const detalles = [
+    ...new Set(todos.map((r) => (r.clase === "venta" ? r.producto : r.motivo))),
+  ].sort();
+
+  const filtroAlumno = texto(alumno);
+  const filtroApellido = texto(apellido);
+  const filtroDetalle = texto(detalle);
+  const filtroMetodo = texto(metodo);
+
+  const metodoDe = (r: Registro) =>
+    r.clase === "venta" ? nombreMetodo(r.efectivo, r.transferencia) : capitalizar(r.metodo);
+
+  const registros = todos
+    .filter((r) => {
+      // Los movimientos de caja no tienen alumno: un filtro por alumno los saca.
+      if (filtroAlumno && !(r.clase === "venta" && r.alumno === filtroAlumno)) return false;
+      if (
+        filtroApellido &&
+        !(r.clase === "venta" && r.alumno.split(",")[0].trim() === filtroApellido)
+      ) {
+        return false;
+      }
+      if (filtroDetalle) {
+        const propio = r.clase === "venta" ? r.producto : r.motivo;
+        if (propio !== filtroDetalle) return false;
+      }
+      if (filtroMetodo && metodoDe(r) !== filtroMetodo) return false;
+      return true;
+    })
+    .sort((a, b) =>
+      orden === "antiguo"
+        ? a.creado_en.localeCompare(b.creado_en)
+        : b.creado_en.localeCompare(a.creado_en),
+    );
+
+  const hayFiltro = Boolean(filtroAlumno || filtroApellido || filtroDetalle || filtroMetodo);
+
+  const opcionesAlumno: OpcionFiltro[] = [
+    ...nombres.map((n) => ({ label: n, param: "alumno", value: n, section: "Alumno" })),
+    ...apellidos.map((a) => ({ label: a, param: "apellido", value: a, section: "Apellido" })),
+  ];
+  const opcionesDetalle: OpcionFiltro[] = detalles.map((d) => ({
+    label: d,
+    param: "detalle",
+    value: d,
+  }));
+  const opcionesMetodo: OpcionFiltro[] = [
+    ...new Set(todos.map(metodoDe)),
+  ].sort().map((m) => ({ label: m, param: "metodo", value: m }));
 
   async function anularMov(formData: FormData) {
     "use server";
@@ -191,8 +248,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         {registros.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
-            title="Sin movimientos este día"
-            description="Cargá las ventas y los movimientos de caja con el botón de arriba y aparecen acá."
+            title={hayFiltro ? "Nada coincide con el filtro" : "Sin movimientos este día"}
+            description={
+              hayFiltro
+                ? "Probá quitando el filtro desde el encabezado de la columna."
+                : "Cargá las ventas y los movimientos de caja con el botón de arriba y aparecen acá."
+            }
           />
         ) : (
           <div className="rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
@@ -200,11 +261,38 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Hora</TableHead>
-                    <TableHead>Alumno</TableHead>
-                    <TableHead>Detalle</TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Hora"
+                        params={["orden"]}
+                        opciones={[
+                          { label: "Más reciente", param: "orden", value: "reciente" },
+                          { label: "Más antiguo", param: "orden", value: "antiguo" },
+                        ]}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Alumno"
+                        params={["alumno", "apellido"]}
+                        opciones={opcionesAlumno}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Detalle"
+                        params={["detalle"]}
+                        opciones={opcionesDetalle}
+                      />
+                    </TableHead>
                     <TableHead>Cant.</TableHead>
-                    <TableHead>Método</TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Método"
+                        params={["metodo"]}
+                        opciones={opcionesMetodo}
+                      />
+                    </TableHead>
                     <TableHead>Pago</TableHead>
                     <TableHead numeric>Total</TableHead>
                     <TableHead className="text-center" />
