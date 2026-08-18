@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarTarea } from "@/lib/tareas";
+import { ESTADOS, type EstadoTarea } from "@/lib/tarea-estados";
+import { EstadoTareaSelect } from "@/components/tareas/estado-tarea";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -53,11 +55,12 @@ interface Tarea {
   categoria: string | null;
   detalle: string;
   creado_en: string;
+  estado: EstadoTarea;
 }
 
 export default async function TareasPage({ searchParams }: PageProps<"/tareas">) {
   await requireStaff();
-  const { q, cat, alumno, orden } = await searchParams;
+  const { q, cat, alumno, orden, estado } = await searchParams;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const solapa = typeof cat === "string" ? cat : "todas";
   const criterio = typeof orden === "string" ? orden : "reciente";
@@ -68,7 +71,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
   const [{ data: tareas }, { data: categorias }] = await Promise.all([
     supabase
       .from("tareas_detalle")
-      .select("id, alumno_id, alumno, categoria, detalle, creado_en")
+      .select("id, alumno_id, alumno, categoria, detalle, creado_en, estado")
       .order("creado_en", { ascending: false })
       .limit(5000)
       .overrideTypes<Tarea[]>(),
@@ -97,12 +100,17 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
   const opcionesAlumno = ordenar(todas.map((t) => t.alumno));
   const filtroAlumno = lista_(alumno);
+  const nombreEstado = (e: EstadoTarea) => ESTADOS.find((x) => x.valor === e)!.nombre;
+  const filtroEstado = lista_(estado);
+
+  const sinTerminar = todas.filter((t) => t.estado !== "terminada").length;
 
   const lista = todas
     .filter(
       (t) =>
         (vistaActual.valor === "todas" || categoriaDe(t) === vistaActual.valor) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(t.alumno)) &&
+        (filtroEstado.length === 0 || filtroEstado.includes(nombreEstado(t.estado))) &&
         (busqueda === "" ||
           t.alumno.toLowerCase().includes(busqueda) ||
           t.detalle.toLowerCase().includes(busqueda) ||
@@ -125,10 +133,16 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
         <h1 className="text-heading-20">Tareas</h1>
         <p className="text-copy-14 text-[var(--ds-gray-900)]">
           {todas.length === 0
-            ? "Ninguna pendiente"
+            ? "Ninguna cargada"
             : lista.length === todas.length
-              ? `${todas.length} ${todas.length === 1 ? "pendiente" : "pendientes"}`
+              ? `${todas.length} en total`
               : `${lista.length} de ${todas.length}`}
+          {sinTerminar > 0 && (
+            <>
+              {" · "}
+              <span className="text-[var(--ds-amber-900)]">{sinTerminar} sin terminar</span>
+            </>
+          )}
         </p>
       </div>
 
@@ -156,22 +170,17 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
           <TableRoot className="md:max-h-[calc(100vh-16rem)]">
             <Table aria-label="Tareas">
               <TableColgroup>
-                <TableCol style={{ width: "18%" }} />
+                <TableCol style={{ width: "15%" }} />
                 <TableCol style={{ width: "14%" }} />
-                <TableCol style={{ width: "44%" }} />
-                <TableCol style={{ width: "14%" }} />
-                <TableCol style={{ width: "10%" }} />
+                <TableCol style={{ width: "48%" }} />
+                <TableCol style={{ width: "15%" }} />
+                <TableCol style={{ width: "8%" }} />
               </TableColgroup>
               <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
                 <TableRow>
                   <TableHead>
-                    <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
-                  </TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Tarea</TableHead>
-                  <TableHead>
                     <FiltroColumna
-                      etiqueta="Cargada"
+                      etiqueta="Fecha y hora"
                       orden={{
                         param: "orden",
                         opciones: [
@@ -181,16 +190,30 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                       }}
                     />
                   </TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Tarea" param="alumno" opciones={opcionesAlumno} />
+                  </TableHead>
+                  <TableHead>
+                    <FiltroColumna
+                      etiqueta="Estado"
+                      param="estado"
+                      opciones={ESTADOS.map((e) => e.nombre)}
+                    />
+                  </TableHead>
                   <TableHead className="text-center" />
                 </TableRow>
               </TableHeader>
               <TableBody striped>
                 {lista.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="text-[var(--ds-gray-1000)]">
-                      <Link href={`/alumnos/${t.alumno_id}`} className="hover:underline">
-                        {t.alumno}
-                      </Link>
+                    <TableCell>
+                      <RelativeTimeCard date={t.creado_en} side="top">
+                        <span className="text-[var(--ds-gray-1000)]">{cuando(t.creado_en)}</span>
+                      </RelativeTimeCard>
+                      <div className="text-copy-13 text-[var(--ds-gray-900)]">
+                        {haceCuanto(t.creado_en)}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {t.categoria ? (
@@ -199,14 +222,21 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                         <span className="text-[var(--ds-gray-900)]">—</span>
                       )}
                     </TableCell>
-                    {/* La tarea es texto libre: acá se lee entera, no cortada. */}
-                    <TableCell className="whitespace-normal text-[var(--ds-gray-1000)]">
-                      {t.detalle}
+                    {/* La tarea es texto libre: acá se lee entera, no cortada. El
+                        alumno va abajo porque casi siempre uno viene a abrir su ficha. */}
+                    <TableCell className="whitespace-normal">
+                      <span className="text-[var(--ds-gray-1000)]">{t.detalle}</span>
+                      <div className="text-copy-13">
+                        <Link
+                          href={`/alumnos/${t.alumno_id}`}
+                          className="text-[var(--ds-gray-900)] hover:text-[var(--ds-gray-1000)] hover:underline"
+                        >
+                          {t.alumno}
+                        </Link>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <RelativeTimeCard date={t.creado_en} side="top">
-                        <span>{haceCuanto(t.creado_en)}</span>
-                      </RelativeTimeCard>
+                      <EstadoTareaSelect id={t.id} estado={t.estado} />
                     </TableCell>
                     <TableCell className="text-center">
                       <form action={borrar}>
@@ -218,7 +248,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                           aria-label={`Borrar la tarea de ${t.alumno} cargada el ${cuando(t.creado_en)}`}
                           className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
                         >
-                          Listo
+                          Borrar
                         </Button>
                       </form>
                     </TableCell>
