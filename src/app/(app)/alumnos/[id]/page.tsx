@@ -18,6 +18,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { fechaCorta } from "@/lib/utils";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
@@ -231,7 +232,7 @@ export default async function FichaAlumnoPage({ params, searchParams }: PageProp
                 <span
                   className={`text-heading-16 ${vencido ? "text-[var(--ds-red-900)]" : "text-[var(--ds-gray-1000)]"}`}
                 >
-                  {fecha(alumno.vence)}
+                  {fechaCorta(alumno.vence)}
                 </span>
                 <span className="text-copy-13 text-[var(--ds-gray-900)]">
                   {restante === null

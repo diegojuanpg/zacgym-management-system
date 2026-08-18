@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Export del Google Sheets y lo que sale de importarlo: son 1969 nombres con
+# mails, no van al repo aunque sea privado.
+Hoja Madre*.csv
+alumnos.sql
+reporte-import.txt
