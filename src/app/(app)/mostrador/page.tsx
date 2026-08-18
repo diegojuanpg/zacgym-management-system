@@ -120,7 +120,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       supabase
         .from("alumnos_cuenta")
         .select("id, nombre_completo, saldo")
-        .eq("activo", true)
+        // Sin filtrar por activo: el que dejó de venir hace un año y vuelve a
+        // pagar la cuota tiene que poder encontrarse para cobrarle.
+        .limit(5000)
         .order("nombre_completo")
         .overrideTypes<{ id: string; nombre_completo: string; saldo: number }[]>(),
       supabase

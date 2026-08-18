@@ -48,7 +48,7 @@ export default async function PromosPage() {
       supabase
         .from("alumnos")
         .select("id, nombre_completo")
-        .eq("activo", true)
+        .limit(5000)
         .order("nombre_completo")
         .overrideTypes<OpcionAlumno[]>(),
       // Cualquier producto sirve de promo: el precio ya está en el catálogo.

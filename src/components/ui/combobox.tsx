@@ -4,6 +4,12 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
+/** Cuántas opciones se dibujan de una. Ver el filtro más abajo. */
+const TOPE = 60
+
+const sinTildes = (s: string) =>
+  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
+
 const SearchIcon = () => (
   <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
     <path
@@ -120,9 +126,13 @@ export function Combobox({
   // label (kept white + text-selected) until the user actually types.
   const displayValue = query || selectedLabel
 
-  const filtered = options.filter((o) =>
-    o.label.toLowerCase().includes(query.toLowerCase())
-  )
+  // Sin tildes de los dos lados: "Nicolas" tiene que encontrar a "Nicolás" y
+  // "Nunez" a "Núñez". Nadie va a escribir el acento para buscar.
+  const coincidencias = options.filter((o) => sinTildes(o.label).includes(sinTildes(query)))
+  // La lista de alumnos son casi 2000: dibujarlos todos cuelga el modal antes
+  // de que llegues a escribir. Se muestran los primeros y se avisa que hay mas.
+  const filtered = coincidencias.slice(0, TOPE)
+  const deMas = coincidencias.length - filtered.length
 
   React.useEffect(() => {
     if (!open) return
@@ -320,6 +330,11 @@ export function Combobox({
                     </li>
                   )
                 })
+              )}
+              {deMas > 0 && (
+                <li className="px-3 py-2 text-center text-xs text-[var(--ds-gray-700)]">
+                  y {deMas} más — seguí escribiendo
+                </li>
               )}
             </ul>
           </div>,
