@@ -47,6 +47,7 @@ export type Database = {
           nombre: string
           nombre_completo: string | null
           sheet_id: string | null
+          tracking_id: string | null
           vence: string | null
         }
         Insert: {
@@ -61,6 +62,7 @@ export type Database = {
           nombre: string
           nombre_completo?: string | null
           sheet_id?: string | null
+          tracking_id?: string | null
           vence?: string | null
         }
         Update: {
@@ -75,7 +77,53 @@ export type Database = {
           nombre?: string
           nombre_completo?: string | null
           sheet_id?: string | null
+          tracking_id?: string | null
           vence?: string | null
+        }
+        Relationships: []
+      }
+      alumnos_tracking: {
+        Row: {
+          activo: boolean
+          dias_entrenamiento: number | null
+          estado: string | null
+          gmail: string | null
+          id: string
+          nombre: string | null
+          numero: string | null
+          sheet_id: string | null
+          ultima_rutina_semana: string | null
+          ultimo_checkin: string | null
+          updated_at: string
+          vencimiento: string | null
+        }
+        Insert: {
+          activo?: boolean
+          dias_entrenamiento?: number | null
+          estado?: string | null
+          gmail?: string | null
+          id: string
+          nombre?: string | null
+          numero?: string | null
+          sheet_id?: string | null
+          ultima_rutina_semana?: string | null
+          ultimo_checkin?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Update: {
+          activo?: boolean
+          dias_entrenamiento?: number | null
+          estado?: string | null
+          gmail?: string | null
+          id?: string
+          nombre?: string | null
+          numero?: string | null
+          sheet_id?: string | null
+          ultima_rutina_semana?: string | null
+          ultimo_checkin?: string | null
+          updated_at?: string
+          vencimiento?: string | null
         }
         Relationships: []
       }
@@ -265,6 +313,89 @@ export type Database = {
           stock?: number | null
         }
         Relationships: []
+      }
+      promo_integrantes: {
+        Row: {
+          alumno_id: string
+          promo_id: string
+        }
+        Insert: {
+          alumno_id: string
+          promo_id: string
+        }
+        Update: {
+          alumno_id?: string
+          promo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_integrantes_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "alumno_promo"
+            referencedColumns: ["promo_id"]
+          },
+          {
+            foreignKeyName: "promo_integrantes_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_integrantes_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promos_detalle"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promos: {
+        Row: {
+          activa: boolean
+          creado_en: string
+          id: string
+          nombre: string
+          producto_id: string
+        }
+        Insert: {
+          activa?: boolean
+          creado_en?: string
+          id?: string
+          nombre: string
+          producto_id: string
+        }
+        Update: {
+          activa?: boolean
+          creado_en?: string
+          id?: string
+          nombre?: string
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promos_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tarea_categorias: {
         Row: {
@@ -562,6 +693,39 @@ export type Database = {
       }
     }
     Views: {
+      alumno_promo: {
+        Row: {
+          alumno_id: string | null
+          precio: number | null
+          producto: string | null
+          producto_id: string | null
+          promo: string | null
+          promo_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promos_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alumnos_cuenta: {
         Row: {
           a_favor: number | null
@@ -569,9 +733,12 @@ export type Database = {
           apellido: string | null
           celular: string | null
           comprado: number | null
+          creado_en: string | null
           debe: number | null
+          dias_entrenamiento: number | null
           edad: number | null
           email: string | null
+          estado_membresia: string | null
           genero: Database["public"]["Enums"]["genero"] | null
           id: string | null
           nacimiento: string | null
@@ -580,7 +747,9 @@ export type Database = {
           pagado: number | null
           saldo: number | null
           sheet_id: string | null
+          tracking_id: string | null
           ultima_actividad: string | null
+          ultimo_checkin: string | null
           vence: string | null
         }
         Relationships: []
@@ -767,6 +936,28 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promos_detalle: {
+        Row: {
+          activa: boolean | null
+          creado_en: string | null
+          cuantos: number | null
+          id: string | null
+          integrantes: string[] | null
+          nombre: string | null
+          precio: number | null
+          producto: string | null
+          producto_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promos_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
             referencedColumns: ["id"]
           },
         ]

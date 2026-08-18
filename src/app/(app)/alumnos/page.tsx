@@ -21,8 +21,15 @@ import {
   TableColgroup,
   TableCol,
 } from "@/components/ui/table";
+import { fechaCorta } from "@/lib/utils";
 
 const ZONA = "America/Argentina/Buenos_Aires";
+
+const ESTADO_COLOR = {
+  Activo: "blue",
+  Vencido: "amber",
+  Inactivo: "red",
+} as const;
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 // gray-600 sobre blanco da 2.3:1 y no pasa AA; gray-900 pasa en los dos temas y
 // sigue leyéndose como "acá no hay dato" y no como contenido.
@@ -39,14 +46,6 @@ const ANCHOS = {
   conContacto: ["10%", "11%", "8%", "5%", "8%", "9%", "10%", "8%", "14%", "10%", "7%"],
   sinContacto: ["13%", "15%", "11%", "7%", "10%", "12%", "13%", "12%", "7%"],
 };
-
-const fecha = (iso: string) =>
-  new Date(iso).toLocaleDateString("es-AR", {
-    timeZone: ZONA,
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
 
 /** Los días importan más que la fecha exacta: "hace 3 días" se lee de un vistazo. */
 function haceCuanto(iso: string | null) {
@@ -80,7 +79,8 @@ interface FilaAlumno {
 }
 
 export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos">) {
-  const { q, ver, orden, apellido, estado, genero, contacto } = await searchParams;
+  const params = await searchParams;
+  const { q, ver, orden, apellido, estado, genero, contacto, pagina } = params;
   const busqueda = typeof q === "string" ? q.trim() : "";
   // El contacto se ve salvo que lo apaguen: ?contacto=no.
   const verContacto = contacto !== "no";
@@ -94,6 +94,8 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   const { data: alumnos } = await supabase
     .from("alumnos_cuenta")
     .select("id, apellido, nombre, celular, email, nacimiento, edad, genero, vence, saldo, activo, ultima_actividad")
+    // Son ~2000 alumnos y PostgREST corta en 1000 si no se le pide mas.
+    .limit(5000)
     .order("apellido")
     .order("nombre")
     .overrideTypes<FilaAlumno[]>();
@@ -102,7 +104,11 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
   const vencido = (a: FilaAlumno) => a.vence !== null && a.vence < hoy;
   const dormido = (a: FilaAlumno) => estaDormido(a.ultima_actividad);
-  const estadoDe = (a: FilaAlumno) => (a.activo ? "Activo" : "Inactivo");
+  // Tres estados y no dos: "Activo" a secas junto a un vencimiento en rojo se
+  // lee como una contradiccion. Inactivo es no estar en el padron; vencido es
+  // estar pero deber la renovacion, que es a quien hay que ir a buscar.
+  const estadoDe = (a: FilaAlumno) =>
+    !a.activo ? "Inactivo" : vencido(a) ? "Vencido" : "Activo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
 
   const vistas = [
@@ -170,6 +176,28 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
 
   const deudaTotal = todos.reduce((suma, a) => suma + Math.max(0, a.saldo), 0);
   const cuantosVencidos = todos.filter(vencido).length;
+
+  // Son casi 2000 alumnos: dibujarlos todos hace la pagina inusable. La cuenta
+  // de las solapas y las opciones de los filtros siguen saliendo de la lista
+  // entera, solo se recorta lo que se pinta.
+  const POR_PAGINA = 100;
+  const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+  // Se recorta contra el total: cambiar de solapa desde la pagina 15 cae en la
+  // ultima que exista en vez de mostrar una tabla vacia.
+  const actual = Math.min(Math.max(1, Number(pagina) || 1), paginas);
+  const desde = (actual - 1) * POR_PAGINA;
+  const visibles = lista.slice(desde, desde + POR_PAGINA);
+
+  const hrefPagina = (n: number) => {
+    const otros = new URLSearchParams();
+    for (const [clave, valor] of Object.entries(params)) {
+      if (clave === "pagina") continue;
+      for (const v of lista_(valor as string | string[] | undefined)) otros.append(clave, v);
+    }
+    if (n > 1) otros.set("pagina", String(n));
+    const cadena = otros.toString();
+    return cadena ? `/alumnos?${cadena}` : "/alumnos";
+  };
 
   return (
     <main className="flex flex-1 flex-col gap-4">
@@ -338,7 +366,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                 striped
                 className="[&_tr]:transition-colors [&_tr:hover]:bg-[var(--ds-gray-200)]"
               >
-                {lista.map((a) => (
+                {visibles.map((a) => (
                   <TableRow key={a.id}>
                     {/* Los dos son el nombre de la persona: mismo color. El peso
                         alcanza para que el apellido, que es por donde se ordena,
@@ -361,11 +389,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                     <TableCell>{a.edad ?? vacio}</TableCell>
 
                     <TableCell>
-                      {a.activo ? (
-                        <Badge variant="blue">Activo</Badge>
-                      ) : (
-                        <Badge variant="red">Inactivo</Badge>
-                      )}
+                      <Badge variant={ESTADO_COLOR[estadoDe(a)]}>{estadoDe(a)}</Badge>
                     </TableCell>
 
                     <TableCell>
@@ -385,9 +409,9 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                       {a.vence === null ? (
                         vacio
                       ) : vencido(a) ? (
-                        <Badge variant="red">Venció {fecha(a.vence)}</Badge>
+                        <Badge variant="red">Venció {fechaCorta(a.vence, "2-digit")}</Badge>
                       ) : (
-                        <Badge variant="green">Hasta {fecha(a.vence)}</Badge>
+                        <Badge variant="green">Hasta {fechaCorta(a.vence, "2-digit")}</Badge>
                       )}
                     </TableCell>
 
@@ -453,6 +477,37 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
               </TableBody>
             </Table>
           </TableRoot>
+
+          {paginas > 1 && (
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--ds-gray-alpha-400)] px-1 pt-2.5">
+              <p className="text-copy-13 text-[var(--ds-gray-900)]">
+                {desde + 1}–{desde + visibles.length} de {lista.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={actual === 1}
+                  nativeButton={false}
+                  render={<Link href={hrefPagina(actual - 1)} />}
+                >
+                  Anterior
+                </Button>
+                <span className="text-copy-13 text-[var(--ds-gray-900)]">
+                  {actual} / {paginas}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={actual === paginas}
+                  nativeButton={false}
+                  render={<Link href={hrefPagina(actual + 1)} />}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </main>

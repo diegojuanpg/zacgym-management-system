@@ -8,17 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Note } from "@/components/ui/note";
 import { Select } from "@/components/ui/select";
 import { PencilIcon } from "@/components/icons";
+import { fechaCorta } from "@/lib/utils";
 
 const GENERO = { femenino: "Femenino", masculino: "Masculino", otro: "Otro" } as const;
-
-const ZONA = "America/Argentina/Buenos_Aires";
-const fecha = (iso: string) =>
-  new Date(iso).toLocaleDateString("es-AR", {
-    timeZone: ZONA,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 
 const vacio = <span className="text-[var(--ds-gray-900)]">—</span>;
 
@@ -183,7 +175,7 @@ export function DatosAlumno({
               onChange={(e) => set("nacimiento", e.target.value)}
             />
           ) : edad !== null ? (
-            `${edad} años · ${fecha(alumno.nacimiento!)}`
+            `${edad} años · ${fechaCorta(alumno.nacimiento!)}`
           ) : (
             vacio
           )}
@@ -221,7 +213,7 @@ export function DatosAlumno({
               onChange={(e) => set("vence", e.target.value)}
             />
           ) : alumno.vence ? (
-            fecha(alumno.vence)
+            fechaCorta(alumno.vence)
           ) : (
             vacio
           )}
