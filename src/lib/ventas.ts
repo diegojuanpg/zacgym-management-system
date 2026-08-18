@@ -7,9 +7,11 @@ export interface ItemVenta {
   alumno_id: string;
   producto_id: string;
   cantidad: number;
-  /** Lo que entregó en cada forma. Los dos en 0 = queda debiendo el total. */
+  /** Lo que entregó en cada forma. Los tres en 0 = queda debiendo el total. */
   efectivo: number;
   transferencia: number;
+  /** Sin cargo: lo que se lleva el dueño. Salda la venta sin que entre plata. */
+  no_paga: number;
 }
 
 export interface ItemMovimiento {

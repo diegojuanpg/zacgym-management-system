@@ -6,11 +6,10 @@ import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { AccionesModal } from "@/components/mostrador/acciones-modal";
 import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
+import { CajaCard } from "@/components/mostrador/caja-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FiltroColumna } from "@/components/filtro-columna";
-import { Card } from "@/components/ui/card";
-import { Description } from "@/components/ui/description";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CartIcon } from "@/components/icons";
 import {
@@ -28,7 +27,9 @@ const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
 const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function nombreMetodo(efectivo: number, transferencia: number) {
+function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
+  // Sin cargo: lo que se lleva el dueño. No entra plata y no queda deuda.
+  if (noPaga > 0) return "No paga";
   if (efectivo > 0 && transferencia > 0) return "Mixto";
   if (efectivo > 0) return "Efectivo";
   if (transferencia > 0) return "Transferencia";
@@ -55,6 +56,7 @@ interface VentaFila {
   total: number;
   efectivo: number;
   transferencia: number;
+  no_paga: number;
   saldo: number;
   creado_en: string;
   anulada_en: string | null;
@@ -66,7 +68,7 @@ interface PagoFila {
   alumno: string;
   producto: string;
   monto: number;
-  metodo: "efectivo" | "transferencia";
+  metodo: "efectivo" | "transferencia" | "no_paga";
   caja: "grande" | "chica";
   creado_en: string;
   anulada_en: string | null;
@@ -79,6 +81,8 @@ interface TurnoAbierto {
   caja_chica_inicial: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
+  transferencia_grande: number;
+  transferencia_chica: number;
   responsables: string[];
 }
 
@@ -106,7 +110,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const { data: turno } = await supabase
     .from("turno_actual")
     .select(
-      "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, responsables",
+      "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, transferencia_grande, transferencia_chica, responsables",
     )
     .maybeSingle<TurnoAbierto>();
 
@@ -149,7 +153,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
     porTurno<VentaFila>(
       "ventas_saldo",
-      "id, alumno, producto, cantidad, total, efectivo, transferencia, saldo, creado_en, anulada_en",
+      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, saldo, creado_en, anulada_en",
     ),
     porTurno<PagoFila>(
       "pagos_detalle",
@@ -170,9 +174,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // Lo cobrado por cada venta del turno. La cuenta de cuánto debería haber en
   // cada cajón ya no se hace acá: la trae `turno_actual`, que arranca del saldo
   // con el que se abrió.
-  const pagosDeVenta = new Map<string, { efectivo: number; transferencia: number }>();
+  const pagosDeVenta = new Map<
+    string,
+    { efectivo: number; transferencia: number; no_paga: number }
+  >();
   for (const p of pagos ?? []) {
-    const acumulado = pagosDeVenta.get(p.venta_id) ?? { efectivo: 0, transferencia: 0 };
+    const acumulado =
+      pagosDeVenta.get(p.venta_id) ?? { efectivo: 0, transferencia: 0, no_paga: 0 };
     acumulado[p.metodo] += p.monto;
     pagosDeVenta.set(p.venta_id, acumulado);
   }
@@ -182,6 +190,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const idsDeHoy = new Set((ventas ?? []).map((v) => v.id));
   const cobros = new Map<string, CobroFila>();
   for (const p of (pagos ?? []).filter((p) => !idsDeHoy.has(p.venta_id) && !p.anulada_en)) {
+    // Sin cargo no es plata que entró: no arma un cobro de deuda.
+    if (p.metodo === "no_paga") continue;
     const clave = `${p.alumno}|${p.creado_en}`;
     const fila = cobros.get(clave) ?? {
       ids: [],
@@ -201,13 +211,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const totales = [
     {
       etiqueta: "Caja grande",
-      monto: turno?.caja_grande_esperada ?? 0,
       inicial: turno?.caja_grande_inicial ?? 0,
+      efectivo: turno?.caja_grande_esperada ?? 0,
+      transferencia: turno?.transferencia_grande ?? 0,
     },
     {
       etiqueta: "Caja chica",
-      monto: turno?.caja_chica_esperada ?? 0,
       inicial: turno?.caja_chica_inicial ?? 0,
+      efectivo: turno?.caja_chica_esperada ?? 0,
+      transferencia: turno?.transferencia_chica ?? 0,
     },
   ];
 
@@ -221,7 +233,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     ...(ventas ?? []).map((v) => ({
       clase: "venta" as const,
       ...v,
-      ...(pagosDeVenta.get(v.id) ?? { efectivo: 0, transferencia: 0 }),
+      ...(pagosDeVenta.get(v.id) ?? { efectivo: 0, transferencia: 0, no_paga: 0 }),
     })),
     ...(movimientos ?? []).map((m) => ({ clase: "movimiento" as const, ...m })),
     ...[...cobros.values()].map((c) => ({ clase: "cobro" as const, ...c })),
@@ -230,7 +242,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const metodoDe = (r: Registro) =>
     r.clase === "movimiento"
       ? capitalizar(r.metodo)
-      : nombreMetodo(r.efectivo, r.transferencia);
+      : r.clase === "venta"
+        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
+        : nombreMetodo(r.efectivo, r.transferencia);
   const detalleDe = (r: Registro) =>
     r.clase === "venta" ? r.producto : r.clase === "cobro" ? "Cobro de deuda" : r.motivo;
   const alumnoDe = (r: Registro) =>
@@ -335,21 +349,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {totales.map((t) => (
-            <Card key={t.etiqueta}>
-              <Description
-                title={t.etiqueta}
-                content={
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-heading-20">{turno ? pesos(t.monto) : "—"}</span>
-                    {turno && (
-                      <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                        abrió en {pesos(t.inicial)}
-                      </span>
-                    )}
-                  </div>
-                }
-              />
-            </Card>
+            <CajaCard key={t.etiqueta} {...t} abierto={turno !== null} />
           ))}
         </section>
 
@@ -434,7 +434,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                               {anulado ? (
                                 <Badge variant="red-subtle">anulada</Badge>
                               ) : (
-                                nombreMetodo(r.efectivo, r.transferencia)
+                                nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
                               )}
                             </TableCell>
                             <TableCell>
