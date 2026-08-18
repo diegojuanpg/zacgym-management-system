@@ -422,6 +422,7 @@ export type Database = {
           creado_en: string
           creado_por: string
           detalle: string
+          estado: Database["public"]["Enums"]["tarea_estado"]
           id: string
         }
         Insert: {
@@ -430,6 +431,7 @@ export type Database = {
           creado_en?: string
           creado_por: string
           detalle: string
+          estado?: Database["public"]["Enums"]["tarea_estado"]
           id?: string
         }
         Update: {
@@ -438,6 +440,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string
           detalle?: string
+          estado?: Database["public"]["Enums"]["tarea_estado"]
           id?: string
         }
         Relationships: [
@@ -970,6 +973,7 @@ export type Database = {
           categoria_id: string | null
           creado_en: string | null
           detalle: string | null
+          estado: Database["public"]["Enums"]["tarea_estado"] | null
           id: string | null
         }
         Relationships: [
@@ -1213,6 +1217,7 @@ export type Database = {
       genero: "femenino" | "masculino" | "otro"
       metodo_pago: "efectivo" | "transferencia" | "no_paga"
       movimiento_tipo: "ingreso" | "egreso"
+      tarea_estado: "pendiente" | "en_proceso" | "terminada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1348,6 +1353,7 @@ export const Constants = {
       genero: ["femenino", "masculino", "otro"],
       metodo_pago: ["efectivo", "transferencia", "no_paga"],
       movimiento_tipo: ["ingreso", "egreso"],
+      tarea_estado: ["pendiente", "en_proceso", "terminada"],
     },
   },
 } as const

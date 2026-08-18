@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { EstadoTarea } from "@/lib/tarea-estados";
 
 export interface Categoria {
   id: string;
@@ -36,7 +37,26 @@ export async function crearTarea(datos: DatosTarea): Promise<{ error?: string }>
   return {};
 }
 
-/** Se hizo, o nunca hubo que hacerla. No hay papelera: la tarea se va. */
+export async function cambiarEstadoTarea(
+  id: string,
+  estado: EstadoTarea,
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  // select() para saber si cambio algo: con RLS, un update que no alcanza
+  // ninguna fila vuelve sin error y sin haber hecho nada.
+  const { data, error } = await supabase
+    .from("tareas")
+    .update({ estado })
+    .eq("id", id)
+    .select("id");
+  if (error) return { error: error.message };
+  if ((data ?? []).length === 0) return { error: "No se pudo cambiar el estado." };
+
+  revalidatePath("/tareas");
+  return {};
+}
+
+/** Se cargo mal, nunca existio. Lo que se hizo se marca terminada, no se borra. */
 export async function borrarTarea(id: string): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from("tareas").delete().eq("id", id);
