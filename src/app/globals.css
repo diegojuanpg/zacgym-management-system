@@ -139,11 +139,57 @@
   html {
     @apply font-sans;
   }
+
+  /* Lo que no dibujamos igual es parte del diseno: seleccion, foco y scrollbar
+     vienen del navegador y no se parecen a nada del sistema si no los pintamos. */
+  ::selection {
+    background: var(--ds-blue-400);
+    color: var(--ds-gray-1000);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ds-blue-700);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ds-gray-alpha-400) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--ds-gray-alpha-400);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ds-gray-alpha-500);
+    background-clip: content-box;
+  }
+
+  /* Plata, edades y stock se comparan de a columnas: los digitos tienen que
+     ocupar todos lo mismo o el ojo no puede alinear las cifras. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-.dither-css {
-  background-image: radial-gradient(var(--ds-gray-400) 1px, transparent 1px);
-  background-size: 3px 3px;
+/* El TabsList del sistema se cuelga esta clase para esconder su barra horizontal,
+   pero nunca vino definida: la tira de solapas mostraba scrollbar igual. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .btn-custom {
@@ -164,18 +210,6 @@
   border-color: var(--button-custom-border-active, transparent);
 }
 
-/* Sonner close button styling override to match Vercel */
-[data-close-button="true"] {
-  position: absolute !important;
-  left: auto !important;
-  right: 16px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-}
 /* Tailwind v4 dejo de poner cursor:pointer en los botones (preflight usa el del
    navegador, que es la flecha). Lo devolvemos para todo lo clickeable. */
 @layer base {

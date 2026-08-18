@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { registrarLote, type ItemVenta, type ItemMovimiento } from "@/lib/ventas";
+import {
+  registrarLote,
+  type ItemVenta,
+  type ItemMovimiento,
+  type ItemCobro,
+} from "@/lib/ventas";
+import { BotonBloqueado } from "@/components/mostrador/boton-bloqueado";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +43,14 @@ export interface Producto {
   stock: number | null;
 }
 
+export interface PromoDeAlumno {
+  alumno_id: string;
+  promo: string;
+  producto_id: string;
+  producto: string;
+  precio: number;
+}
+
 interface FilaVenta extends ItemVenta {
   clase: "venta";
   alumno: string;
@@ -51,7 +65,14 @@ interface FilaMovimiento extends ItemMovimiento {
   clase: "movimiento";
 }
 
-type Fila = FilaVenta | FilaMovimiento;
+interface FilaCobro extends ItemCobro {
+  clase: "cobro";
+  alumno: string;
+  /** Deuda que tenía al momento de cargar la fila, para mostrar si la salda toda. */
+  deuda: number;
+}
+
+type Fila = FilaVenta | FilaMovimiento | FilaCobro;
 
 type Metodo = "efectivo" | "transferencia" | "mixto" | "debe";
 
@@ -69,12 +90,33 @@ function faltante(f: FilaVenta) {
   return f.precio * f.cantidad - f.efectivo - f.transferencia - f.creditoAplicado;
 }
 
+/**
+ * Cuánto entra en cada forma según el método elegido. Un campo vacío en mixto
+ * cuenta como cero; con un solo método, vacío significa todo lo que hay que cobrar.
+ */
+function repartir(m: Metodo, efe: string, tra: string, sugerido: number) {
+  const e = Number(efe) || 0;
+  const t = Number(tra) || 0;
+  if (m === "debe") return { efectivo: 0, transferencia: 0 };
+  if (m === "mixto") return { efectivo: e, transferencia: t };
+  const monto = efe === "" ? sugerido : e;
+  return m === "efectivo"
+    ? { efectivo: monto, transferencia: 0 }
+    : { efectivo: 0, transferencia: monto };
+}
+
 export function NuevaVentaModal({
   alumnos,
   productos,
+  promos = [],
+  bloqueado = false,
 }: {
   alumnos: Alumno[];
   productos: Producto[];
+  /** A qué promo pertenece cada alumno, para proponer su precio. */
+  promos?: PromoDeAlumno[];
+  /** Sin turno abierto no se carga nada: el botón queda muerto y dice por qué. */
+  bloqueado?: boolean;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
@@ -100,12 +142,20 @@ export function NuevaVentaModal({
   const [movMonto, setMovMonto] = React.useState("");
   const [movMotivo, setMovMotivo] = React.useState("");
 
+  // --- cobro de deuda ---
+  const [cobroAlumnoId, setCobroAlumnoId] = React.useState("");
+  const [cobroMetodo, setCobroMetodo] = React.useState<Metodo>("efectivo");
+  const [cobroEfectivo, setCobroEfectivo] = React.useState("");
+  const [cobroTransferencia, setCobroTransferencia] = React.useState("");
+
   const ventas = filas.filter((f): f is FilaVenta => f.clase === "venta");
   const movimientos = filas.filter((f): f is FilaMovimiento => f.clase === "movimiento");
+  const cobros = filas.filter((f): f is FilaCobro => f.clase === "cobro");
 
-  // Lo que entra o sale en cada forma, contando ventas y movimientos.
+  // Lo que entra o sale en cada forma, contando ventas, movimientos y cobros.
   const totalPor = (m: ItemMovimiento["metodo"]) =>
     ventas.reduce((suma, v) => suma + v[m], 0) +
+    cobros.reduce((suma, c) => suma + c[m], 0) +
     movimientos
       .filter((mv) => mv.metodo === m)
       .reduce((suma, mv) => suma + (mv.tipo === "ingreso" ? mv.monto : -mv.monto), 0);
@@ -114,12 +164,20 @@ export function NuevaVentaModal({
   const aFavor = ventas.reduce((suma, v) => suma + Math.max(0, -faltante(v)), 0);
 
   const productoElegido = productos.find((p) => p.id === productoId);
+  // La promo del alumno elegido: define qué producto le corresponde.
+  const promoDelAlumno = promos.find((p) => p.alumno_id === alumnoId) ?? null;
   const alumnoElegido = alumnos.find((a) => a.id === alumnoId);
   const unidades = Math.max(1, Number(cantidad) || 1);
   const totalLinea = productoElegido ? productoElegido.precio * unidades : null;
 
+  // Lo que ya se cobra en este lote no se sigue mostrando como deuda pendiente.
+  const cobradoEnLote = (id: string) =>
+    cobros
+      .filter((c) => c.alumno_id === id)
+      .reduce((suma, c) => suma + c.efectivo + c.transferencia, 0);
+
   // La cuenta ya viene neteada: un alumno no puede deber y tener a favor a la vez.
-  const debePrevio = Math.max(0, alumnoElegido?.saldo ?? 0);
+  const debePrevio = Math.max(0, (alumnoElegido?.saldo ?? 0) - cobradoEnLote(alumnoId));
   // Descontamos lo que ya consumieron otras líneas del lote para el mismo alumno.
   const creditoUsado = ventas
     .filter((v) => v.alumno_id === alumnoId)
@@ -129,24 +187,21 @@ export function NuevaVentaModal({
   // de antes no se suma: es otra deuda, se cobra aparte.
   const aCobrar = totalLinea === null ? null : Math.max(0, totalLinea - aFavorPrevio);
 
-  // Cuánto entra en cada forma según el método elegido. Un campo vacío en mixto
-  // cuenta como cero; con un solo método, vacío significa todo lo que hay que cobrar.
-  const cobro = (sugerido: number) => {
-    const efe = Number(pagaEfectivo) || 0;
-    const tra = Number(pagaTransferencia) || 0;
-    if (metodo === "debe") return { efectivo: 0, transferencia: 0 };
-    if (metodo === "mixto") return { efectivo: efe, transferencia: tra };
-    const monto = pagaEfectivo === "" ? sugerido : efe;
-    return metodo === "efectivo"
-      ? { efectivo: monto, transferencia: 0 }
-      : { efectivo: 0, transferencia: monto };
-  };
+  const cobro = (sugerido: number) =>
+    repartir(metodo, pagaEfectivo, pagaTransferencia, sugerido);
 
   const cobroLinea = aCobrar === null ? null : cobro(aCobrar);
   const restaLinea =
     aCobrar === null || cobroLinea === null
       ? 0
       : aCobrar - cobroLinea.efectivo - cobroLinea.transferencia;
+
+  // --- cobro de deuda: lo que debe hoy, menos lo que ya se cobra en el lote ---
+  const deudores = alumnos.filter((a) => a.saldo - cobradoEnLote(a.id) > 0);
+  const alumnoCobro = alumnos.find((a) => a.id === cobroAlumnoId);
+  const deudaCobro = Math.max(0, (alumnoCobro?.saldo ?? 0) - cobradoEnLote(cobroAlumnoId));
+  const entregaCobro = repartir(cobroMetodo, cobroEfectivo, cobroTransferencia, deudaCobro);
+  const restaCobro = deudaCobro - entregaCobro.efectivo - entregaCobro.transferencia;
 
   function agregarVenta(event: React.FormEvent) {
     event.preventDefault();
@@ -210,6 +265,35 @@ export function NuevaVentaModal({
     setError(null);
   }
 
+  function agregarCobro(event: React.FormEvent) {
+    event.preventDefault();
+    if (!alumnoCobro) {
+      setError("Elegí a quién le estás cobrando.");
+      return;
+    }
+    const { efectivo, transferencia } = entregaCobro;
+    if (efectivo + transferencia <= 0) {
+      setError("Poné cuánta plata entregó.");
+      return;
+    }
+
+    setFilas((previas) => [
+      ...previas,
+      {
+        clase: "cobro",
+        alumno_id: alumnoCobro.id,
+        alumno: alumnoCobro.nombre_completo,
+        efectivo,
+        transferencia,
+        deuda: deudaCobro,
+      },
+    ]);
+    setCobroAlumnoId("");
+    setCobroEfectivo("");
+    setCobroTransferencia("");
+    setError(null);
+  }
+
   async function confirmar() {
     setGuardando(true);
     setError(null);
@@ -227,6 +311,11 @@ export function NuevaVentaModal({
         motivo,
         caja,
         metodo,
+      })),
+      cobros.map(({ alumno_id, efectivo, transferencia }) => ({
+        alumno_id,
+        efectivo,
+        transferencia,
       })),
     );
     setGuardando(false);
@@ -255,6 +344,8 @@ export function NuevaVentaModal({
     setConfirmarDescarte(false);
     setAbierto(false);
   }
+
+  if (bloqueado) return <BotonBloqueado>Agregar movimientos</BotonBloqueado>;
 
   return (
     <>
@@ -314,6 +405,7 @@ export function NuevaVentaModal({
         <Tabs value={pestania} onValueChange={setPestania} className="mb-4">
           <TabsList>
             <TabsTrigger value="venta">Venta</TabsTrigger>
+            <TabsTrigger value="cobro">Cobro de deuda</TabsTrigger>
             <TabsTrigger value="caja">Movimiento de caja</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -435,6 +527,26 @@ export function NuevaVentaModal({
               </Button>
             </div>
 
+            {/* La promo se avisa y se propone; nunca cambia el producto sola.
+                Aplicarla en silencio hace que el precio salga distinto al del
+                catálogo sin que nadie entienda por qué. */}
+            {promoDelAlumno && productoId !== promoDelAlumno.producto_id && (
+              <div className="text-copy-13 mt-1 flex flex-wrap items-center gap-2 rounded-md bg-[var(--ds-blue-100)] px-3 py-2 text-[var(--ds-blue-900)]">
+                <span>
+                  Está en <strong>{promoDelAlumno.promo}</strong>: le corresponde{" "}
+                  {promoDelAlumno.producto} a {pesos(promoDelAlumno.precio)}.
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => setProductoId(promoDelAlumno.producto_id)}
+                >
+                  Usar la promo
+                </Button>
+              </div>
+            )}
+
             {/* Alto reservado siempre: que aparezca el aviso no debe mover la fila. */}
             <div className="flex min-h-5 items-center justify-between gap-4 text-copy-13">
               <span>
@@ -459,6 +571,117 @@ export function NuevaVentaModal({
                 {restaLinea < 0 && (
                   <span className="text-[var(--ds-blue-900)]">
                     Le quedan {pesos(-restaLinea)} a favor
+                  </span>
+                )}
+              </span>
+            </div>
+          </form>
+        ) : pestania === "cobro" ? (
+          <form onSubmit={agregarCobro} className="flex flex-col gap-1 pb-4">
+            <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_9rem_minmax(7rem,auto)]">
+              <div>
+                <Label>Alumno</Label>
+                <Combobox
+                  // Solo los que deben: cobrarle a alguien sin deuda no es un cobro.
+                  options={deudores.map((a) => ({
+                    value: a.id,
+                    label: `${a.nombre_completo.replace(",", "")} — debe ${pesos(a.saldo)}`,
+                  }))}
+                  value={cobroAlumnoId}
+                  onValueChange={setCobroAlumnoId}
+                  placeholder="Buscar deudor..."
+                  emptyMessage="Nadie debe plata"
+                  width="100%"
+                  clearable
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cobro-metodo">Método</Label>
+                <Select
+                  id="cobro-metodo"
+                  size="large"
+                  value={cobroMetodo}
+                  onChange={(e) => {
+                    setCobroMetodo(e.target.value as Metodo);
+                    setCobroEfectivo("");
+                    setCobroTransferencia("");
+                  }}
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="mixto">Mixto</option>
+                </Select>
+              </div>
+
+              <div className="flex flex-col items-end">
+                <Label>Debe</Label>
+                <span className="flex h-10 items-center text-heading-20 tabular-nums">
+                  {cobroAlumnoId === "" ? "—" : pesos(deudaCobro)}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+              <div className="flex flex-wrap items-end gap-3">
+                {cobroMetodo === "mixto" ? (
+                  <>
+                    <div className="w-40">
+                      <Input
+                        label="Efectivo"
+                        size="large"
+                        inputMode="numeric"
+                        prefix="$"
+                        placeholder="0"
+                        value={cobroEfectivo}
+                        onChange={(e) => setCobroEfectivo(e.target.value.replace(/\D/g, ""))}
+                      />
+                    </div>
+                    <div className="w-40">
+                      <Input
+                        label="Transfer."
+                        size="large"
+                        inputMode="numeric"
+                        prefix="$"
+                        placeholder="0"
+                        value={cobroTransferencia}
+                        onChange={(e) => setCobroTransferencia(e.target.value.replace(/\D/g, ""))}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-40">
+                    <Input
+                      label="Entrega"
+                      size="large"
+                      inputMode="numeric"
+                      prefix="$"
+                      placeholder={String(deudaCobro)}
+                      value={cobroEfectivo}
+                      onChange={(e) => setCobroEfectivo(e.target.value.replace(/\D/g, ""))}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <Button type="submit" variant="secondary" size="lg" prefix={<PlusIcon />}>
+                Añadir
+              </Button>
+            </div>
+
+            <div className="flex min-h-5 items-center justify-between gap-4 text-copy-13">
+              <span className="text-muted-foreground">
+                {cobroAlumnoId !== "" && "Se descuenta de las compras impagas más viejas primero."}
+              </span>
+              <span>
+                {restaCobro > 0 && cobroAlumnoId !== "" && (
+                  <span className="text-[var(--ds-amber-900)]">
+                    Le siguen quedando {pesos(restaCobro)}
+                  </span>
+                )}
+                {restaCobro < 0 && (
+                  <span className="text-[var(--ds-blue-900)]">
+                    Le quedan {pesos(-restaCobro)} a favor
                   </span>
                 )}
               </span>
@@ -596,6 +819,29 @@ export function NuevaVentaModal({
                               </div>
                             </TableCell>
                             <TableCell numeric>{pesos(f.precio * f.cantidad)}</TableCell>
+                          </>
+                        ) : f.clase === "cobro" ? (
+                          <>
+                            <TableCell>{f.alumno}</TableCell>
+                            <TableCell>Cobro de deuda</TableCell>
+                            <TableCell>—</TableCell>
+                            <TableCell>{nombreMetodo(f.efectivo, f.transferencia)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {pesos(f.efectivo + f.transferencia)}
+                                {f.deuda - f.efectivo - f.transferencia > 0 && (
+                                  <Badge variant="amber-subtle">
+                                    Debe {pesos(f.deuda - f.efectivo - f.transferencia)}
+                                  </Badge>
+                                )}
+                                {f.deuda - f.efectivo - f.transferencia < 0 && (
+                                  <Badge variant="blue-subtle">
+                                    A favor {pesos(f.efectivo + f.transferencia - f.deuda)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell numeric>—</TableCell>
                           </>
                         ) : (
                           <>

@@ -16,7 +16,7 @@
     "db:studio": "xdg-open http://127.0.0.1:55323",
     "db:diff": "supabase db diff -f",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
+    "db:types": "supabase gen types typescript --db-url postgresql://postgres:postgres@127.0.0.1:55322/postgres > src/lib/supabase/database.types.ts",
     "smoke:auth": "node --env-file=.env.local scripts/smoke-auth.mjs",
     "mail": "xdg-open http://127.0.0.1:55324"
   },

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 export interface ModalProps {
@@ -70,8 +71,12 @@ export function Modal({
   }, [open, onOpenChange, initialFocusRef])
 
   if (!open) return null
+  // Portal: el overlay es position:fixed, pero igual hereda del lugar donde se
+  // monta. Abriendolo desde una celda de tabla heredaba su whitespace-nowrap y
+  // ningun texto del modal envolvia. Colgado del body no hereda nada de eso.
+  if (typeof document === "undefined") return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs p-4 sm:items-center animate-in fade-in duration-200"
       onClick={() => onOpenChange(false)}
@@ -127,6 +132,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

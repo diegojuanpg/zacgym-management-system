@@ -190,3 +190,129 @@ export function DollarIcon({ className, ...props }: { className?: string } & Rea
     </svg>
   )
 }
+
+export function UsersIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <g clipPath="url(#clip0_37_2513)">
+<path fillRule="evenodd" clipRule="evenodd" d="M2.5 3.25C2.5 2.38805 2.84241 1.5614 3.4519 0.951903C4.0614 0.34241 4.88805 0 5.75 0L6.25 0C6.6768 0 7.09941 0.0840637 7.49372 0.247392C7.88803 0.410719 8.24631 0.650113 8.5481 0.951903C8.84989 1.25369 9.08928 1.61197 9.25261 2.00628C9.41594 2.40059 9.5 2.8232 9.5 3.25V3.75C9.5 4.1768 9.41594 4.59941 9.25261 4.99372C9.08928 5.38803 8.84989 5.74631 8.5481 6.0481C8.24631 6.34989 7.88803 6.58928 7.49372 6.75261C7.09941 6.91594 6.6768 7 6.25 7H5.75C4.88805 7 4.0614 6.65759 3.4519 6.0481C2.84241 5.4386 2.5 4.61195 2.5 3.75V3.25ZM5.75 1.5C5.28587 1.5 4.84075 1.68437 4.51256 2.01256C4.18437 2.34075 4 2.78587 4 3.25V3.75C4 4.716 4.784 5.5 5.75 5.5H6.25C6.71413 5.5 7.15925 5.31563 7.48744 4.98744C7.81563 4.65925 8 4.21413 8 3.75V3.25C8 2.78587 7.81563 2.34075 7.48744 2.01256C7.15925 1.68437 6.71413 1.5 6.25 1.5H5.75ZM1.5 14.5V13.17C1.90318 12.3672 2.52165 11.6924 3.2863 11.2209C4.05096 10.7494 4.93166 10.4998 5.83 10.5H6.17C7.06834 10.4998 7.94904 10.7494 8.7137 11.2209C9.47835 11.6924 10.0968 12.3672 10.5 13.17V14.5H1.5ZM5.83 9C4.61794 8.99987 3.43122 9.34696 2.41026 10.0002C1.38929 10.6534 0.576825 11.5855 0.069 12.686L0 12.836V16H12V12.835L11.931 12.685C11.4231 11.5848 10.6107 10.6531 9.58997 10C8.56921 9.347 7.38278 8.99997 6.171 9H5.83ZM15.931 12.686C15.3823 11.4964 14.4785 10.506 13.344 9.851L12.594 11.149C13.4133 11.6222 14.076 12.3252 14.5 13.171V14.5H13.5V16H16V12.835L15.931 12.686ZM11.25 0H10.5V1.5H11.25C12.216 1.5 13 2.284 13 3.25V3.75C13 4.21413 12.8156 4.65925 12.4874 4.98744C12.1592 5.31563 11.7141 5.5 11.25 5.5H10.5V7H11.25C11.6768 7 12.0994 6.91594 12.4937 6.75261C12.888 6.58928 13.2463 6.34989 13.5481 6.0481C13.8499 5.74631 14.0893 5.38803 14.2526 4.99372C14.4159 4.59941 14.5 4.1768 14.5 3.75V3.25C14.5 2.38805 14.1576 1.5614 13.5481 0.951903C12.9386 0.34241 12.112 0 11.25 0Z" fill="currentColor"/>
+</g>
+<defs>
+<clipPath id="clip0_37_2513">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+    </svg>
+  )
+}
+
+export function StoreIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M13.75 1.9C13.5155 1.61844 13.2219 1.39188 12.8901 1.23635C12.5584 1.08083 12.1964 1.00014 11.83 1H4.17C3.80357 1.00014 3.44164 1.08083 3.10985 1.23635C2.77806 1.39188 2.48452 1.61844 2.25 1.9L1.08 3.305C0.705496 3.75409 0.500263 4.32025 0.5 4.905V15H15.5V4.905C15.4997 4.32025 15.2945 3.75409 14.92 3.305L13.75 1.9ZM14 5V4.905C13.9999 4.6711 13.9178 4.44464 13.768 4.265L12.598 2.86C12.5041 2.74725 12.3865 2.65654 12.2536 2.59433C12.1207 2.53211 11.9757 2.49991 11.829 2.5H4.171C4.02443 2.50005 3.87966 2.53233 3.74694 2.59454C3.61422 2.65675 3.49681 2.74738 3.403 2.86L2.232 4.265C2.0822 4.44464 2.00011 4.6711 2 4.905V5C2 5.19698 2.0388 5.39204 2.11418 5.57403C2.18956 5.75601 2.30005 5.92137 2.43934 6.06066C2.57863 6.19995 2.74399 6.31044 2.92597 6.38582C3.10796 6.4612 3.30302 6.5 3.5 6.5C3.69698 6.5 3.89204 6.4612 4.07403 6.38582C4.25601 6.31044 4.42137 6.19995 4.56066 6.06066C4.69995 5.92137 4.81044 5.75601 4.88582 5.57403C4.9612 5.39204 5 5.19698 5 5H6.5C6.5 5.39782 6.65804 5.77936 6.93934 6.06066C7.22064 6.34196 7.60218 6.5 8 6.5C8.39782 6.5 8.77936 6.34196 9.06066 6.06066C9.34196 5.77936 9.5 5.39782 9.5 5H11C11 5.39782 11.158 5.77936 11.4393 6.06066C11.7206 6.34196 12.1022 6.5 12.5 6.5C12.8978 6.5 13.2794 6.34196 13.5607 6.06066C13.842 5.77936 14 5.39782 14 5ZM14 7.599C13.5441 7.8626 13.0266 8.00094 12.5 8C11.604 8 10.8 7.607 10.25 6.984C9.96879 7.30363 9.62263 7.55959 9.23463 7.73479C8.84663 7.91 8.42572 8.00041 8 8C7.104 8 6.3 7.607 5.75 6.984C5.46879 7.30363 5.12263 7.55959 4.73463 7.73479C4.34663 7.91 3.92572 8.00041 3.5 8C2.97339 8.00094 2.45589 7.8626 2 7.599V13.5H6V12C6 11.4696 6.21071 10.9609 6.58579 10.5858C6.96086 10.2107 7.46957 10 8 10C8.53043 10 9.03914 10.2107 9.41421 10.5858C9.78929 10.9609 10 11.4696 10 12V13.5H14V7.599ZM8.5 12V13.5H7.5V12C7.5 11.8674 7.55268 11.7402 7.64645 11.6464C7.74021 11.5527 7.86739 11.5 8 11.5C8.13261 11.5 8.25979 11.5527 8.35355 11.6464C8.44732 11.7402 8.5 11.8674 8.5 12Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function ChevronDoubleLeftIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M3.14606 7.293C2.95859 7.48053 2.85327 7.73484 2.85327 8C2.85327 8.26517 2.95859 8.51947 3.14606 8.707L6.97006 12.53L7.50006 13.06L8.56006 12L8.03006 11.47L4.56006 8L8.03006 4.53L8.56006 4L7.50006 2.94L6.97006 3.47L3.14606 7.293ZM8.14606 7.293C7.95859 7.48053 7.85327 7.73484 7.85327 8C7.85327 8.26517 7.95859 8.51947 8.14606 8.707L11.9701 12.53L12.5001 13.06L13.5601 12L13.0301 11.47L9.56006 8L13.0301 4.53L13.5601 4L12.5001 2.94L11.9701 3.47L8.14606 7.293Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function PencilIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function ArrowLeftIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M13 8H3M3 8l4.5-4.5M3 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function AlertIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M8 2.5L14.5 13.5H1.5L8 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M8 6.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="8" cy="11.75" r="0.85" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function XIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M12.5 3.5L3.5 12.5M3.5 3.5L12.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function MenuIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function SunIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <circle cx="8" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M8 1v1.5M8 13.5V15M15 8h-1.5M2.5 8H1M12.95 3.05l-1.06 1.06M4.11 11.89l-1.06 1.06M12.95 12.95l-1.06-1.06M4.11 4.11L3.05 3.05" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function MoonIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path d="M14 9.32A6.25 6.25 0 116.68 2a6.25 6.25 0 007.32 7.32z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function ChevronDoubleRightIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M12.8539 8.707C13.0414 8.51947 13.1467 8.26517 13.1467 8C13.1467 7.73484 13.0414 7.48053 12.8539 7.293L9.02994 3.47L8.49994 2.94L7.43994 4L7.96994 4.53L11.4399 8L7.96994 11.47L7.43994 12L8.49994 13.06L9.02994 12.53L12.8539 8.707ZM7.85394 8.707C8.04141 8.51947 8.14673 8.26517 8.14673 8C8.14673 7.73484 8.04141 7.48053 7.85394 7.293L4.02994 3.47L3.49994 2.94L2.43994 4L2.96994 4.53L6.43994 8L2.96994 11.47L2.43994 12L3.49994 13.06L4.02994 12.53L7.85394 8.707Z" fill="currentColor"/>
+    </svg>
+  )
+}

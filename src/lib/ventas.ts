@@ -20,33 +20,61 @@ export interface ItemMovimiento {
   metodo: "efectivo" | "transferencia";
 }
 
-/** Ventas y movimientos del mismo lote, en una sola transacción. */
+export interface ItemCobro {
+  alumno_id: string;
+  /** Lo que entrega contra deudas viejas. Se imputa FIFO a las más antiguas. */
+  efectivo: number;
+  transferencia: number;
+}
+
+/** Ventas, movimientos y cobros del mismo lote, en una sola transacción. */
 export async function registrarLote(
   ventas: ItemVenta[],
   movimientos: ItemMovimiento[],
+  cobros: ItemCobro[] = [],
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("registrar_lote", {
     p_ventas: ventas,
     p_movimientos: movimientos,
+    p_cobros: cobros,
   });
   if (error) return { error: error.message };
   revalidatePath("/mostrador");
   return {};
 }
 
-export async function anularVenta(ventaId: string): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("anular_venta", { p_venta_id: ventaId });
-  if (error) return { error: error.message };
+// Borrado real, sin papelera: la fila se va de la base y no queda registro de
+// quién la borró. Los dos listados (mostrador y ventas) llaman acá, así que
+// se comportan igual; refrescamos los dos.
+const refrescar = () => {
   revalidatePath("/mostrador");
+  revalidatePath("/ventas");
+  revalidatePath("/alumnos");
+};
+
+/** Borra la venta con sus pagos y devuelve el stock. */
+export async function borrarVenta(ventaId: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("borrar_venta", { p_venta_id: ventaId });
+  if (error) return { error: error.message };
+  refrescar();
   return {};
 }
 
-export async function anularMovimiento(id: string): Promise<{ error?: string }> {
+export async function borrarMovimiento(id: string): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("anular_movimiento", { p_movimiento_id: id });
+  const { error } = await supabase.rpc("borrar_movimiento", { p_movimiento_id: id });
   if (error) return { error: error.message };
-  revalidatePath("/mostrador");
+  refrescar();
+  return {};
+}
+
+/** Un cobro se borra pago por pago: uno solo pudo saldar varias compras. */
+export async function borrarPago(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("anular_pago", { p_pago_id: id });
+  if (error) return { error: error.message };
+  refrescar();
   return {};
 }

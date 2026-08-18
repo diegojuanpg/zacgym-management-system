@@ -22,6 +22,7 @@ export function Table({ className, children, ...props }: React.ComponentProps<"t
     <table
       data-slot="table"
       className={cn("w-full caption-bottom border-collapse text-left text-sm text-[var(--ds-gray-1000)]", className)}
+      {...props}
     >
       {newChildren}
     </table>
