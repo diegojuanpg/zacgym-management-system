@@ -79,14 +79,12 @@ insert into public.alumnos (apellido, nombre) values
   ('Key', 'Jeronimo')
 on conflict do nothing;
 
--- Cuentas de prueba. SOLO LOCAL: seed.sql corre con `supabase db reset`, nunca con
--- `db push` a produccion. Asi el reset deja de borrar los usuarios cada vez.
-select public.create_staff('diego@zacgym.com', 'password-nueva-2026', 'admin');
-select public.create_staff('sole@zacgym.com', 'zacgym-2026-test', 'employee');
-
--- Login rapido: 123@gmail.com / 123. create_staff exige 8 caracteres (esa regla vale
--- para produccion), asi que la password corta se pisa despues de crear la cuenta.
-select public.create_staff('123@gmail.com', 'placeholder-largo', 'admin');
-update auth.users
-   set encrypted_password = extensions.crypt('123', extensions.gen_salt('bf'))
- where email = '123@gmail.com';
+-- Unica cuenta de la app. SOLO LOCAL: seed.sql corre con `supabase db reset`,
+-- nunca con `db push` a produccion.
+--
+-- La password real no va en el repo (CLAUDE.md: nunca commitear valores reales).
+-- Despues de un reset, ponerla a mano:
+--
+--   docker exec -i supabase_db_zacgym-management-system psql -U postgres -d postgres \
+--     -c "update auth.users set encrypted_password = extensions.crypt('LA-PASSWORD', extensions.gen_salt('bf'));"
+select public.create_staff('owner@zacgym.test', 'password-solo-local', 'admin');

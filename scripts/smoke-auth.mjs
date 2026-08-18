@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 
 const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:55321";
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const EMAIL = process.env.SMOKE_EMAIL ?? "diego@zacgym.com";
-const PASSWORD = process.env.SMOKE_PASSWORD ?? "zacgym-2026-test";
+const EMAIL = process.env.SMOKE_EMAIL ?? "owner@zacgym.test";
+// Sin default: la password real no vive en el repo.
+const PASSWORD = process.env.SMOKE_PASSWORD;
 
 if (!KEY) throw new Error("Falta NEXT_PUBLIC_SUPABASE_ANON_KEY (cargá .env.local)");
+if (!PASSWORD) throw new Error("Falta SMOKE_PASSWORD");
 
 const post = (path, body) =>
   fetch(`${URL_BASE}${path}`, {
