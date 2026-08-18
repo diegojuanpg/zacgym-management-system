@@ -1,100 +1,65 @@
 import { Card } from "@/components/ui/card";
 import { Description } from "@/components/ui/description";
 
-const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
+const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
+const conSigno = (n: number) => (n === 0 ? "—" : `${n > 0 ? "+" : "−"}${pesos(n)}`);
 
 /**
- * Cuánta plata movió una caja en el turno, partida en efectivo y transferencia.
+ * Lo que tiene que haber en un cajón ahora mismo.
  *
- * El efectivo es lo que tiene que haber en el cajón —incluye el saldo con el que
- * se abrió, por eso se aclara al lado del título—; la transferencia nunca pasó
- * por ahí, entró a la cuenta. Se suman igual porque la pregunta que contesta la
- * tarjeta es cuánto manejó la caja; para el arqueo está el cierre, que solo pide
- * el cajón.
+ * Es el mismo número que el cierre le va a pedir al que cuente, así que abajo
+ * queda de dónde sale: el saldo con el que se abrió, lo que entró en efectivo
+ * por ventas y cobros, y lo que movieron los movimientos de caja. Sin eso, un
+ * faltante no se puede rastrear sin abrir la tabla.
  *
- * La proporción se dice con el porcentaje debajo de cada monto y no con una
- * barra de dos colores: dos colores nuevos piden una referencia que explique
- * cuál es cuál, y el número ya lo dice sin agregar nada.
+ * Las transferencias no cuentan: nunca pasaron por el cajón.
  */
 export function CajaCard({
   etiqueta,
   inicial,
-  efectivo,
-  transferencia,
+  ventas,
+  movimientos,
+  esperado,
   abierto,
 }: {
   etiqueta: string;
   inicial: number;
-  efectivo: number;
-  transferencia: number;
+  ventas: number;
+  movimientos: number;
+  esperado: number;
   /** Sin turno no hay nada que contar: la tarjeta queda en guiones. */
   abierto: boolean;
 }) {
-  const total = efectivo + transferencia;
-  const parte = (monto: number) =>
-    total === 0 ? null : `${Math.round((monto / total) * 100)}% del total`;
-
   return (
     <Card padded={false} className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 p-5">
+      <div className="p-5">
         <Description
           title={etiqueta}
           content={
-            <span className="text-heading-32 tabular-nums">{abierto ? pesos(total) : "—"}</span>
+            <span className="text-heading-32 tabular-nums">{abierto ? pesos(esperado) : "—"}</span>
           }
         />
-        {abierto && (
-          <span className="text-copy-13 text-[var(--ds-gray-900)]">
-            abrió en {pesos(inicial)}
-          </span>
-        )}
+        <p className="text-copy-13 mt-1 text-[var(--ds-gray-900)]">
+          {abierto ? "Lo que debería haber en efectivo" : "Sin turno abierto"}
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 border-t border-[var(--ds-gray-alpha-400)]">
-        <Parte
-          etiqueta="Efectivo"
-          monto={efectivo}
-          detalle={abierto ? parte(efectivo) : null}
-          abierto={abierto}
-          className="border-r border-[var(--ds-gray-alpha-400)]"
-        />
-        <Parte
-          etiqueta="Transferencia"
-          monto={transferencia}
-          detalle={abierto ? parte(transferencia) : null}
-          abierto={abierto}
-        />
-      </div>
+      {abierto && (
+        <dl className="text-copy-13 m-0 flex flex-col gap-2 border-t border-[var(--ds-gray-alpha-400)] p-4">
+          <Renglon etiqueta="Abrió con" valor={pesos(inicial)} />
+          <Renglon etiqueta="Ventas y cobros" valor={conSigno(ventas)} />
+          <Renglon etiqueta="Movimientos" valor={conSigno(movimientos)} />
+        </dl>
+      )}
     </Card>
   );
 }
 
-function Parte({
-  etiqueta,
-  monto,
-  detalle,
-  abierto,
-  className,
-}: {
-  etiqueta: string;
-  monto: number;
-  detalle: string | null;
-  abierto: boolean;
-  className?: string;
-}) {
+function Renglon({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
-    <div className={className}>
-      <Description
-        className="gap-1 p-4"
-        title={etiqueta}
-        content={
-          <div className="flex flex-col gap-0.5">
-            <span className="text-heading-16 tabular-nums">{abierto ? pesos(monto) : "—"}</span>
-            {/* Alto reservado: que aparezca el porcentaje no debe mover la fila. */}
-            <span className="text-copy-13 min-h-[18px] text-[var(--ds-gray-900)]">{detalle}</span>
-          </div>
-        }
-      />
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-[var(--ds-gray-900)]">{etiqueta}</dt>
+      <dd className="m-0 tabular-nums text-[var(--ds-gray-1000)]">{valor}</dd>
     </div>
   );
 }

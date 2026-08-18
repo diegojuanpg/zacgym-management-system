@@ -79,10 +79,12 @@ interface TurnoAbierto {
   abierto_en: string;
   caja_grande_inicial: number;
   caja_chica_inicial: number;
+  ventas_grande: number;
+  ventas_chica: number;
+  movimientos_grande: number;
+  movimientos_chica: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
-  transferencia_grande: number;
-  transferencia_chica: number;
   responsables: string[];
 }
 
@@ -110,7 +112,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const { data: turno } = await supabase
     .from("turno_actual")
     .select(
-      "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, transferencia_grande, transferencia_chica, responsables",
+      "id, abierto_en, caja_grande_inicial, caja_chica_inicial, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, caja_grande_esperada, caja_chica_esperada, responsables",
     )
     .maybeSingle<TurnoAbierto>();
 
@@ -212,14 +214,16 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     {
       etiqueta: "Caja grande",
       inicial: turno?.caja_grande_inicial ?? 0,
-      efectivo: turno?.caja_grande_esperada ?? 0,
-      transferencia: turno?.transferencia_grande ?? 0,
+      ventas: turno?.ventas_grande ?? 0,
+      movimientos: turno?.movimientos_grande ?? 0,
+      esperado: turno?.caja_grande_esperada ?? 0,
     },
     {
       etiqueta: "Caja chica",
       inicial: turno?.caja_chica_inicial ?? 0,
-      efectivo: turno?.caja_chica_esperada ?? 0,
-      transferencia: turno?.transferencia_chica ?? 0,
+      ventas: turno?.ventas_chica ?? 0,
+      movimientos: turno?.movimientos_chica ?? 0,
+      esperado: turno?.caja_chica_esperada ?? 0,
     },
   ];
 

@@ -1004,25 +1004,11 @@ export type Database = {
           caja_grande_esperada: number | null
           caja_grande_inicial: number | null
           id: string | null
+          movimientos_chica: number | null
+          movimientos_grande: number | null
           responsables: string[] | null
-        }
-        Insert: {
-          abierto_en?: string | null
-          caja_chica_esperada?: never
-          caja_chica_inicial?: number | null
-          caja_grande_esperada?: never
-          caja_grande_inicial?: number | null
-          id?: string | null
-          responsables?: never
-        }
-        Update: {
-          abierto_en?: string | null
-          caja_chica_esperada?: never
-          caja_chica_inicial?: number | null
-          caja_grande_esperada?: never
-          caja_grande_inicial?: number | null
-          id?: string | null
-          responsables?: never
+          ventas_chica: number | null
+          ventas_grande: number | null
         }
         Relationships: []
       }
@@ -1088,6 +1074,7 @@ export type Database = {
           creado_por: string | null
           efectivo: number | null
           id: string | null
+          no_paga: number | null
           pagado: number | null
           precio_unitario: number | null
           producto: string | null
@@ -1224,7 +1211,7 @@ export type Database = {
       caja: "grande" | "chica"
       categoria_producto: "mensualidad" | "consumible" | "suplemento"
       genero: "femenino" | "masculino" | "otro"
-      metodo_pago: "efectivo" | "transferencia"
+      metodo_pago: "efectivo" | "transferencia" | "no_paga"
       movimiento_tipo: "ingreso" | "egreso"
     }
     CompositeTypes: {
@@ -1359,7 +1346,7 @@ export const Constants = {
       caja: ["grande", "chica"],
       categoria_producto: ["mensualidad", "consumible", "suplemento"],
       genero: ["femenino", "masculino", "otro"],
-      metodo_pago: ["efectivo", "transferencia"],
+      metodo_pago: ["efectivo", "transferencia", "no_paga"],
       movimiento_tipo: ["ingreso", "egreso"],
     },
   },
