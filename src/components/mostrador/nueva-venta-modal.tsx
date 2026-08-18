@@ -74,11 +74,12 @@ interface FilaCobro extends ItemCobro {
 
 type Fila = FilaVenta | FilaMovimiento | FilaCobro;
 
-type Metodo = "efectivo" | "transferencia" | "mixto" | "debe";
+type Metodo = "efectivo" | "transferencia" | "mixto" | "debe" | "no_paga";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
-function nombreMetodo(efectivo: number, transferencia: number) {
+function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
+  if (noPaga > 0) return "No paga";
   if (efectivo > 0 && transferencia > 0) return "Mixto";
   if (efectivo > 0) return "Efectivo";
   if (transferencia > 0) return "Transferencia";
@@ -87,7 +88,7 @@ function nombreMetodo(efectivo: number, transferencia: number) {
 
 /** Lo que le falta cubrir a una venta. Negativo = pagó de más. */
 function faltante(f: FilaVenta) {
-  return f.precio * f.cantidad - f.efectivo - f.transferencia - f.creditoAplicado;
+  return f.precio * f.cantidad - f.efectivo - f.transferencia - f.no_paga - f.creditoAplicado;
 }
 
 /**
@@ -97,12 +98,14 @@ function faltante(f: FilaVenta) {
 function repartir(m: Metodo, efe: string, tra: string, sugerido: number) {
   const e = Number(efe) || 0;
   const t = Number(tra) || 0;
-  if (m === "debe") return { efectivo: 0, transferencia: 0 };
-  if (m === "mixto") return { efectivo: e, transferencia: t };
+  if (m === "debe") return { efectivo: 0, transferencia: 0, no_paga: 0 };
+  // Sin cargo: cubre todo, no hay monto que escribir.
+  if (m === "no_paga") return { efectivo: 0, transferencia: 0, no_paga: sugerido };
+  if (m === "mixto") return { efectivo: e, transferencia: t, no_paga: 0 };
   const monto = efe === "" ? sugerido : e;
   return m === "efectivo"
-    ? { efectivo: monto, transferencia: 0 }
-    : { efectivo: 0, transferencia: monto };
+    ? { efectivo: monto, transferencia: 0, no_paga: 0 }
+    : { efectivo: 0, transferencia: monto, no_paga: 0 };
 }
 
 export function NuevaVentaModal({
@@ -194,7 +197,7 @@ export function NuevaVentaModal({
   const restaLinea =
     aCobrar === null || cobroLinea === null
       ? 0
-      : aCobrar - cobroLinea.efectivo - cobroLinea.transferencia;
+      : aCobrar - cobroLinea.efectivo - cobroLinea.transferencia - cobroLinea.no_paga;
 
   // --- cobro de deuda: lo que debe hoy, menos lo que ya se cobra en el lote ---
   const deudores = alumnos.filter((a) => a.saldo - cobradoEnLote(a.id) > 0);
@@ -211,7 +214,7 @@ export function NuevaVentaModal({
 
     const total = producto.precio * unidades;
     const creditoAplicado = Math.min(aFavorPrevio, total);
-    const { efectivo, transferencia } = cobro(total - creditoAplicado);
+    const { efectivo, transferencia, no_paga } = cobro(total - creditoAplicado);
 
     setFilas((previas) => [
       ...previas,
@@ -222,6 +225,7 @@ export function NuevaVentaModal({
         cantidad: unidades,
         efectivo,
         transferencia,
+        no_paga,
         creditoAplicado,
         alumno: alumno.nombre_completo,
         producto: producto.nombre,
@@ -298,12 +302,13 @@ export function NuevaVentaModal({
     setGuardando(true);
     setError(null);
     const { error } = await registrarLote(
-      ventas.map(({ alumno_id, producto_id, cantidad, efectivo, transferencia }) => ({
+      ventas.map(({ alumno_id, producto_id, cantidad, efectivo, transferencia, no_paga }) => ({
         alumno_id,
         producto_id,
         cantidad,
         efectivo,
         transferencia,
+        no_paga,
       })),
       movimientos.map(({ tipo, monto, motivo, caja, metodo }) => ({
         tipo,
@@ -405,7 +410,7 @@ export function NuevaVentaModal({
         <Tabs value={pestania} onValueChange={setPestania} className="mb-4">
           <TabsList>
             <TabsTrigger value="venta">Venta</TabsTrigger>
-            <TabsTrigger value="cobro">Cobro de deuda</TabsTrigger>
+            <TabsTrigger value="cobro">Cobrar deuda</TabsTrigger>
             <TabsTrigger value="caja">Movimiento de caja</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -468,6 +473,8 @@ export function NuevaVentaModal({
                   <option value="transferencia">Transferencia</option>
                   <option value="mixto">Mixto</option>
                   <option value="debe">Debe</option>
+                  {/* Lo que saca el dueño: sale del stock y no se cobra. */}
+                  <option value="no_paga">No paga</option>
                 </Select>
               </div>
 
@@ -507,7 +514,7 @@ export function NuevaVentaModal({
                       />
                     </div>
                   </>
-                ) : metodo === "debe" ? null : (
+                ) : metodo === "debe" || metodo === "no_paga" ? null : (
                   <div className="w-40">
                     <Input
                       label="Paga"
@@ -589,7 +596,7 @@ export function NuevaVentaModal({
                   }))}
                   value={cobroAlumnoId}
                   onValueChange={setCobroAlumnoId}
-                  placeholder="Buscar deudor..."
+                  placeholder="Buscar alumno..."
                   emptyMessage="Nadie debe plata"
                   width="100%"
                   clearable
@@ -652,7 +659,7 @@ export function NuevaVentaModal({
                 ) : (
                   <div className="w-40">
                     <Input
-                      label="Entrega"
+                      label="Paga"
                       size="large"
                       inputMode="numeric"
                       prefix="$"
@@ -799,7 +806,9 @@ export function NuevaVentaModal({
                             <TableCell>{f.alumno}</TableCell>
                             <TableCell>{f.producto}</TableCell>
                             <TableCell>{f.cantidad}</TableCell>
-                            <TableCell>{nombreMetodo(f.efectivo, f.transferencia)}</TableCell>
+                            <TableCell>
+                              {nombreMetodo(f.efectivo, f.transferencia, f.no_paga)}
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {pesos(f.efectivo + f.transferencia)}

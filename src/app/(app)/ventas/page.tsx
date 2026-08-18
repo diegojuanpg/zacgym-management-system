@@ -46,7 +46,9 @@ function corteDe(dias: number | null) {
   return dias === null ? null : new Date(Date.now() - dias * 86400000).toISOString();
 }
 
-function nombreMetodo(efectivo: number, transferencia: number) {
+function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
+  // Sin cargo: lo que se lleva el dueño. No entra plata y no queda deuda.
+  if (noPaga > 0) return "No paga";
   if (efectivo > 0 && transferencia > 0) return "Mixto";
   if (efectivo > 0) return "Efectivo";
   if (transferencia > 0) return "Transferencia";
@@ -62,6 +64,7 @@ interface VentaFila {
   total: number;
   efectivo: number;
   transferencia: number;
+  no_paga: number;
   saldo: number;
   creado_en: string;
   anulada_en: string | null;
@@ -72,7 +75,7 @@ interface PagoFila {
   venta_id: string;
   alumno: string;
   monto: number;
-  metodo: "efectivo" | "transferencia";
+  metodo: "efectivo" | "transferencia" | "no_paga";
   creado_en: string;
   anulada_en: string | null;
 }
@@ -118,7 +121,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   let qVentas = supabase
     .from("ventas_saldo")
     .select(
-      "id, alumno, producto, categoria, cantidad, total, efectivo, transferencia, saldo, creado_en, anulada_en",
+      "id, alumno, producto, categoria, cantidad, total, efectivo, transferencia, no_paga, saldo, creado_en, anulada_en",
     );
   let qPagos = supabase
     .from("pagos_detalle")
@@ -146,6 +149,8 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   const cobros = new Map<string, CobroFila>();
   for (const p of (pagos ?? []).filter((p) => !p.anulada_en)) {
     if (diaDeVenta.get(p.venta_id) === p.creado_en.slice(0, 10)) continue;
+    // Sin cargo no es plata que entró: no arma un cobro de deuda.
+    if (p.metodo === "no_paga") continue;
 
     const clave = `${p.alumno}|${p.creado_en}`;
     const fila = cobros.get(clave) ?? {
@@ -180,7 +185,11 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   const detalleDe = (r: Registro) =>
     r.clase === "venta" ? r.producto : r.clase === "cobro" ? "Cobro de deuda" : r.motivo;
   const metodoDe = (r: Registro) =>
-    r.clase === "movimiento" ? capitalizar(r.metodo) : nombreMetodo(r.efectivo, r.transferencia);
+    r.clase === "movimiento"
+      ? capitalizar(r.metodo)
+      : r.clase === "venta"
+        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
+        : nombreMetodo(r.efectivo, r.transferencia);
   const entraDe = (r: Registro) =>
     r.clase === "venta"
       ? r.efectivo + r.transferencia
