@@ -5,7 +5,7 @@ const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 const conSigno = (n: number) => (n === 0 ? "—" : `${n > 0 ? "+" : "−"}${pesos(n)}`);
 
 /**
- * Lo que tiene que haber en un cajón ahora mismo.
+ * Lo que tiene que haber en un cajón ahora mismo, en efectivo.
  *
  * Es el mismo número que el cierre le va a pedir al que cuente, así que abajo
  * queda de dónde sale: el saldo con el que se abrió, lo que entró en efectivo
@@ -39,9 +39,6 @@ export function CajaCard({
             <span className="text-heading-32 tabular-nums">{abierto ? pesos(esperado) : "—"}</span>
           }
         />
-        <p className="text-copy-13 mt-1 text-[var(--ds-gray-900)]">
-          {abierto ? "Lo que debería haber en efectivo" : "Sin turno abierto"}
-        </p>
       </div>
 
       {abierto && (
