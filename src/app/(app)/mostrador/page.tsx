@@ -212,14 +212,14 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // que es la misma cuenta que usa el cierre para decir si cuadra.
   const totales = [
     {
-      etiqueta: "Caja grande",
+      etiqueta: "Caja grande efectivo",
       inicial: turno?.caja_grande_inicial ?? 0,
       ventas: turno?.ventas_grande ?? 0,
       movimientos: turno?.movimientos_grande ?? 0,
       esperado: turno?.caja_grande_esperada ?? 0,
     },
     {
-      etiqueta: "Caja chica",
+      etiqueta: "Caja chica efectivo",
       inicial: turno?.caja_chica_inicial ?? 0,
       ventas: turno?.ventas_chica ?? 0,
       movimientos: turno?.movimientos_chica ?? 0,
