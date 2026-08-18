@@ -1,4 +1,15 @@
+# pnpm no corre los scripts de instalacion de una dependencia salvo que este
+# permitida aca. `allowBuilds` la entiende pnpm 11; `onlyBuiltDependencies`,
+# pnpm 10. Van las dos porque el build de Vercel puede usar cualquiera de las
+# dos versiones, y con pnpm 10 un script ignorado hace fallar el install entero.
 allowBuilds:
   esbuild: true
   sharp: true
   supabase: true
+  unrs-resolver: true
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - supabase
+  - unrs-resolver
