@@ -170,11 +170,12 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
           <TableRoot className="md:max-h-[calc(100vh-16rem)]">
             <Table aria-label="Tareas">
               <TableColgroup>
-                <TableCol style={{ width: "15%" }} />
                 <TableCol style={{ width: "14%" }} />
-                <TableCol style={{ width: "48%" }} />
-                <TableCol style={{ width: "15%" }} />
-                <TableCol style={{ width: "8%" }} />
+                <TableCol style={{ width: "13%" }} />
+                <TableCol style={{ width: "17%" }} />
+                <TableCol style={{ width: "36%" }} />
+                <TableCol style={{ width: "13%" }} />
+                <TableCol style={{ width: "7%" }} />
               </TableColgroup>
               <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
                 <TableRow>
@@ -192,8 +193,9 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                   </TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>
-                    <FiltroColumna etiqueta="Tarea" param="alumno" opciones={opcionesAlumno} />
+                    <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
                   </TableHead>
+                  <TableHead>Tarea</TableHead>
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Estado"
@@ -222,18 +224,14 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                         <span className="text-[var(--ds-gray-900)]">—</span>
                       )}
                     </TableCell>
-                    {/* La tarea es texto libre: acá se lee entera, no cortada. El
-                        alumno va abajo porque casi siempre uno viene a abrir su ficha. */}
-                    <TableCell className="whitespace-normal">
-                      <span className="text-[var(--ds-gray-1000)]">{t.detalle}</span>
-                      <div className="text-copy-13">
-                        <Link
-                          href={`/alumnos/${t.alumno_id}`}
-                          className="text-[var(--ds-gray-900)] hover:text-[var(--ds-gray-1000)] hover:underline"
-                        >
-                          {t.alumno}
-                        </Link>
-                      </div>
+                    <TableCell className="text-[var(--ds-gray-1000)]">
+                      <Link href={`/alumnos/${t.alumno_id}`} className="hover:underline">
+                        {t.alumno}
+                      </Link>
+                    </TableCell>
+                    {/* La tarea es texto libre: acá se lee entera, no cortada. */}
+                    <TableCell className="whitespace-normal text-[var(--ds-gray-1000)]">
+                      {t.detalle}
                     </TableCell>
                     <TableCell>
                       <EstadoTareaSelect id={t.id} estado={t.estado} />
