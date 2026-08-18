@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   ChevronDoubleLeftIcon,
+  ClipboardIcon,
   ClockIcon,
   ChevronDoubleRightIcon,
   DollarIcon,
@@ -26,6 +27,7 @@ const SECCIONES = [
   { href: "/ventas", nombre: "Ventas", icono: DollarIcon, incluye: [] },
   { href: "/turnos", nombre: "Turnos", icono: ClockIcon, incluye: [] },
   { href: "/alumnos", nombre: "Alumnos", icono: UsersIcon, incluye: [] },
+  { href: "/tareas", nombre: "Tareas", icono: ClipboardIcon, incluye: [] },
 ];
 
 /**
