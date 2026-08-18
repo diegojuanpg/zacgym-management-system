@@ -32,6 +32,18 @@ export async function crearTarea(datos: DatosTarea): Promise<{ error?: string }>
   if (error) return { error: error.message };
 
   revalidatePath("/mostrador");
+  revalidatePath("/tareas");
+  return {};
+}
+
+/** Se hizo, o nunca hubo que hacerla. No hay papelera: la tarea se va. */
+export async function borrarTarea(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("tareas").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/tareas");
+  revalidatePath("/mostrador");
   return {};
 }
 
