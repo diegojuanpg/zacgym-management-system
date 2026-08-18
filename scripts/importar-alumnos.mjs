@@ -12,6 +12,7 @@
  * Es idempotente: el insert va con on conflict (apellido, nombre) do update.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { corregir, limpiar } from "./acentos.mjs";
 
 const [csvPath] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const flag = (n, def) => {
@@ -59,7 +60,7 @@ const esMail = (s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 
 const porClave = new Map();
 for (const f of CRUDAS) {
-  const completo = f[1].trim();
+  const completo = limpiar(f[1].trim());
   const coma = completo.indexOf(",");
   if (coma === -1) {
     // Sin coma no hay forma de saber que parte es el apellido. Algunas son
@@ -68,8 +69,9 @@ for (const f of CRUDAS) {
     reporte.sinComa.push(completo);
     continue;
   }
-  const apellido = completo.slice(0, coma).trim();
-  const nombre = completo.slice(coma + 1).trim();
+  // La hoja perdio la mitad de las tildes: se ponen al entrar, no despues.
+  const apellido = corregir(completo.slice(0, coma).trim());
+  const nombre = corregir(completo.slice(coma + 1).trim());
   if (!apellido || !nombre) { reporte.sinComa.push(completo); continue; }
 
   const clave = claveNombre(completo);
@@ -157,7 +159,7 @@ for (const t of tracking) {
   if (!destino) {
     // No esta en el sheet: se crea desde el pipeline. El apellido se adivina
     // con el ultimo token, que es lo unico que se puede hacer con "Nombre Apellido".
-    const ts = (t.nombre ?? "").trim().split(/\s+/);
+    const ts = corregir((t.nombre ?? "").trim()).split(/\s+/);
     const apellido = ts.pop() ?? "";
     const nombre = ts.join(" ") || apellido;
     reporte.sinMatch.push(`${t.nombre}  ->  ${apellido}, ${nombre}`);
