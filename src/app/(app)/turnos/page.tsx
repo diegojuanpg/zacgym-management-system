@@ -4,7 +4,7 @@ import { TabsUrl } from "@/components/tabs-url";
 import { ToggleUrl } from "@/components/toggle-url";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AlertIcon } from "@/components/icons";
+import { AlertIcon, ClockIcon } from "@/components/icons";
 import {
   TableRoot,
   Table,
@@ -82,9 +82,9 @@ interface Fila {
   contados: number;
 }
 
-export default async function IncoherenciasPage({
+export default async function TurnosPage({
   searchParams,
-}: PageProps<"/incoherencias">) {
+}: PageProps<"/turnos">) {
   await requireStaff();
   const { ver, cuadraron } = await searchParams;
   const vista = ver === "producto" ? "producto" : "turno";
@@ -202,7 +202,7 @@ export default async function IncoherenciasPage({
   return (
     <main className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-heading-20">Incoherencias</h1>
+        <h1 className="text-heading-20">Turnos</h1>
         <p className="text-copy-14 text-[var(--ds-gray-900)]">
           {cerrados.length} {cerrados.length === 1 ? "turno cerrado" : "turnos cerrados"}
           {conProblema.length === 0 ? (
@@ -240,7 +240,7 @@ export default async function IncoherenciasPage({
       {vista === "turno" ? (
         filas.length === 0 ? (
           <EmptyState
-            icon={<AlertIcon />}
+            icon={<ClockIcon />}
             title="Todavía no hubo ningún turno"
             description="Cuando se abra el primero, acá queda anotado con cuánto arrancó, con cuánto cerró y qué no coincidió."
           />

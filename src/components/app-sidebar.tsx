@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   ChevronDoubleLeftIcon,
-  AlertIcon,
+  ClockIcon,
   ChevronDoubleRightIcon,
   DollarIcon,
   MenuIcon,
@@ -24,7 +24,7 @@ const SECCIONES = [
   // Productos no tiene item propio: es parte del mostrador y lo deja marcado.
   { href: "/mostrador", nombre: "Mostrador", icono: StoreIcon, incluye: ["/productos"] },
   { href: "/ventas", nombre: "Ventas", icono: DollarIcon, incluye: [] },
-  { href: "/incoherencias", nombre: "Incoherencias", icono: AlertIcon, incluye: [] },
+  { href: "/turnos", nombre: "Turnos", icono: ClockIcon, incluye: [] },
   { href: "/alumnos", nombre: "Alumnos", icono: UsersIcon, incluye: [] },
 ];
 
