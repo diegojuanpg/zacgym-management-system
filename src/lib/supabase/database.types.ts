@@ -1036,6 +1036,7 @@ export type Database = {
           caja_grande_final: number | null
           caja_grande_inicial: number | null
           cerrado_en: string | null
+          contados: number | null
           dif_chica: number | null
           dif_grande: number | null
           id: string | null
@@ -1051,6 +1052,7 @@ export type Database = {
           caja_grande_final?: number | null
           caja_grande_inicial?: number | null
           cerrado_en?: string | null
+          contados?: never
           dif_chica?: never
           dif_grande?: never
           id?: string | null
@@ -1066,6 +1068,7 @@ export type Database = {
           caja_grande_final?: number | null
           caja_grande_inicial?: number | null
           cerrado_en?: string | null
+          contados?: never
           dif_chica?: never
           dif_grande?: never
           id?: string | null
@@ -1143,6 +1146,7 @@ export type Database = {
     Functions: {
       abrir_turno: {
         Args: {
+          p_abierto_en?: string
           p_caja_chica: number
           p_caja_grande: number
           p_responsables: string[]
@@ -1165,6 +1169,7 @@ export type Database = {
         Args: {
           p_caja_chica: number
           p_caja_grande: number
+          p_cerrado_en?: string
           p_nota?: string
           p_stock?: Json
         }

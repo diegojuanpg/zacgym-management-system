@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { PlusIcon, XIcon } from "@/components/icons";
+import { ahoraLocal } from "@/lib/utils";
 
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
 
@@ -39,6 +40,9 @@ export function TurnoModal({
   const [cajaGrande, setCajaGrande] = React.useState("");
   const [cajaChica, setCajaChica] = React.useState("");
   const [contados, setContados] = React.useState<Map<string, string>>(new Map());
+  const [arranco, setArranco] = React.useState("");
+  // El tope se congela al abrir: llamar a ahoraLocal() al dibujar no es puro.
+  const [tope, setTope] = React.useState("");
 
   function abrirModal() {
     setACargo([]);
@@ -48,6 +52,8 @@ export function TurnoModal({
     setCajaGrande("");
     setCajaChica("");
     setContados(new Map());
+    setArranco(ahoraLocal());
+    setTope(ahoraLocal());
     setError(null);
     setAbierto(true);
   }
@@ -86,6 +92,7 @@ export function TurnoModal({
 
   const listo =
     aCargo.length > 0 &&
+    arranco !== "" &&
     cajaGrande !== "" &&
     cajaChica !== "" &&
     todoContado(productos, contados);
@@ -93,9 +100,11 @@ export function TurnoModal({
   const faltaTexto =
     aCargo.length === 0
       ? "Elegí quién está a cargo"
-      : cajaGrande === "" || cajaChica === ""
-        ? "Falta el saldo de alguna caja"
-        : "Falta contar algún producto";
+      : arranco === ""
+        ? "Falta la hora de arranque"
+        : cajaGrande === "" || cajaChica === ""
+          ? "Falta el saldo de alguna caja"
+          : "Falta contar algún producto";
 
   async function guardar() {
     setGuardando(true);
@@ -105,6 +114,7 @@ export function TurnoModal({
       cajaGrande: Number(cajaGrande) || 0,
       cajaChica: Number(cajaChica) || 0,
       stock: aConteo(contados),
+      abiertoEn: new Date(arranco).toISOString(),
     });
     setGuardando(false);
     if (error) return setError(error);
@@ -139,6 +149,19 @@ export function TurnoModal({
         }
       >
         <div className="flex flex-col gap-6">
+          {/* Arranca lleno con la hora de ahora, que es el caso de siempre. Se
+              cambia cuando alguien entro temprano y recien abre el turno al
+              hacer la primera venta: esas horas tambien son de su turno. */}
+          <Input
+            label="Arrancó"
+            type="datetime-local"
+            size="large"
+            value={arranco}
+            max={tope}
+            onChange={(e) => setArranco(e.target.value)}
+            className="sm:max-w-64"
+          />
+
           <section className="flex flex-col gap-2">
             <h3 className="text-heading-16">¿Quién estará a cargo?</h3>
 

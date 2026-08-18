@@ -43,6 +43,8 @@ export async function abrirTurno(datos: {
   cajaGrande: number;
   cajaChica: number;
   stock: ConteoStock[];
+  /** ISO. Sin esto, la hora del turno es la de apretar el botón. */
+  abiertoEn?: string;
 }): Promise<{ error?: string }> {
   if (datos.responsables.length === 0) return { error: "Elegí al menos un responsable." };
 
@@ -52,6 +54,7 @@ export async function abrirTurno(datos: {
     p_caja_grande: datos.cajaGrande,
     p_caja_chica: datos.cajaChica,
     p_stock: datos.stock,
+    p_abierto_en: datos.abiertoEn ?? null,
   });
   if (error) return { error: error.message };
   refrescar();
@@ -63,6 +66,7 @@ export async function cerrarTurno(datos: {
   cajaChica: number;
   stock: ConteoStock[];
   nota: string;
+  cerradoEn?: string;
 }): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("cerrar_turno", {
@@ -70,6 +74,7 @@ export async function cerrarTurno(datos: {
     p_caja_chica: datos.cajaChica,
     p_stock: datos.stock,
     p_nota: datos.nota,
+    p_cerrado_en: datos.cerradoEn ?? null,
   });
   if (error) return { error: error.message };
   refrescar();
