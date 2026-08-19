@@ -80,3 +80,38 @@ export async function cerrarTurno(datos: {
   refrescar();
   return {};
 }
+
+/**
+ * Suma a alguien al turno que ya está abierto, con la hora a la que llegó.
+ *
+ * Sin esto, el que entra a mitad de turno o no figura, o figura desde que abrió
+ * la caja: dos horas que no estuvo.
+ */
+export async function sumarResponsable(
+  empleadoId: string,
+  desde?: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("sumar_responsable", {
+    p_empleado: empleadoId,
+    p_desde: desde ?? null,
+  });
+  if (error) return { error: error.message };
+  refrescar();
+  return {};
+}
+
+/** Marca la salida de alguien que se va antes de que termine el turno. */
+export async function sacarResponsable(
+  empleadoId: string,
+  hasta?: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("sacar_responsable", {
+    p_empleado: empleadoId,
+    p_hasta: hasta ?? null,
+  });
+  if (error) return { error: error.message };
+  refrescar();
+  return {};
+}
