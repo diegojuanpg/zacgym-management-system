@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { crearAlumno, type DatosAlumno } from "@/lib/alumnos";
+import { enterAvanza, enfocarPrimero } from "@/lib/foco";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +39,7 @@ export function AltaAlumno({
 
   async function guardar(event: React.FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
     setGuardando(true);
     setError(null);
     const { alumno, error } = await crearAlumno(datos);
@@ -48,16 +50,18 @@ export function AltaAlumno({
     }
     setDatos(VACIA);
     onCreado(alumno);
+    enfocarPrimero(form);
   }
 
   return (
-    <form onSubmit={guardar} className="flex flex-col gap-3 pb-4">
+    <form onSubmit={guardar} onKeyDown={enterAvanza} className="flex flex-col gap-3 pb-4">
       {/* Arriba lo obligatorio, abajo lo que se puede completar después. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Input
           label="Nombre"
           size="large"
           required
+          autoFocus
           value={datos.nombre}
           onChange={(e) => set("nombre", e.target.value)}
         />

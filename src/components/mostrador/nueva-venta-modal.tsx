@@ -8,6 +8,7 @@ import {
   type ItemMovimiento,
   type ItemCobro,
 } from "@/lib/ventas";
+import { enterAvanza, enfocarPrimero } from "@/lib/foco";
 import { BotonBloqueado } from "@/components/mostrador/boton-bloqueado";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,6 +209,7 @@ export function NuevaVentaModal({
 
   function agregarVenta(event: React.FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
     const alumno = alumnos.find((a) => a.id === alumnoId);
     const producto = productos.find((p) => p.id === productoId);
     if (!alumno || !producto) return;
@@ -239,10 +241,14 @@ export function NuevaVentaModal({
     setPagaEfectivo("");
     setPagaTransferencia("");
     setError(null);
+    // Lista la linea, el foco vuelve arriba: la siguiente venta se carga sin
+    // soltar el teclado.
+    enfocarPrimero(form);
   }
 
   function agregarMovimiento(event: React.FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
     const monto = Number(movMonto) || 0;
     if (monto <= 0) {
       setError("Poné cuánta plata entró o salió.");
@@ -267,10 +273,12 @@ export function NuevaVentaModal({
     setMovMonto("");
     setMovMotivo("");
     setError(null);
+    enfocarPrimero(form);
   }
 
   function agregarCobro(event: React.FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
     if (!alumnoCobro) {
       setError("Elegí a quién le estás cobrando.");
       return;
@@ -296,6 +304,7 @@ export function NuevaVentaModal({
     setCobroEfectivo("");
     setCobroTransferencia("");
     setError(null);
+    enfocarPrimero(form);
   }
 
   async function confirmar() {
@@ -416,7 +425,7 @@ export function NuevaVentaModal({
         </Tabs>
 
         {pestania === "venta" ? (
-          <form onSubmit={agregarVenta} className="flex flex-col gap-1 pb-4">
+          <form onSubmit={agregarVenta} onKeyDown={enterAvanza} className="flex flex-col gap-1 pb-4">
             <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_9rem_minmax(7rem,auto)]">
               <div>
                 <Label>Alumno</Label>
@@ -433,6 +442,7 @@ export function NuevaVentaModal({
                   emptyMessage="Ningún alumno coincide"
                   width="100%"
                   clearable
+                  autoFocus
                 />
               </div>
 
@@ -584,7 +594,7 @@ export function NuevaVentaModal({
             </div>
           </form>
         ) : pestania === "cobro" ? (
-          <form onSubmit={agregarCobro} className="flex flex-col gap-1 pb-4">
+          <form onSubmit={agregarCobro} onKeyDown={enterAvanza} className="flex flex-col gap-1 pb-4">
             <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_9rem_minmax(7rem,auto)]">
               <div>
                 <Label>Alumno</Label>
@@ -600,6 +610,7 @@ export function NuevaVentaModal({
                   emptyMessage="Nadie debe plata"
                   width="100%"
                   clearable
+                  autoFocus
                 />
               </div>
 
@@ -695,13 +706,14 @@ export function NuevaVentaModal({
             </div>
           </form>
         ) : (
-          <form onSubmit={agregarMovimiento} className="flex flex-col gap-1 pb-4">
+          <form onSubmit={agregarMovimiento} onKeyDown={enterAvanza} className="flex flex-col gap-1 pb-4">
             <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[10rem_8rem_10rem_1fr]">
               <div>
                 <Label htmlFor="mov-tipo">Movimiento</Label>
                 <Select
                   id="mov-tipo"
                   size="large"
+                  autoFocus
                   value={movTipo}
                   onChange={(e) => setMovTipo(e.target.value as ItemMovimiento["tipo"])}
                 >

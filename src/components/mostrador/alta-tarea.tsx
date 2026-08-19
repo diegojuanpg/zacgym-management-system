@@ -8,6 +8,7 @@ import {
   borrarCategoria,
   type Categoria,
 } from "@/lib/tareas";
+import { enterAvanza, enfocarPrimero } from "@/lib/foco";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ export function AltaTarea({
 
   async function guardar(event: React.FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
     setGuardando(true);
     setError(null);
     const { error } = await crearTarea({
@@ -62,6 +64,7 @@ export function AltaTarea({
     setAlumnoId("");
     setDetalle("");
     onCreada(alumno);
+    enfocarPrimero(form);
   }
 
   async function agregarCategoria() {
@@ -82,7 +85,7 @@ export function AltaTarea({
   }
 
   return (
-    <form onSubmit={guardar} className="flex flex-col gap-3 pb-4">
+    <form onSubmit={guardar} onKeyDown={enterAvanza} className="flex flex-col gap-3 pb-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label>Alumno</Label>
@@ -98,6 +101,7 @@ export function AltaTarea({
             emptyMessage="Ningún alumno coincide"
             width="100%"
             clearable
+            autoFocus
           />
         </div>
 
