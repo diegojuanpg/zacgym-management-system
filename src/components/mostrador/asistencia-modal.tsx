@@ -161,7 +161,7 @@ export function AsistenciaModal({
         open={abierto}
         onOpenChange={(v) => (v ? abrirModal() : setAbierto(false))}
         title="Asistencia"
-        description="Fichá cuando llegues. De acá sale quién estuvo en cada turno."
+        description="Registrá tu asistencia."
         className="w-[min(38rem,94vw)]"
         footer={
           <Button variant="secondary" onClick={() => setAbierto(false)} className="ml-auto">
@@ -178,14 +178,14 @@ export function AsistenciaModal({
             <div className="grid grid-cols-[5rem_9rem_1fr] items-end gap-2">
               {/* La entrada no se edita: es la hora en la que se apretó. */}
               <div>
-                <Label>Entra</Label>
+                <Label>Ingrese</Label>
                 <div className="flex h-10 items-center rounded-lg px-3 text-base tabular-nums text-[var(--ds-gray-1000)] shadow-[0_0_0_1px_var(--ds-gray-alpha-400)]">
                   {llegada}
                 </div>
               </div>
               <div>
                 <Input
-                  label="Trabaja hasta"
+                  label="Trabajo hasta"
                   type="time"
                   size="large"
                   value={hasta}
@@ -260,7 +260,7 @@ export function AsistenciaModal({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-heading-16">Trabajando ahora</h3>
+            <h3 className="text-heading-16">Historial</h3>
             {trabajando.length === 0 ? (
               <p className="text-copy-13 text-[var(--ds-gray-900)]">
                 Nadie fichó todavía. Sin fichaje, el turno queda sin nadie a cargo.
@@ -297,7 +297,7 @@ export function AsistenciaModal({
                       <div className="flex items-end gap-2">
                         <div className="w-36">
                           <Input
-                            label="Trabaja hasta"
+                            label="Trabajo hasta"
                             type="time"
                             size="large"
                             autoFocus
