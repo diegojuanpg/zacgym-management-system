@@ -127,6 +127,41 @@ export type Database = {
         }
         Relationships: []
       }
+      asistencias: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          empleado_id: string
+          entro: string
+          id: string
+          salio: string | null
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          empleado_id: string
+          entro?: string
+          id?: string
+          salio?: string | null
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          empleado_id?: string
+          entro?: string
+          id?: string
+          salio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asistencias_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empleados: {
         Row: {
           activo: boolean
@@ -467,59 +502,6 @@ export type Database = {
           },
         ]
       }
-      turno_responsables: {
-        Row: {
-          desde: string
-          empleado_id: string
-          hasta: string | null
-          id: string
-          turno_id: string
-        }
-        Insert: {
-          desde?: string
-          empleado_id: string
-          hasta?: string | null
-          id?: string
-          turno_id: string
-        }
-        Update: {
-          desde?: string
-          empleado_id?: string
-          hasta?: string | null
-          id?: string
-          turno_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "turno_responsables_empleado_id_fkey"
-            columns: ["empleado_id"]
-            isOneToOne: false
-            referencedRelation: "empleados"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "turno_responsables_turno_id_fkey"
-            columns: ["turno_id"]
-            isOneToOne: false
-            referencedRelation: "turno_actual"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "turno_responsables_turno_id_fkey"
-            columns: ["turno_id"]
-            isOneToOne: false
-            referencedRelation: "turnos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "turno_responsables_turno_id_fkey"
-            columns: ["turno_id"]
-            isOneToOne: false
-            referencedRelation: "turnos_cerrados"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       turno_stock: {
         Row: {
           contado: number
@@ -765,6 +747,26 @@ export type Database = {
           vence: string | null
         }
         Relationships: []
+      }
+      asistencias_detalle: {
+        Row: {
+          creado_en: string | null
+          empleado_id: string | null
+          entro: string | null
+          id: string | null
+          nombre: string | null
+          salio: string | null
+          trabajando: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asistencias_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dias_con_ventas: {
         Row: {
@@ -1119,7 +1121,6 @@ export type Database = {
           p_abierto_en?: string
           p_caja_chica: number
           p_caja_grande: number
-          p_responsables: string[]
           p_stock?: Json
         }
         Returns: string
@@ -1149,7 +1150,21 @@ export type Database = {
         Args: { p_email: string; p_password: string; p_role?: string }
         Returns: string
       }
+      empleados_en: {
+        Args: { p_desde: string; p_hasta?: string }
+        Returns: {
+          asistencia_id: string
+          empleado_id: string
+          entro: string
+          nombre: string
+          salio: string
+        }[]
+      }
       es_admin: { Args: never; Returns: boolean }
+      fichar_asistencia: {
+        Args: { p_empleado: string; p_salida: string }
+        Returns: string
+      }
       registrar_cobro: {
         Args: {
           p_alumno_id: string
@@ -1181,28 +1196,24 @@ export type Database = {
         Returns: number
       }
       registrar_ventas: { Args: { p_items: Json }; Returns: number }
-      responsables_de: {
-        Args: { p_turno: string }
+      responsables_entre: {
+        Args: { p_desde: string; p_hasta: string }
         Returns: {
           detalle: Json
           nombres: string[]
         }[]
       }
-      sacar_responsable: {
-        Args: { p_empleado: string; p_hasta?: string }
-        Returns: undefined
-      }
       set_staff_role: {
         Args: { p_email: string; p_role: string }
-        Returns: undefined
-      }
-      sumar_responsable: {
-        Args: { p_desde?: string; p_empleado: string }
         Returns: undefined
       }
       sumar_stock: {
         Args: { p_cantidad: number; p_producto_id: string }
         Returns: number
+      }
+      terminar_asistencia: {
+        Args: { p_id: string; p_salio?: string }
+        Returns: undefined
       }
     }
     Enums: {

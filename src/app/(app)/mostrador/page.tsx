@@ -6,10 +6,8 @@ import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { AccionesModal } from "@/components/mostrador/acciones-modal";
 import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
-import {
-  ResponsablesModal,
-  type TramoResponsable,
-} from "@/components/mostrador/responsables-modal";
+import { AsistenciaModal } from "@/components/mostrador/asistencia-modal";
+import type { Asistencia } from "@/lib/asistencias";
 import { CajaCard } from "@/components/mostrador/caja-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,7 +95,7 @@ interface TurnoAbierto {
   movimientos_chica: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
-  responsables_detalle: TramoResponsable[];
+  responsables: string[];
 }
 
 /** Un cobro puede tocar varias compras impagas: se muestran como una sola fila. */
@@ -127,13 +125,14 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { data: alumnos },
     { data: productos },
     { data: empleados },
+    { data: trabajando },
     { data: promos },
     { data: categorias },
   ] = await Promise.all([
       supabase
         .from("turno_actual")
         .select(
-          "id, abierto_en, caja_grande_inicial, caja_chica_inicial, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, caja_grande_esperada, caja_chica_esperada, responsables_detalle",
+          "id, abierto_en, caja_grande_inicial, caja_chica_inicial, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, caja_grande_esperada, caja_chica_esperada, responsables",
         )
         .maybeSingle<TurnoAbierto>(),
       supabase
@@ -150,6 +149,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .eq("activo", true)
         .order("nombre"),
       supabase.from("empleados").select("id, nombre").eq("activo", true).order("nombre"),
+      supabase
+        .from("asistencias_detalle")
+        .select("id, empleado_id, nombre, entro, salio, trabajando")
+        .eq("trabajando", true)
+        .order("entro")
+        .overrideTypes<Asistencia[]>(),
       supabase.from("alumno_promo").select("alumno_id, promo, producto_id, producto, precio"),
       supabase.from("tarea_categorias").select("id, nombre").order("nombre"),
     ]);
@@ -319,16 +324,11 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
               <>
                 A cargo:{" "}
                 <span className="text-[var(--ds-gray-1000)]">
-                  {/* La hora es solo del que entró después: si arrancaron
-                      todos juntos ya la dice el "desde las" de al lado. */}
-                  {turno.responsables_detalle
-                    .filter((r) => r.hasta === null)
-                    .map((r) =>
-                      r.desde === turno.abierto_en
-                        ? r.nombre
-                        : `${r.nombre} (desde las ${horaCorta(r.desde)})`,
-                    )
-                    .join(", ")}
+                  {/* Sale del fichaje: el que tenga asistencia dentro del rango
+                      del turno estuvo en el turno. */}
+                  {turno.responsables.length === 0
+                    ? "nadie fichó"
+                    : turno.responsables.join(", ")}
                 </span>
                 {" · turno desde las "}
                 {horaCorta(turno.abierto_en)}
@@ -341,20 +341,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Fichar no depende del turno: se llega antes de abrirlo. */}
+            <AsistenciaModal empleados={empleados ?? []} trabajando={trabajando ?? []} />
             {turno && (
-              <>
-                <ResponsablesModal
-                  empleados={empleados ?? []}
-                  tramos={turno.responsables_detalle}
-                  abiertoEn={turno.abierto_en}
-                />
-                <CerrarTurnoModal
-                  esperadoGrande={turno.caja_grande_esperada}
-                  esperadoChica={turno.caja_chica_esperada}
-                  tramos={turno.responsables_detalle}
-                  productos={aContar}
-                />
-              </>
+              <CerrarTurnoModal
+                esperadoGrande={turno.caja_grande_esperada}
+                esperadoChica={turno.caja_chica_esperada}
+                responsables={turno.responsables}
+                productos={aContar}
+              />
             )}
           </div>
 
@@ -389,8 +384,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           <EmptyState
             icon={<CartIcon />}
             title="No hay ningún turno abierto"
-            description="Para cargar ventas, cobros o movimientos de caja tenés que iniciar el turno y decir quién está a cargo."
-            action={<TurnoModal empleados={empleados ?? []} productos={aContar} />}
+            description="Para cargar ventas, cobros o movimientos de caja tenés que iniciar el turno contando la caja y el stock."
+            action={<TurnoModal trabajando={trabajando ?? []} productos={aContar} />}
           />
         ) : registros.length === 0 ? (
           <EmptyState

@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cerrarTurno } from "@/lib/turnos";
-import type { TramoResponsable } from "@/components/mostrador/responsables-modal";
 import {
   ConteoStock,
   aConteo,
@@ -26,12 +25,13 @@ const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 export function CerrarTurnoModal({
   esperadoGrande,
   esperadoChica,
-  tramos,
+  responsables,
   productos,
 }: {
   esperadoGrande: number;
   esperadoChica: number;
-  tramos: TramoResponsable[];
+  /** Quienes ficharon dentro del turno. Sale del cruce, no se elige. */
+  responsables: string[];
   productos: ProductoConStock[];
 }) {
   const router = useRouter();
@@ -57,10 +57,6 @@ export function CerrarTurnoModal({
     setError(null);
     setAbierto(true);
   }
-
-  // El cierre saca a todos los que sigan adentro. Cuando queda mas de uno hay
-  // que decirlo: el que se va primero tiene que marcar su salida, no cerrar.
-  const adentro = tramos.filter((t) => t.hasta === null).map((t) => t.nombre);
 
   const difGrande = cajaGrande === "" ? null : Number(cajaGrande) - esperadoGrande;
   const difChica = cajaChica === "" ? null : Number(cajaChica) - esperadoChica;
@@ -111,7 +107,7 @@ export function CerrarTurnoModal({
         open={abierto}
         onOpenChange={(v) => (v ? abrirModal() : setAbierto(false))}
         title="Cerrar turno"
-        description={`Contá la caja y el stock antes de cerrar. A cargo: ${adentro.join(", ")}.`}
+        description="Contá la caja y el stock antes de cerrar."
         className="w-[min(44rem,94vw)]"
         footer={
           <div className="flex w-full items-center justify-between gap-3">
@@ -139,16 +135,6 @@ export function CerrarTurnoModal({
         }
       >
         <div className="flex flex-col gap-6">
-          {adentro.length > 1 && (
-            <Note type="warning" fill>
-              Siguen a cargo {adentro.join(" y ")}. Al cerrar, el turno termina para
-              {" "}
-              {adentro.length === 2 ? "los dos" : "todos"} a la hora que pongas acá. Si te vas
-              vos solo y el resto se queda atendiendo, marcá tu salida en Responsables y que
-              cierre el último.
-            </Note>
-          )}
-
           {/* Igual que al abrir: el turno termina cuando se fue, no cuando se
               acordo de cerrarlo. */}
           <Input
@@ -217,8 +203,10 @@ export function CerrarTurnoModal({
                   </span>
                 ))}
                 <span className="mt-1">
-                  Podés cerrar igual. Queda registrado que {adentro.join(" y ")}{" "}
-                  {adentro.length === 1 ? "cerró" : "cerraron"} con esta diferencia.
+                  Podés cerrar igual. Por el fichaje, la diferencia queda a nombre de{" "}
+                  {responsables.length === 0
+                    ? "nadie: no fichó ninguno"
+                    : responsables.join(" y ")}.
                 </span>
               </div>
             </Note>

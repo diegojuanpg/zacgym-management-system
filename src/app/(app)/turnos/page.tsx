@@ -416,10 +416,11 @@ export default async function TurnosPage({
 }
 
 /**
- * Quién estuvo, y el horario solo de los que no hicieron el turno entero.
+ * Quién estuvo, y el horario solo del que no cubrió el turno entero.
  *
- * Repetir "6:30 → 14:00" en cada nombre es ruido cuando entraron todos juntos;
- * lo que hay que ver de un vistazo es el que llegó más tarde o se fue antes.
+ * La jornada casi nunca coincide con el turno —se ficha una vez y adentro pasan
+ * dos o tres turnos—, así que lo que se muestra es el pedazo que se solapa: de
+ * cuándo a cuándo estuvo esa persona mientras el turno estaba abierto.
  */
 function Responsables({
   tramos,
@@ -430,21 +431,25 @@ function Responsables({
   abierto: string;
   cerrado: string | null;
 }) {
-  if (tramos.length === 0) return <span className="text-[var(--ds-gray-900)]">—</span>;
+  if (tramos.length === 0) {
+    return <span className="text-[var(--ds-amber-900)]">Nadie fichó</span>;
+  }
 
   return (
     <div className="flex flex-col leading-tight">
       {tramos.map((r) => {
-        const entroDespues = r.desde !== abierto;
-        const seFueAntes = r.hasta !== null && r.hasta !== cerrado;
+        // El solapamiento, no la jornada entera: el que entró antes de que
+        // abriera el turno, adentro del turno estuvo desde que abrió.
+        const entro = r.desde > abierto ? r.desde : null;
+        const salio = cerrado !== null && r.hasta !== null && r.hasta < cerrado ? r.hasta : null;
         return (
           <span key={`${r.empleado_id}-${r.desde}`} className="whitespace-nowrap">
             <span className="text-[var(--ds-gray-1000)]">{r.nombre}</span>
-            {(entroDespues || seFueAntes) && (
+            {(entro || salio) && (
               <span className="text-copy-13 text-[var(--ds-gray-900)]">
                 {" "}
-                {entroDespues ? hora(r.desde) : ""}
-                {seFueAntes ? ` → ${hora(r.hasta!)}` : ""}
+                {entro ? hora(entro) : ""}
+                {salio ? ` → ${hora(salio)}` : ""}
               </span>
             )}
           </span>
