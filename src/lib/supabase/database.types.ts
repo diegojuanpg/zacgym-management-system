@@ -1150,6 +1150,10 @@ export type Database = {
         Args: { p_email: string; p_password: string; p_role?: string }
         Returns: string
       }
+      editar_salida: {
+        Args: { p_id: string; p_salio: string }
+        Returns: undefined
+      }
       empleados_en: {
         Args: { p_desde: string; p_hasta?: string }
         Returns: {
@@ -1210,10 +1214,6 @@ export type Database = {
       sumar_stock: {
         Args: { p_cantidad: number; p_producto_id: string }
         Returns: number
-      }
-      terminar_asistencia: {
-        Args: { p_id: string; p_salio?: string }
-        Returns: undefined
       }
     }
     Enums: {
