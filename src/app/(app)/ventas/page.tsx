@@ -1,6 +1,7 @@
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
+import { rangoDe, comparador } from "@/lib/filtros";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -45,6 +46,18 @@ const RUBROS = {
 function corteDe(dias: number | null) {
   return dias === null ? null : new Date(Date.now() - dias * 86400000).toISOString();
 }
+
+/** 2026-08-01 se lee 01/08: el año se sobreentiende. */
+const diaCorto = (f: string) => f.split("-").reverse().slice(0, 2).join("/");
+
+/** La hora local en HH:MM, que es lo que se compara contra el rango elegido. */
+const horaDe = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-AR", {
+    timeZone: ZONA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
 
 function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
   // Sin cargo: lo que se lleva el dueño. No entra plata y no queda deuda.
@@ -106,7 +119,8 @@ type Registro =
 
 export default async function VentasPage({ searchParams }: PageProps<"/ventas">) {
   await requireStaff();
-  const { q, rubro, periodo, orden, alumno, metodo } = await searchParams;
+  const { q, rubro, periodo, orden, alumno, detalle, metodo, fecha, hora, pago, total } =
+    await searchParams;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const solapa = typeof rubro === "string" ? rubro : "todos";
   const criterio = typeof orden === "string" ? orden : "reciente";
@@ -114,7 +128,17 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     v === undefined ? [] : Array.isArray(v) ? v : [v];
 
   const elegido = PERIODOS.find((p) => p.valor === periodo) ?? PERIODOS[0];
-  const desde = corteDe(elegido.dias);
+  // Un rango de fechas explícito manda sobre el período: si el usuario eligió
+  // "del 1 al 15", el "últimos 30 días" de al lado no tiene nada que decir.
+  // Argentina no cambia de hora: el -03:00 fijo alcanza para pasar a UTC.
+  const rangoFecha = rangoDe(fecha);
+  const hayRango = rangoFecha.desde !== "" || rangoFecha.hasta !== "";
+  const desde = hayRango
+    ? rangoFecha.desde
+      ? `${rangoFecha.desde}T00:00:00-03:00`
+      : null
+    : corteDe(elegido.dias);
+  const hasta = rangoFecha.hasta ? `${rangoFecha.hasta}T23:59:59.999-03:00` : null;
 
   const supabase = await createClient();
 
@@ -134,6 +158,11 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     qVentas = qVentas.gte("creado_en", desde);
     qPagos = qPagos.gte("creado_en", desde);
     qMovs = qMovs.gte("creado_en", desde);
+  }
+  if (hasta) {
+    qVentas = qVentas.lte("creado_en", hasta);
+    qPagos = qPagos.lte("creado_en", hasta);
+    qMovs = qMovs.lte("creado_en", hasta);
   }
 
   const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
@@ -212,17 +241,28 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
 
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
   const opcionesAlumno = ordenar(todos.map(alumnoDe));
+  const opcionesDetalle = ordenar(todos.map(detalleDe));
   const opcionesMetodo = ordenar(todos.map(metodoDe));
 
   const filtroAlumno = lista_(alumno);
+  const filtroDetalle = lista_(detalle);
   const filtroMetodo = lista_(metodo);
+  const rangoHora = rangoDe(hora);
+  const filtroPago = comparador(pago);
+  const filtroTotal = comparador(total);
 
   const registros = todos
     .filter(
       (r) =>
         (solapa === "todos" || rubroDe(r) === solapa) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(alumnoDe(r))) &&
+        (filtroDetalle.length === 0 || filtroDetalle.includes(detalleDe(r))) &&
         (filtroMetodo.length === 0 || filtroMetodo.includes(metodoDe(r))) &&
+        (rangoHora.desde === "" || horaDe(r.creado_en) >= rangoHora.desde) &&
+        (rangoHora.hasta === "" || horaDe(r.creado_en) <= rangoHora.hasta) &&
+        (filtroPago === null || filtroPago(entraDe(r))) &&
+        // El total es de la venta: cobros y caja no tienen uno que comparar.
+        (filtroTotal === null || filtroTotal(r.clase === "venta" ? r.total : null)) &&
         (busqueda === "" ||
           `${alumnoDe(r)} ${detalleDe(r)}`.toLowerCase().includes(busqueda)),
     )
@@ -259,7 +299,9 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
             ? `${todos.length} ${todos.length === 1 ? "movimiento" : "movimientos"}`
             : `${registros.length} de ${todos.length}`}
           {" · "}
-          {elegido.label.toLowerCase()}
+          {hayRango
+            ? `${diaCorto(rangoFecha.desde) || "el inicio"} → ${diaCorto(rangoFecha.hasta) || "hoy"}`
+            : elegido.label.toLowerCase()}
           {entrado !== 0 && (
             <>
               {" · "}
@@ -312,19 +354,28 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
                         predeterminado: PERIODOS[0].valor,
                         opciones: PERIODOS.map((p) => ({ valor: p.valor, label: p.label })),
                       }}
+                      rango={{ param: "fecha", tipo: "date" }}
                     />
                   </TableHead>
-                  <TableHead>Hora</TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Hora" rango={{ param: "hora", tipo: "time" }} />
+                  </TableHead>
                   <TableHead>
                     <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
                   </TableHead>
-                  <TableHead>Detalle</TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Detalle" param="detalle" opciones={opcionesDetalle} />
+                  </TableHead>
                   <TableHead>Cant.</TableHead>
                   <TableHead>
                     <FiltroColumna etiqueta="Método" param="metodo" opciones={opcionesMetodo} />
                   </TableHead>
-                  <TableHead>Pago</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Pago" monto={{ param: "pago" }} />
+                  </TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Total" monto={{ param: "total" }} />
+                  </TableHead>
                   <TableHead className="text-center" />
                 </TableRow>
               </TableHeader>

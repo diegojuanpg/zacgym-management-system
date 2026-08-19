@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
-import { ChevronDownIcon } from "@/components/icons";
+import { ArrowRightIcon, ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const ANCHO = 260;
@@ -183,10 +183,10 @@ export function FiltroColumna({
   }
 
   /** Un parámetro suelto: vacío lo saca de la URL en vez de dejarlo colgando. */
-  function aplicarValor(param: string, valor: string) {
+  function aplicarValor(clave: string, valor: string) {
     const nuevos = new URLSearchParams(searchParams.toString());
-    if (valor === "") nuevos.delete(param);
-    else nuevos.set(param, valor);
+    if (valor === "") nuevos.delete(clave);
+    else nuevos.set(clave, valor);
     irA(nuevos);
   }
 
@@ -254,7 +254,116 @@ export function FiltroColumna({
         </div>
       )}
 
-      {(orden || periodo) && hayFiltro && (
+      {(orden || periodo) && (rango || monto) && (
+        <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />
+      )}
+
+      {rango && (
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-1.5">
+            <Input
+              size="sm"
+              type={rango.tipo}
+              value={rangoA}
+              onChange={(e) => setRangoA(e.target.value)}
+              aria-label={`${etiqueta} desde`}
+              className="min-w-0 flex-1"
+            />
+            <ArrowRightIcon className="size-3.5 shrink-0 text-[var(--ds-gray-700)]" />
+            <Input
+              size="sm"
+              type={rango.tipo}
+              value={rangoB}
+              min={rangoA || undefined}
+              onChange={(e) => setRangoB(e.target.value)}
+              aria-label={`${etiqueta} hasta`}
+              className="min-w-0 flex-1"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => aplicarValor(rango.param, "")}>
+              Limpiar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() =>
+                aplicarValor(rango.param, rangoA || rangoB ? `${rangoA}..${rangoB}` : "")
+              }
+            >
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {rango && monto && <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />}
+
+      {monto && (
+        <div className="flex flex-col gap-2 px-1">
+          <Select
+            size="small"
+            value={operador}
+            onChange={(e) => setOperador(e.target.value)}
+            aria-label={`Comparar ${etiqueta}`}
+          >
+            {OPERADORES.map((o) => (
+              <option key={o.valor} value={o.valor}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+          <div className="flex items-center gap-1.5">
+            <Input
+              size="sm"
+              type="number"
+              inputMode="numeric"
+              placeholder="$"
+              value={montoA}
+              onChange={(e) => setMontoA(e.target.value)}
+              aria-label={`${etiqueta} ${operador === "entre" ? "mínimo" : "valor"}`}
+              className="min-w-0 flex-1"
+            />
+            {operador === "entre" && (
+              <>
+                <span className="text-[var(--ds-gray-700)]">y</span>
+                <Input
+                  size="sm"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="$"
+                  value={montoB}
+                  onChange={(e) => setMontoB(e.target.value)}
+                  aria-label={`${etiqueta} máximo`}
+                  className="min-w-0 flex-1"
+                />
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => aplicarValor(monto.param, "")}>
+              Limpiar
+            </Button>
+            <Button
+              size="sm"
+              // Sin numero no hay comparacion: el boton limpia en vez de guardar basura.
+              onClick={() =>
+                aplicarValor(
+                  monto.param,
+                  montoA === "" || (operador === "entre" && montoB === "")
+                    ? ""
+                    : operador === "entre"
+                      ? `entre:${montoA}:${montoB}`
+                      : `${operador}:${montoA}`,
+                )
+              }
+            >
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {(orden || periodo || rango || monto) && hayFiltro && (
         <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />
       )}
 
@@ -349,7 +458,7 @@ export function FiltroColumna({
           className={cn(
             // Igual que los encabezados que no abren panel, que van en bold.
             "font-bold",
-            elegidas.length || ordenActiva
+            elegidas.length || ordenActiva || rangoActual || montoActual
               ? "text-[var(--ds-gray-1000)]"
               : "text-[var(--ds-gray-900)]",
           )}
@@ -361,6 +470,16 @@ export function FiltroColumna({
               <Badge variant="blue-subtle" size="sm">
                 {elegidas.length}
               </Badge>
+            )}
+            {rangoActual && (
+              <span className="font-normal text-[var(--ds-gray-900)]">
+                · {rangoActual.split("..").map(corto).join(" → ")}
+              </span>
+            )}
+            {montoActual && (
+              <span className="font-normal text-[var(--ds-gray-900)]">
+                · {resumenMonto(montoActual)}
+              </span>
             )}
             {periodoActivo && periodoActual !== periodo?.predeterminado && (
               <span className="font-normal text-[var(--ds-gray-900)]">
