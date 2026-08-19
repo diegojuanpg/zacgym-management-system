@@ -469,15 +469,24 @@ export type Database = {
       }
       turno_responsables: {
         Row: {
+          desde: string
           empleado_id: string
+          hasta: string | null
+          id: string
           turno_id: string
         }
         Insert: {
+          desde?: string
           empleado_id: string
+          hasta?: string | null
+          id?: string
           turno_id: string
         }
         Update: {
+          desde?: string
           empleado_id?: string
+          hasta?: string | null
+          id?: string
           turno_id?: string
         }
         Relationships: [
@@ -1011,6 +1020,7 @@ export type Database = {
           movimientos_chica: number | null
           movimientos_grande: number | null
           responsables: string[] | null
+          responsables_detalle: Json | null
           ventas_chica: number | null
           ventas_grande: number | null
         }
@@ -1032,38 +1042,7 @@ export type Database = {
           id: string | null
           nota_cierre: string | null
           responsables: string[] | null
-        }
-        Insert: {
-          abierto_en?: string | null
-          caja_chica_esperada?: number | null
-          caja_chica_final?: number | null
-          caja_chica_inicial?: number | null
-          caja_grande_esperada?: number | null
-          caja_grande_final?: number | null
-          caja_grande_inicial?: number | null
-          cerrado_en?: string | null
-          contados?: never
-          dif_chica?: never
-          dif_grande?: never
-          id?: string | null
-          nota_cierre?: string | null
-          responsables?: never
-        }
-        Update: {
-          abierto_en?: string | null
-          caja_chica_esperada?: number | null
-          caja_chica_final?: number | null
-          caja_chica_inicial?: number | null
-          caja_grande_esperada?: number | null
-          caja_grande_final?: number | null
-          caja_grande_inicial?: number | null
-          cerrado_en?: string | null
-          contados?: never
-          dif_chica?: never
-          dif_grande?: never
-          id?: string | null
-          nota_cierre?: string | null
-          responsables?: never
+          responsables_detalle: Json | null
         }
         Relationships: []
       }
@@ -1202,8 +1181,23 @@ export type Database = {
         Returns: number
       }
       registrar_ventas: { Args: { p_items: Json }; Returns: number }
+      responsables_de: {
+        Args: { p_turno: string }
+        Returns: {
+          detalle: Json
+          nombres: string[]
+        }[]
+      }
+      sacar_responsable: {
+        Args: { p_empleado: string; p_hasta?: string }
+        Returns: undefined
+      }
       set_staff_role: {
         Args: { p_email: string; p_role: string }
+        Returns: undefined
+      }
+      sumar_responsable: {
+        Args: { p_desde?: string; p_empleado: string }
         Returns: undefined
       }
       sumar_stock: {

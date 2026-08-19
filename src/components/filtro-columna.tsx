@@ -6,11 +6,31 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const ANCHO = 260;
+
+/** Comparaciones del filtro de montos. "entre" es el unico que usa dos valores. */
+const OPERADORES = [
+  { valor: "mayor", label: "Mayor a" },
+  { valor: "menor", label: "Menor a" },
+  { valor: "igual", label: "Igual a" },
+  { valor: "entre", label: "Entre" },
+];
+
+/** Una fecha ISO se lee mejor como 01/08; una hora ya viene corta. */
+const corto = (v: string) =>
+  v.includes("-") ? v.split("-").reverse().slice(0, 2).join("/") : v;
+
+const resumenMonto = (v: string) => {
+  const [op, a, b] = v.split(":");
+  const label = OPERADORES.find((o) => o.valor === op)?.label ?? "";
+  return op === "entre" ? `${label} ${a} y ${b}` : `${label} ${a}`;
+};
 
 export interface OpcionOrden {
   valor: string;
@@ -35,6 +55,8 @@ export function FiltroColumna({
   titulos = {},
   orden,
   periodo,
+  rango,
+  monto,
 }: {
   etiqueta: string;
   /** Parámetro del filtro. Sin él la columna solo ordena. */
@@ -45,6 +67,10 @@ export function FiltroColumna({
   orden?: { param: string; opciones: OpcionOrden[] };
   /** Elección única, como el orden, pero con su propio parámetro. */
   periodo?: { param: string; predeterminado: string; opciones: OpcionOrden[] };
+  /** Desde/hasta en un solo parámetro, "a..b". Cualquiera de los dos puede ir vacío. */
+  rango?: { param: string; tipo: "date" | "time" };
+  /** Comparación de montos, "operador:valor" ("entre:min:max"). */
+  monto?: { param: string };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -62,11 +88,19 @@ export function FiltroColumna({
     : null;
   const periodoActivo = periodo?.opciones.find((o) => o.valor === periodoActual) ?? null;
 
+  const rangoActual = rango ? (searchParams.get(rango.param) ?? "") : "";
+  const montoActual = monto ? (searchParams.get(monto.param) ?? "") : "";
+
   const [abierto, setAbierto] = React.useState(false);
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
   const [busqueda, setBusqueda] = React.useState("");
   // Borrador: nada se aplica hasta Aceptar, como en la planilla.
   const [borrador, setBorrador] = React.useState<string[]>(elegidas);
+  const [rangoA, setRangoA] = React.useState("");
+  const [rangoB, setRangoB] = React.useState("");
+  const [operador, setOperador] = React.useState("mayor");
+  const [montoA, setMontoA] = React.useState("");
+  const [montoB, setMontoB] = React.useState("");
 
   // El Button del sistema no reenvía ref: el ancla del panel es el span que lo envuelve.
   const anclaRef = React.useRef<HTMLSpanElement>(null);
@@ -116,6 +150,13 @@ export function FiltroColumna({
     ubicar();
     // Sin filtro = todo tildado, como en la planilla.
     setBorrador(elegidas.length ? elegidas : opciones);
+    const [a = "", b = ""] = rangoActual.split("..");
+    setRangoA(a);
+    setRangoB(b);
+    const [op, x = "", y = ""] = montoActual.split(":");
+    setOperador(op || "mayor");
+    setMontoA(x);
+    setMontoB(y);
     setBusqueda("");
     setAbierto(true);
   }
@@ -138,6 +179,14 @@ export function FiltroColumna({
     // El predeterminado no se escribe: la URL limpia ya es ese período.
     if (valor === periodo!.predeterminado) nuevos.delete(periodo!.param);
     else nuevos.set(periodo!.param, valor);
+    irA(nuevos);
+  }
+
+  /** Un parámetro suelto: vacío lo saca de la URL en vez de dejarlo colgando. */
+  function aplicarValor(param: string, valor: string) {
+    const nuevos = new URLSearchParams(searchParams.toString());
+    if (valor === "") nuevos.delete(param);
+    else nuevos.set(param, valor);
     irA(nuevos);
   }
 

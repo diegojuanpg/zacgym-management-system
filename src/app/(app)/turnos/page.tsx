@@ -25,10 +25,24 @@ const cuando = (iso: string) =>
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 
 const hora = (iso: string) =>
-  new Date(iso).toLocaleTimeString("es-AR", { timeZone: ZONA, hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleTimeString("es-AR", {
+    timeZone: ZONA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+/** Un tramo de alguien adentro del turno. Vuelve a salir si entra dos veces. */
+interface Tramo {
+  empleado_id: string;
+  nombre: string;
+  desde: string;
+  hasta: string | null;
+}
 
 interface TurnoCerrado {
   id: string;
@@ -41,7 +55,7 @@ interface TurnoCerrado {
   dif_grande: number | null;
   dif_chica: number | null;
   nota_cierre: string | null;
-  responsables: string[];
+  responsables_detalle: Tramo[];
   contados: number;
 }
 
@@ -52,7 +66,7 @@ interface TurnoAbierto {
   caja_chica_inicial: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
-  responsables: string[];
+  responsables_detalle: Tramo[];
 }
 
 interface DiferenciaStock {
@@ -78,7 +92,7 @@ interface Fila {
   dif_grande: number | null;
   dif_chica: number | null;
   nota_cierre: string | null;
-  responsables: string[];
+  responsables_detalle: Tramo[];
   contados: number;
 }
 
@@ -96,14 +110,14 @@ export default async function TurnosPage({
     supabase
       .from("turnos_cerrados")
       .select(
-        "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, nota_cierre, responsables, contados",
+        "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, nota_cierre, responsables_detalle, contados",
       )
       .order("cerrado_en", { ascending: false })
       .overrideTypes<TurnoCerrado[]>(),
     supabase
       .from("turno_actual")
       .select(
-        "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, responsables",
+        "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, responsables_detalle",
       )
       .maybeSingle()
       .overrideTypes<TurnoAbierto>(),
@@ -139,7 +153,7 @@ export default async function TurnosPage({
             dif_grande: null,
             dif_chica: null,
             nota_cierre: null,
-            responsables: enCurso.responsables as string[],
+            responsables_detalle: enCurso.responsables_detalle,
             contados: 0,
           },
         ]
@@ -154,7 +168,7 @@ export default async function TurnosPage({
         dif_grande: t.dif_grande,
         dif_chica: t.dif_chica,
         nota_cierre: t.nota_cierre,
-        responsables: t.responsables as string[],
+        responsables_detalle: t.responsables_detalle,
         contados: t.contados,
       }),
     ),
@@ -268,12 +282,12 @@ export default async function TurnosPage({
                           {cuando(t.abierto_en)}
                           {t.cerrado_en && ` → ${hora(t.cerrado_en)}`}
                         </TableCell>
-                        <TableCell className="text-[var(--ds-gray-1000)]">
-                          {t.responsables.length > 0 ? (
-                            t.responsables.join(", ")
-                          ) : (
-                            <span className="text-[var(--ds-gray-900)]">—</span>
-                          )}
+                        <TableCell>
+                          <Responsables
+                            tramos={t.responsables_detalle}
+                            abierto={t.abierto_en}
+                            cerrado={t.cerrado_en}
+                          />
                         </TableCell>
                         <TableCell>
                           {t.cerrado_en === null ? (
@@ -398,6 +412,45 @@ export default async function TurnosPage({
         </div>
       )}
     </main>
+  );
+}
+
+/**
+ * Quién estuvo, y el horario solo de los que no hicieron el turno entero.
+ *
+ * Repetir "6:30 → 14:00" en cada nombre es ruido cuando entraron todos juntos;
+ * lo que hay que ver de un vistazo es el que llegó más tarde o se fue antes.
+ */
+function Responsables({
+  tramos,
+  abierto,
+  cerrado,
+}: {
+  tramos: Tramo[];
+  abierto: string;
+  cerrado: string | null;
+}) {
+  if (tramos.length === 0) return <span className="text-[var(--ds-gray-900)]">—</span>;
+
+  return (
+    <div className="flex flex-col leading-tight">
+      {tramos.map((r) => {
+        const entroDespues = r.desde !== abierto;
+        const seFueAntes = r.hasta !== null && r.hasta !== cerrado;
+        return (
+          <span key={`${r.empleado_id}-${r.desde}`} className="whitespace-nowrap">
+            <span className="text-[var(--ds-gray-1000)]">{r.nombre}</span>
+            {(entroDespues || seFueAntes) && (
+              <span className="text-copy-13 text-[var(--ds-gray-900)]">
+                {" "}
+                {entroDespues ? hora(r.desde) : ""}
+                {seFueAntes ? ` → ${hora(r.hasta!)}` : ""}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
