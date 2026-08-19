@@ -259,6 +259,14 @@ export function ArrowLeftIcon({ className, ...props }: { className?: string } & 
   )
 }
 
+export function ArrowRightIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
+      <path fillRule="evenodd" clipRule="evenodd" d="M9.53 2.22L9 1.69L7.94 2.75L8.47 3.28L12.44 7.25H1V8.75H12.44L8.47 12.72L7.94 13.25L9 14.31L9.53 13.78L14.604 8.707C14.7915 8.51947 14.8968 8.26517 14.8968 8C14.8968 7.73484 14.7915 7.48053 14.604 7.293L9.53 2.22Z" fill="currentColor"/>
+    </svg>
+  )
+}
+
 export function AlertIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
