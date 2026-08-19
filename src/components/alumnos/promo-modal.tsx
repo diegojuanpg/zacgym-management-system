@@ -160,7 +160,7 @@ export function PromoModal({
           <Input
             label="Nombre del grupo"
             size="large"
-            placeholder="Familia Gomez, Los del turno noche..."
+            placeholder="Familia Gómez, Los del turno noche..."
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
