@@ -35,16 +35,13 @@ export async function ficharAsistencia(
   return {};
 }
 
-/** "Me voy": pisa la salida declarada con la hora real. */
-export async function terminarAsistencia(
-  id: string,
-  salio?: string,
-): Promise<{ error?: string }> {
+/**
+ * Corrige la salida. La que se puso al fichar es un plan: se va antes, o se
+ * queda más. Por eso la hora nueva puede caer para cualquiera de los dos lados.
+ */
+export async function editarSalida(id: string, salio: string): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("terminar_asistencia", {
-    p_id: id,
-    p_salio: salio ?? null,
-  });
+  const { error } = await supabase.rpc("editar_salida", { p_id: id, p_salio: salio });
   if (error) return { error: error.message };
   refrescar();
   return {};

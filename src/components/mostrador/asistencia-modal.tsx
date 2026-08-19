@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ficharAsistencia, terminarAsistencia, type Asistencia } from "@/lib/asistencias";
+import { ficharAsistencia, editarSalida, type Asistencia } from "@/lib/asistencias";
 import { crearEmpleado, type Empleado } from "@/lib/turnos";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
@@ -23,20 +23,26 @@ const hora = (iso: string) =>
   });
 
 /**
- * "HH:MM" a una fecha real. Si la hora ya pasó es de mañana: el que ficha a las
- * 22 y sale a las 2 termina al otro día, no cuatro horas antes de entrar.
+ * "HH:MM" a la primera vez que esa hora cae después de la referencia. El que
+ * entra a las 22 y sale a las 2 termina al otro día, no cuatro horas antes.
  */
-function proximaHora(hhmm: string) {
+function horaDespuesDe(hhmm: string, referencia: Date) {
   const [h, m] = hhmm.split(":").map(Number);
-  const salida = new Date();
+  const salida = new Date(referencia);
   salida.setHours(h, m, 0, 0);
-  if (salida.getTime() <= Date.now()) salida.setDate(salida.getDate() + 1);
+  if (salida.getTime() <= referencia.getTime()) salida.setDate(salida.getDate() + 1);
   return salida;
 }
 
-/** Cuánto falta para esa hora, para confirmar que se entendió bien. */
-function duracion(hhmm: string) {
-  const minutos = Math.round((proximaHora(hhmm).getTime() - Date.now()) / 60000);
+/** "HH:MM" de una fecha, para precargar el campo al editar. */
+function comoHora(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** Cuánto hay entre dos momentos, para confirmar que se entendió bien. */
+function duracion(desde: Date, hasta: Date) {
+  const minutos = Math.round((hasta.getTime() - desde.getTime()) / 60000);
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;
   return h === 0 ? `${m} min` : m === 0 ? `${h} h` : `${h} h ${m} min`;
@@ -66,6 +72,9 @@ export function AsistenciaModal({
   const [hasta, setHasta] = React.useState("");
   const [nuevo, setNuevo] = React.useState("");
   const [sumando, setSumando] = React.useState(false);
+  // A quién se le está corrigiendo el horario, y con qué hora.
+  const [editando, setEditando] = React.useState<Asistencia | null>(null);
+  const [salida, setSalida] = React.useState("");
   // La hora que se muestra como entrada. Se congela al abrir: llamar a Date en
   // el render no es puro, y de todas formas la que vale es la que pone la base.
   const [llegada, setLlegada] = React.useState("");
@@ -75,6 +84,7 @@ export function AsistenciaModal({
     setHasta("");
     setNuevo("");
     setSumando(false);
+    setEditando(null);
     setLlegada(
       new Date().toLocaleTimeString("es-AR", {
         timeZone: ZONA,
@@ -91,7 +101,10 @@ export function AsistenciaModal({
     if (empleadoId === "" || hasta === "") return;
     setGuardando(true);
     setError(null);
-    const { error } = await ficharAsistencia(empleadoId, proximaHora(hasta).toISOString());
+    const { error } = await ficharAsistencia(
+      empleadoId,
+      horaDespuesDe(hasta, new Date()).toISOString(),
+    );
     setGuardando(false);
     if (error) return setError(error);
     setElegido("");
@@ -122,12 +135,17 @@ export function AsistenciaModal({
     if (empleado) await fichar(empleado.id);
   }
 
-  async function meVoy(id: string) {
+  async function guardarSalida() {
+    if (!editando || salida === "") return;
     setGuardando(true);
     setError(null);
-    const { error } = await terminarAsistencia(id);
+    // La hora nueva cuenta desde que entró, no desde ahora: así "02:00" es la
+    // madrugada de después de su entrada, se esté corrigiendo cuando se esté.
+    const cuando = horaDespuesDe(salida, new Date(editando.entro));
+    const { error } = await editarSalida(editando.id, cuando.toISOString());
     setGuardando(false);
     if (error) return setError(error);
+    setEditando(null);
     router.refresh();
   }
 
@@ -192,7 +210,8 @@ export function AsistenciaModal({
 
             <div className="flex min-h-6 items-center justify-between gap-3">
               <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                {hasta !== "" && `Son ${duracion(hasta)} de trabajo.`}
+                {hasta !== "" &&
+                  `Son ${duracion(new Date(), horaDespuesDe(hasta, new Date()))} de trabajo.`}
               </span>
               {sumando ? null : (
                 <Button variant="link" size="xs" onClick={() => setSumando(true)}>
@@ -249,23 +268,58 @@ export function AsistenciaModal({
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--ds-gray-alpha-400)]">
                 {trabajando.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between gap-3 py-2">
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[var(--ds-gray-1000)]">{a.nombre}</span>
-                      <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                        {hora(a.entro)} → {a.salio === null ? "sin hora de salida" : hora(a.salio)}
-                      </span>
+                  <li key={a.id} className="flex flex-col gap-2 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[var(--ds-gray-1000)]">{a.nombre}</span>
+                        <span className="text-copy-13 text-[var(--ds-gray-900)]">
+                          {hora(a.entro)} →{" "}
+                          {a.salio === null ? "sin hora de salida" : hora(a.salio)}
+                        </span>
+                      </div>
+                      {/* La hora de arriba es la que puso al fichar, o sea un
+                          plan: se puede ir antes o quedarse más. Las dos se
+                          arreglan acá. */}
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        onClick={() => {
+                          setEditando(editando?.id === a.id ? null : a);
+                          setSalida(a.salio === null ? "" : comoHora(a.salio));
+                          setError(null);
+                        }}
+                      >
+                        {editando?.id === a.id ? "Cancelar" : "Editar"}
+                      </Button>
                     </div>
-                    {/* La salida de arriba es la que declaró al llegar. Esto la
-                        pisa con la hora real, que es la que vale. */}
-                    <Button
-                      variant="tertiary"
-                      size="sm"
-                      loading={guardando}
-                      onClick={() => meVoy(a.id)}
-                    >
-                      Me voy
-                    </Button>
+
+                    {editando?.id === a.id && (
+                      <div className="flex items-end gap-2">
+                        <div className="w-36">
+                          <Input
+                            label="Trabaja hasta"
+                            type="time"
+                            size="large"
+                            autoFocus
+                            value={salida}
+                            onChange={(e) => setSalida(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="lg"
+                          disabled={salida === ""}
+                          loading={guardando}
+                          onClick={guardarSalida}
+                        >
+                          Guardar
+                        </Button>
+                        <span className="text-copy-13 pb-2.5 text-[var(--ds-gray-900)]">
+                          {salida !== "" &&
+                            `${duracion(new Date(a.entro), horaDespuesDe(salida, new Date(a.entro)))} de trabajo.`}
+                        </span>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
