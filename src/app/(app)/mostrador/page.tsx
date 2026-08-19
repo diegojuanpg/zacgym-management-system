@@ -97,7 +97,6 @@ interface TurnoAbierto {
   movimientos_chica: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
-  responsables: string[];
   responsables_detalle: TramoResponsable[];
 }
 
@@ -134,7 +133,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       supabase
         .from("turno_actual")
         .select(
-          "id, abierto_en, caja_grande_inicial, caja_chica_inicial, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, caja_grande_esperada, caja_chica_esperada, responsables, responsables_detalle",
+          "id, abierto_en, caja_grande_inicial, caja_chica_inicial, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, caja_grande_esperada, caja_chica_esperada, responsables_detalle",
         )
         .maybeSingle<TurnoAbierto>(),
       supabase
@@ -352,7 +351,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <CerrarTurnoModal
                   esperadoGrande={turno.caja_grande_esperada}
                   esperadoChica={turno.caja_chica_esperada}
-                  responsables={turno.responsables}
+                  tramos={turno.responsables_detalle}
                   productos={aContar}
                 />
               </>
