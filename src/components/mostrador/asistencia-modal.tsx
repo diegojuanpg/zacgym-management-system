@@ -57,11 +57,11 @@ function duracion(desde: Date, hasta: Date) {
  */
 export function AsistenciaModal({
   empleados,
-  trabajando,
+  asistencias,
 }: {
   empleados: Empleado[];
-  /** Los que fichados siguen adentro ahora. */
-  trabajando: Asistencia[];
+  /** Las jornadas de hoy, abiertas y cerradas. El día arranca a las 00:00. */
+  asistencias: Asistencia[];
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
@@ -149,6 +149,10 @@ export function AsistenciaModal({
     router.refresh();
   }
 
+  // Solo el que sigue adentro bloquea un fichaje nuevo: el que ya se fue puede
+  // volver a entrar más tarde el mismo día.
+  const trabajando = asistencias.filter((a) => a.trabajando);
+  const terminadas = asistencias.filter((a) => !a.trabajando);
   const puedeFichar = hasta !== "" && !guardando;
 
   return (
@@ -260,21 +264,41 @@ export function AsistenciaModal({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-heading-16">Historial</h3>
-            {trabajando.length === 0 ? (
+            <div className="flex items-baseline gap-3">
+              <h3 className="text-heading-16">Historial</h3>
+              <span className="text-copy-13 text-[var(--ds-gray-900)]">
+                {asistencias.length === 0
+                  ? "Hoy no fichó nadie"
+                  : `${asistencias.length} ${asistencias.length === 1 ? "jornada" : "jornadas"} hoy`}
+                {trabajando.length > 0 && ` · ${trabajando.length} trabajando`}
+              </span>
+            </div>
+            {asistencias.length === 0 ? (
               <p className="text-copy-13 text-[var(--ds-gray-900)]">
-                Nadie fichó todavía. Sin fichaje, el turno queda sin nadie a cargo.
+                El día arranca a las 00:00. Sin fichaje, el turno queda sin nadie a cargo.
               </p>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--ds-gray-alpha-400)]">
-                {trabajando.map((a) => (
+                {/* Los que siguen adentro arriba: son los que se tocan. Abajo,
+                    las jornadas que ya cerraron, que estan para mirar y corregir. */}
+                {[...trabajando, ...terminadas].map((a) => (
                   <li key={a.id} className="flex flex-col gap-2 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col leading-tight">
-                        <span className="text-[var(--ds-gray-1000)]">{a.nombre}</span>
+                        <span
+                          className={
+                            a.trabajando
+                              ? "text-[var(--ds-gray-1000)]"
+                              : "text-[var(--ds-gray-900)]"
+                          }
+                        >
+                          {a.nombre}
+                        </span>
                         <span className="text-copy-13 text-[var(--ds-gray-900)]">
                           {hora(a.entro)} →{" "}
                           {a.salio === null ? "sin hora de salida" : hora(a.salio)}
+                          {a.salio !== null &&
+                            ` · ${duracion(new Date(a.entro), new Date(a.salio))}`}
                         </span>
                       </div>
                       {/* La hora de arriba es la que puso al fichar, o sea un

@@ -27,3 +27,17 @@ export function ahoraLocal() {
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 }
+
+/**
+ * Hoy a las 00:00 en Buenos Aires, como instante ISO.
+ *
+ * No sirve `new Date()` a secas: el server corre en UTC, asi que entre las 21 y
+ * las 24 de Buenos Aires ya es el dia siguiente para el. Se pregunta la fecha en
+ * la zona y se le pega el offset, que en Argentina es fijo todo el año.
+ */
+export function inicioDelDia() {
+  const hoy = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+  return `${hoy}T00:00:00-03:00`;
+}

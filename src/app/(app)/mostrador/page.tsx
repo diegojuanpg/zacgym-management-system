@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { inicioDelDia } from "@/lib/utils";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { AccionesModal } from "@/components/mostrador/acciones-modal";
@@ -125,7 +126,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { data: alumnos },
     { data: productos },
     { data: empleados },
-    { data: trabajando },
+    { data: asistencias },
     { data: promos },
     { data: categorias },
   ] = await Promise.all([
@@ -149,10 +150,16 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .eq("activo", true)
         .order("nombre"),
       supabase.from("empleados").select("id, nombre").eq("activo", true).order("nombre"),
+      // Las jornadas de hoy, no solo las abiertas: el que entró a las 7 y se
+      // fue a las 15 tiene que seguir viéndose hasta que cierre el día.
+      //
+      // Y el que sigue adentro aparece aunque haya entrado ayer: el turno noche
+      // ficha a las 22 y sale a las 2, y a las 00:01 no puede desaparecer de la
+      // lista mientras está atendiendo.
       supabase
         .from("asistencias_detalle")
         .select("id, empleado_id, nombre, entro, salio, trabajando")
-        .eq("trabajando", true)
+        .or(`entro.gte.${inicioDelDia()},trabajando.is.true`)
         .order("entro")
         .overrideTypes<Asistencia[]>(),
       supabase.from("alumno_promo").select("alumno_id, promo, producto_id, producto, precio"),
@@ -184,6 +191,11 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       "id, tipo, caja, metodo, monto, motivo, delta, creado_en, anulado_en",
     ),
   ]);
+
+  const hoy = asistencias ?? [];
+  // El aviso al abrir turno mira quién está ahora, no quién pasó hoy: el que
+  // trabajó de 8 a 12 no cubre un turno que arranca a las 20.
+  const trabajando = hoy.filter((a) => a.trabajando);
 
   // Al turno entran solo los marcados en el catálogo. Contar los 43 que llevan
   // stock, dos veces por turno, son 86 números que nadie carga.
@@ -342,7 +354,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {/* Fichar no depende del turno: se llega antes de abrirlo. */}
-            <AsistenciaModal empleados={empleados ?? []} trabajando={trabajando ?? []} />
+            <AsistenciaModal empleados={empleados ?? []} asistencias={hoy} />
             {turno && (
               <CerrarTurnoModal
                 esperadoGrande={turno.caja_grande_esperada}
@@ -385,7 +397,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             icon={<CartIcon />}
             title="No hay ningún turno abierto"
             description="Para cargar ventas, cobros o movimientos de caja tenés que iniciar el turno contando la caja y el stock."
-            action={<TurnoModal trabajando={trabajando ?? []} productos={aContar} />}
+            action={<TurnoModal trabajando={trabajando} productos={aContar} />}
           />
         ) : registros.length === 0 ? (
           <EmptyState
