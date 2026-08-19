@@ -353,8 +353,6 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Fichar no depende del turno: se llega antes de abrirlo. */}
-            <AsistenciaModal empleados={empleados ?? []} asistencias={hoy} />
             {turno && (
               <CerrarTurnoModal
                 esperadoGrande={turno.caja_grande_esperada}
@@ -363,6 +361,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 productos={aContar}
               />
             )}
+            {/* Fichar no depende del turno: se llega antes de abrirlo. */}
+            <AsistenciaModal empleados={empleados ?? []} asistencias={hoy} />
           </div>
 
           {/* Sin turno los dos botones quedan bloqueados: el tooltip dice por qué. */}
