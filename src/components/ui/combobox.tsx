@@ -3,6 +3,7 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { enfocarSiguiente } from "@/lib/foco"
 
 /** Cuántas opciones se dibujan de una. Ver el filtro más abajo. */
 const TOPE = 60
@@ -89,6 +90,7 @@ export interface ComboboxProps {
   hidePrefix?: boolean
   suffixIcon?: React.ReactNode
   iconSide?: "prefix" | "suffix"
+  autoFocus?: boolean
 }
 
 export function Combobox({
@@ -108,6 +110,7 @@ export function Combobox({
   hidePrefix = false,
   suffixIcon,
   iconSide = "prefix",
+  autoFocus,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -159,11 +162,14 @@ export function Combobox({
     }
   }, [open])
 
-  const commit = (v: string) => {
+  // Elegir es un paso terminado: el foco sigue al campo que viene, para poder
+  // cargar toda la linea con el teclado. Limpiar no avanza: no completa nada.
+  const commit = (v: string, avanzar = false) => {
     if (value === undefined) setInternal(v)
     onValueChange?.(v)
     setOpen(false)
     setQuery("")
+    if (avanzar) enfocarSiguiente(inputRef.current)
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -184,7 +190,7 @@ export function Combobox({
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (filtered[active]) {
-        commit(filtered[active].value)
+        commit(filtered[active].value, true)
       }
     } else if (e.key === "Escape") {
       setOpen(false)
@@ -212,6 +218,7 @@ export function Combobox({
         <input
           ref={inputRef}
           type="text"
+          autoFocus={autoFocus}
           disabled={disabled}
           value={displayValue}
           onChange={(e) => {
@@ -300,7 +307,7 @@ export function Combobox({
                       role="option"
                       aria-selected={isSelected}
                       onMouseEnter={() => setActive(i)}
-                      onClick={() => commit(o.value)}
+                      onClick={() => commit(o.value, true)}
                       className={cn(
                         "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm transition-colors",
                         i === active
