@@ -20,7 +20,8 @@ export interface DiferenciaProducto {
 export interface TurnoDelDia {
   id: string;
   abierto_en: string;
-  cerrado_en: string | null;
+  /** Solo los cerrados dibujan separador: el abierto no lleva cabecera. */
+  cerrado_en: string;
   caja_grande_final: number | null;
   caja_chica_final: number | null;
   caja_grande_esperada: number | null;
@@ -40,7 +41,6 @@ export interface TurnoDelDia {
  * anterior dejó la caja o el stock descuadrado.
  */
 export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
-  const enCurso = turno.cerrado_en === null;
   const difGrande =
     turno.caja_grande_final === null || turno.caja_grande_esperada === null
       ? null
@@ -60,40 +60,37 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-[var(--ds-gray-alpha-200)] px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-heading-16 text-[var(--ds-gray-1000)]">
-          {hora(turno.abierto_en)} → {enCurso ? "en curso" : hora(turno.cerrado_en!)}
+          {hora(turno.abierto_en)} → {hora(turno.cerrado_en)}
         </span>
         <span className="text-copy-13 text-[var(--ds-gray-900)]">
           {turno.responsables.length > 0 ? turno.responsables.join(", ") : "nadie fichó"}
         </span>
-        {enCurso && <Badge variant="blue-subtle">En curso</Badge>}
       </div>
 
-      {!enCurso && (
-        <div className="text-copy-13 flex flex-col items-end gap-2.5">
-          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-            <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
-            <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
-          </div>
-
-          {/* El stock va en su propio renglon: son nombres de producto largos y
-              en la misma linea que la plata empujaban todo. Sin la palabra
-              "Stock" adelante: que falte un Monster ya se entiende solo. */}
-          {turno.stock.length > 0 && (
-            <div className="flex flex-wrap items-center justify-end gap-1">
-              {turno.stock.map((d) => (
-                <Badge
-                  key={`${d.producto}-${d.momento}`}
-                  variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
-                >
-                  {d.producto} {d.diferencia > 0 ? "+" : ""}
-                  {d.diferencia}
-                  {d.momento === "apertura" ? " (al abrir)" : ""}
-                </Badge>
-              ))}
-            </div>
-          )}
+      <div className="text-copy-13 flex flex-col items-end gap-2.5">
+        <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
+          <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
+          <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
         </div>
-      )}
+
+        {/* El stock va en su propio renglon: son nombres de producto largos y
+            en la misma linea que la plata empujaban todo. Sin la palabra
+            "Stock" adelante: que falte un Monster ya se entiende solo. */}
+        {turno.stock.length > 0 && (
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            {turno.stock.map((d) => (
+              <Badge
+                key={`${d.producto}-${d.momento}`}
+                variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
+              >
+                {d.producto} {d.diferencia > 0 ? "+" : ""}
+                {d.diferencia}
+                {d.momento === "apertura" ? " (al abrir)" : ""}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
