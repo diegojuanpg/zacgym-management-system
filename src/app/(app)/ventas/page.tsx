@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
@@ -29,12 +30,42 @@ const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * apenas el gimnasio lleve un par de años cargados.
  */
 const PERIODOS = [
-  { valor: "30d", label: "Últimos 30 días", dias: 30 },
+  // El primero es el que sale por defecto. Arranca en todo: acotar de entrada
+  // escondia el historico y dejaba solapas en cero que parecian datos faltantes.
+  { valor: "todo", label: "Todo", dias: null },
   { valor: "7d", label: "Últimos 7 días", dias: 7 },
+  { valor: "30d", label: "Últimos 30 días", dias: 30 },
   { valor: "90d", label: "Últimos 90 días", dias: 90 },
   { valor: "365d", label: "Último año", dias: 365 },
-  { valor: "todo", label: "Todo", dias: null },
 ] as const;
+
+/** Cuántas filas dibuja la tabla por vez. */
+const TANDA_FILAS = 200;
+
+/**
+ * Lo que PostgREST devuelve como maximo por pedido, de config.toml. Va pegado al
+ * tope real y no mas abajo: cada tanda es un viaje mas, y van uno atras del otro.
+ */
+const TOPE = 5000;
+
+/**
+ * Trae la consulta entera, en tandas.
+ *
+ * PostgREST corta en `max_rows` y no avisa: sin esto, "Todo" sobre 5612 ventas
+ * devolvia 5000 y las 612 que faltaban no aparecian en ningun lado.
+ */
+async function traerTodo<T>(consulta: {
+  range: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null }>;
+}) {
+  const filas: T[] = [];
+  for (let desde = 0; ; desde += TOPE) {
+    const { data } = await consulta.range(desde, desde + TOPE - 1);
+    if (!data?.length) break;
+    filas.push(...data);
+    if (data.length < TOPE) break;
+  }
+  return filas;
+}
 
 const RUBROS = {
   mensualidad: "Mensualidades",
@@ -119,8 +150,9 @@ type Registro =
 
 export default async function VentasPage({ searchParams }: PageProps<"/ventas">) {
   await requireStaff();
-  const { q, rubro, periodo, orden, alumno, detalle, metodo, fecha, hora, pago, total } =
-    await searchParams;
+  const parametros = await searchParams;
+  const { q, rubro, periodo, orden, alumno, detalle, metodo, fecha, hora, pago, total, filas } =
+    parametros;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const solapa = typeof rubro === "string" ? rubro : "todos";
   const criterio = typeof orden === "string" ? orden : "reciente";
@@ -165,18 +197,18 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     qMovs = qMovs.lte("creado_en", hasta);
   }
 
-  const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
-    qVentas.order("creado_en", { ascending: false }).overrideTypes<VentaFila[]>(),
-    qPagos.order("creado_en", { ascending: false }).overrideTypes<PagoFila[]>(),
-    qMovs.order("creado_en", { ascending: false }).overrideTypes<MovimientoFila[]>(),
+  const [ventas, pagos, movimientos] = await Promise.all([
+    traerTodo<VentaFila>(qVentas.order("creado_en", { ascending: false })),
+    traerTodo<PagoFila>(qPagos.order("creado_en", { ascending: false })),
+    traerTodo<MovimientoFila>(qMovs.order("creado_en", { ascending: false })),
   ]);
 
   // El pago hecho el mismo día que su venta ya está contado en la fila de esa
   // venta. Solo los que saldan una compra de otro día son un cobro aparte, y
   // se agrupan por alumno y momento porque un cobro puede tocar varias compras.
-  const diaDeVenta = new Map((ventas ?? []).map((v) => [v.id, v.creado_en.slice(0, 10)]));
+  const diaDeVenta = new Map(ventas.map((v) => [v.id, v.creado_en.slice(0, 10)]));
   const cobros = new Map<string, CobroFila>();
-  for (const p of (pagos ?? []).filter((p) => !p.anulada_en)) {
+  for (const p of pagos.filter((p) => !p.anulada_en)) {
     if (diaDeVenta.get(p.venta_id) === p.creado_en.slice(0, 10)) continue;
     // Sin cargo no es plata que entró: no arma un cobro de deuda.
     if (p.metodo === "no_paga") continue;
@@ -195,9 +227,9 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   }
 
   const todos: Registro[] = [
-    ...(ventas ?? []).map((v) => ({ clase: "venta" as const, ...v })),
+    ...ventas.map((v) => ({ clase: "venta" as const, ...v })),
     ...[...cobros.values()].map((c) => ({ clase: "cobro" as const, ...c })),
-    ...(movimientos ?? []).map((m) => ({ clase: "movimiento" as const, ...m })),
+    ...movimientos.map((m) => ({ clase: "movimiento" as const, ...m })),
   ];
 
   // Las solapas son "de qué es este movimiento". Los cobros y la caja no tienen
@@ -271,6 +303,23 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
         ? a.creado_en.localeCompare(b.creado_en)
         : b.creado_en.localeCompare(a.creado_en),
     );
+
+  // La tabla se dibuja de a tandas. Con el período en "Todo" el filtro deja más
+  // de cinco mil filas, y pintarlas todas de una es medio segundo de puro HTML
+  // que nadie va a leer. El resumen de arriba y el total sí miran todo.
+  const tope = Math.max(TANDA_FILAS, Number(typeof filas === "string" ? filas : "") || 0);
+  const visibles = registros.slice(0, tope);
+
+  /** La misma búsqueda pero con una tanda más. Es un link: no necesita JS. */
+  function linkConMasFilas() {
+    const otros = new URLSearchParams();
+    for (const [clave, valor] of Object.entries(parametros)) {
+      if (valor === undefined) continue;
+      for (const uno of Array.isArray(valor) ? valor : [valor]) otros.append(clave, uno);
+    }
+    otros.set("filas", String(tope + TANDA_FILAS));
+    return `/ventas?${otros}`;
+  }
 
   // Lo anulado no entró a la caja: no suma.
   const entrado = registros
@@ -381,7 +430,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
               </TableHeader>
 
               <TableBody striped>
-                {registros.map((r) => {
+                {visibles.map((r) => {
                   const anulado = anuladoDe(r);
                   const id = r.clase === "cobro" ? r.ids.join(",") : r.id;
                   const cuando = new Date(r.creado_en);
@@ -474,6 +523,19 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
                     </TableRow>
                   );
                 })}
+                {registros.length > visibles.length && (
+                  <TableRow className="!bg-transparent">
+                    <TableCell colSpan={10} className="!py-3 text-center">
+                      <Button variant="secondary" nativeButton={false} render={<Link href={linkConMasFilas()} />}>
+                        Mostrar {Math.min(TANDA_FILAS, registros.length - visibles.length)} más
+                        <span className="text-[var(--ds-gray-900)]">
+                          {" "}
+                          · {visibles.length} de {registros.length}
+                        </span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableRoot>
