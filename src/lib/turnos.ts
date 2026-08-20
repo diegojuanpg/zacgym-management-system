@@ -65,7 +65,6 @@ export async function cerrarTurno(datos: {
   cajaGrande: number;
   cajaChica: number;
   stock: ConteoStock[];
-  nota: string;
   cerradoEn?: string;
 }): Promise<{ error?: string }> {
   const supabase = await createClient();
@@ -73,7 +72,8 @@ export async function cerrarTurno(datos: {
     p_caja_grande: datos.cajaGrande,
     p_caja_chica: datos.cajaChica,
     p_stock: datos.stock,
-    p_nota: datos.nota,
+    // La nota se saco de la pantalla: lo que no cuadra ya queda en los numeros.
+    p_nota: null,
     p_cerrado_en: datos.cerradoEn ?? null,
   });
   if (error) return { error: error.message };

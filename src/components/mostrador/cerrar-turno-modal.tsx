@@ -42,7 +42,6 @@ export function CerrarTurnoModal({
   const [cajaGrande, setCajaGrande] = React.useState("");
   const [cajaChica, setCajaChica] = React.useState("");
   const [contados, setContados] = React.useState<Map<string, string>>(new Map());
-  const [nota, setNota] = React.useState("");
   const [termino, setTermino] = React.useState("");
   // El tope se congela al abrir: llamar a ahoraLocal() al dibujar no es puro.
   const [tope, setTope] = React.useState("");
@@ -51,7 +50,6 @@ export function CerrarTurnoModal({
     setCajaGrande("");
     setCajaChica("");
     setContados(new Map());
-    setNota("");
     setTermino(ahoraLocal());
     setTope(ahoraLocal());
     setError(null);
@@ -88,7 +86,6 @@ export function CerrarTurnoModal({
       cajaGrande: Number(cajaGrande) || 0,
       cajaChica: Number(cajaChica) || 0,
       stock: aConteo(contados),
-      nota,
       cerradoEn: new Date(termino).toISOString(),
     });
     setGuardando(false);
@@ -210,15 +207,6 @@ export function CerrarTurnoModal({
                 </span>
               </div>
             </Note>
-          )}
-
-          {hayDescuadre && (
-            <Input
-              label="¿Por qué no cuadra? (opcional)"
-              placeholder="Se rompió una botella, di un vuelto de más..."
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-            />
           )}
 
           {error && (

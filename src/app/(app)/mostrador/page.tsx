@@ -223,7 +223,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       ? supabase
           .from("turnos_cerrados")
           .select(
-            "id, abierto_en, cerrado_en, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, nota_cierre, responsables",
+            "id, abierto_en, cerrado_en, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, responsables",
           )
           .in("id", idsTurno)
           .overrideTypes<Omit<TurnoDelDia, "stock">[], { merge: false }>()
@@ -255,7 +255,6 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             caja_chica_final: null,
             caja_grande_esperada: null,
             caja_chica_esperada: null,
-            nota_cierre: null,
             responsables: turno.responsables,
             stock: stockDe(turno.id),
           },

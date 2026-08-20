@@ -25,7 +25,6 @@ export interface TurnoDelDia {
   caja_chica_final: number | null;
   caja_grande_esperada: number | null;
   caja_chica_esperada: number | null;
-  nota_cierre: string | null;
   responsables: string[];
   stock: DiferenciaProducto[];
 }
@@ -54,7 +53,10 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
   return (
     // Banda de fondo y no una linea: el separador tiene que leerse de un vistazo
     // entre dos tablas de numeros, y una linea mas ahi adentro no se ve.
-    <div className="flex flex-col gap-2 bg-[var(--ds-gray-alpha-200)] px-4 py-3">
+    //
+    // Una sola fila: a la izquierda de que turno es, a la derecha como cerro.
+    // En pantallas angostas el cierre baja abajo en vez de apretar el titulo.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 bg-[var(--ds-gray-alpha-200)] px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-heading-16 text-[var(--ds-gray-1000)]">
           Turno {hora(turno.abierto_en)} → {enCurso ? "en curso" : hora(turno.cerrado_en!)}
@@ -66,7 +68,7 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
       </div>
 
       {!enCurso && (
-        <div className="text-copy-13 flex flex-wrap items-center gap-x-5 gap-y-1">
+        <div className="text-copy-13 flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
           <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
           <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
 
@@ -86,10 +88,6 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
             </span>
           )}
         </div>
-      )}
-
-      {turno.nota_cierre && (
-        <p className="text-copy-13 text-[var(--ds-gray-900)] italic">“{turno.nota_cierre}”</p>
       )}
     </div>
   );

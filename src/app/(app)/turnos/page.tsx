@@ -54,7 +54,6 @@ interface TurnoCerrado {
   caja_chica_final: number | null;
   dif_grande: number | null;
   dif_chica: number | null;
-  nota_cierre: string | null;
   responsables_detalle: Tramo[];
   contados: number;
 }
@@ -91,7 +90,6 @@ interface Fila {
   chica: [number, number | null];
   dif_grande: number | null;
   dif_chica: number | null;
-  nota_cierre: string | null;
   responsables_detalle: Tramo[];
   contados: number;
 }
@@ -110,7 +108,7 @@ export default async function TurnosPage({
     supabase
       .from("turnos_cerrados")
       .select(
-        "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, nota_cierre, responsables_detalle, contados",
+        "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, responsables_detalle, contados",
       )
       .order("cerrado_en", { ascending: false })
       .overrideTypes<TurnoCerrado[]>(),
@@ -152,7 +150,6 @@ export default async function TurnosPage({
             chica: [enCurso.caja_chica_inicial, enCurso.caja_chica_esperada] as [number, number],
             dif_grande: null,
             dif_chica: null,
-            nota_cierre: null,
             responsables_detalle: enCurso.responsables_detalle,
             contados: 0,
           },
@@ -167,7 +164,6 @@ export default async function TurnosPage({
         chica: [t.caja_chica_inicial, t.caja_chica_final],
         dif_grande: t.dif_grande,
         dif_chica: t.dif_chica,
-        nota_cierre: t.nota_cierre,
         responsables_detalle: t.responsables_detalle,
         contados: t.contados,
       }),
@@ -270,7 +266,6 @@ export default async function TurnosPage({
                     <TableHead>Caja grande</TableHead>
                     <TableHead>Caja chica</TableHead>
                     <TableHead>Stock</TableHead>
-                    <TableHead>Nota</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody striped>
@@ -330,9 +325,6 @@ export default async function TurnosPage({
                           ) : (
                             <span className="text-[var(--ds-amber-900)]">No se contó</span>
                           )}
-                        </TableCell>
-                        <TableCell className="whitespace-normal">
-                          {t.nota_cierre ?? <span className="text-[var(--ds-gray-900)]">—</span>}
                         </TableCell>
                       </TableRow>
                     );
