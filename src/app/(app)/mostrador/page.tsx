@@ -469,7 +469,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           <p className="text-copy-14 text-[var(--ds-gray-900)]">
             {esHoy && turno ? (
               <>
-                A cargo:{" "}
+                <span className="font-bold text-[var(--ds-gray-1000)]">A cargo:</span>{" "}
                 <span className="text-[var(--ds-gray-1000)]">
                   {/* Sale del fichaje: el que tenga asistencia dentro del rango
                       del turno estuvo en el turno. */}
