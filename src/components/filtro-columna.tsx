@@ -188,6 +188,22 @@ export function FiltroColumna({
     irA(nuevos);
   }
 
+  /**
+   * Saca de la URL todo lo que decide esta columna.
+   *
+   * "Limpiar" borraba solo el rango, asi que en Fecha —donde lo que suele estar
+   * puesto es el periodo— el boton no hacia nada visible. Limpiar una columna es
+   * dejarla sin filtro, sea cual sea el que tenga puesto. El orden no entra: es
+   * como se ordena, no que se muestra.
+   */
+  function limpiarTodo() {
+    const nuevos = new URLSearchParams(searchParams.toString());
+    for (const clave of [param, periodo?.param, rango?.param, monto?.param]) {
+      if (clave) nuevos.delete(clave);
+    }
+    irA(nuevos);
+  }
+
   /** Un parámetro suelto: vacío lo saca de la URL en vez de dejarlo colgando. */
   function aplicarValor(clave: string, valor: string) {
     const nuevos = new URLSearchParams(searchParams.toString());
@@ -286,7 +302,7 @@ export function FiltroColumna({
             onChange={(e) => setRangoB(e.target.value)}
           />
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" size="sm" onClick={() => aplicarValor(rango.param, "")}>
+            <Button variant="secondary" size="sm" onClick={limpiarTodo}>
               Limpiar
             </Button>
             <Button
@@ -347,7 +363,7 @@ export function FiltroColumna({
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" size="sm" onClick={() => aplicarValor(monto.param, "")}>
+            <Button variant="secondary" size="sm" onClick={limpiarTodo}>
               Limpiar
             </Button>
             <Button
@@ -436,12 +452,9 @@ export function FiltroColumna({
             <Button type="button" variant="secondary" size="sm" onClick={cerrar}>
               Cancelar
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={borrador.length === 0}
-              onClick={() => aplicarFiltro(borrador)}
-            >
+            {/* Sin nada tildado no se bloquea: destildar todo es como se saca
+                un filtro ya puesto, y con el boton apagado no habia forma. */}
+            <Button type="button" size="sm" onClick={() => aplicarFiltro(borrador)}>
               Aceptar
             </Button>
           </div>
