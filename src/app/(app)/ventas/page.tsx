@@ -4,13 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { rangoDe, comparador } from "@/lib/filtros";
 import { Buscador } from "@/components/buscador";
-import { SelectUrl } from "@/components/select-url";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CalendarIcon, DollarIcon } from "@/components/icons";
+import { DollarIcon } from "@/components/icons";
 import {
   TableRoot,
   Table,
@@ -370,23 +369,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* El período estaba escondido adentro del filtro de la columna
-              Fecha: había que saber que estaba ahí. Es lo que decide cuánto se
-              trae, así que va a la vista. */}
-          <SelectUrl
-            param="periodo"
-            etiqueta="Período"
-            valor={elegido.valor}
-            predeterminado={PERIODOS[0].valor}
-            opciones={PERIODOS.map((p) => ({ valor: p.valor, label: p.label }))}
-            prefijo={<CalendarIcon />}
-          />
-          <Buscador
-            inicial={typeof q === "string" ? q : ""}
-            placeholder="Buscar alumno o detalle..."
-          />
-        </div>
+        <Buscador inicial={typeof q === "string" ? q : ""} placeholder="Buscar alumno o detalle..." />
       </div>
 
       {registros.length === 0 ? (
@@ -395,7 +378,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
           title={todos.length === 0 ? "Sin movimientos en el período" : "Nada coincide"}
           description={
             todos.length === 0
-              ? "Ampliá el período con el selector de arriba."
+              ? "Ampliá el período desde el encabezado de Fecha."
               : "Probá con otra búsqueda o sacá los filtros de los encabezados."
           }
         />
@@ -414,6 +397,11 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
                           { valor: "reciente", label: "Más reciente" },
                           { valor: "antiguo", label: "Más antiguo" },
                         ],
+                      }}
+                      periodo={{
+                        param: "periodo",
+                        predeterminado: PERIODOS[0].valor,
+                        opciones: PERIODOS.map((p) => ({ valor: p.valor, label: p.label })),
                       }}
                       rango={{ param: "fecha", tipo: "date" }}
                     />
