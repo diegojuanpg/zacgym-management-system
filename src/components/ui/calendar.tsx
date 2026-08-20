@@ -46,8 +46,11 @@ export function CalendarGrid({ className, classNames, showOutsideDays = true, ..
           "[&_.cal-btn]:bg-[var(--ds-gray-alpha-200)] [&_.cal-btn]:text-[var(--ds-gray-1000)] [&_.cal-btn]:rounded-none",
         range_end:
           "[&_.cal-btn]:bg-[var(--ds-gray-1000)] [&_.cal-btn]:text-[var(--ds-background-100)] [&_.cal-btn]:rounded-l-none [&_.cal-btn]:font-medium",
+        // Anillo y no borde: el borde gris se perdia contra el fondo, y el
+        // anillo se ve igual de bien cuando hoy ademas es el dia elegido y el
+        // boton esta pintado de negro.
         today:
-          "[&_.cal-btn]:border [&_.cal-btn]:border-[var(--ds-gray-800)] [&_.cal-btn]:font-semibold",
+          "[&_.cal-btn]:ring-2 [&_.cal-btn]:ring-inset [&_.cal-btn]:ring-[var(--ds-blue-900)] [&_.cal-btn]:font-semibold",
         outside: "text-[var(--ds-gray-700)] opacity-40",
         disabled: "opacity-40 cursor-not-allowed",
         hidden: "invisible",
