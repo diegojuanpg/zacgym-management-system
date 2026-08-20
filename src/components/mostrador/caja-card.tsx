@@ -80,11 +80,11 @@ export function CajaCard({ etiqueta, caja }: { etiqueta: string; caja: EstadoCaj
 
       <dl className="text-copy-13 m-0 flex flex-col gap-2 border-t border-[var(--ds-gray-alpha-400)] p-4">
         <Renglon
-          etiqueta={caja.estado === "abierto" ? "Abrió con" : "Arrancó el día con"}
+          etiqueta={caja.estado === "abierto" ? "Abriste con" : "Arrancó el día con"}
           valor={pesos(caja.inicial)}
         />
         <Renglon etiqueta="Ventas y cobros" valor={conSigno(caja.ventas)} />
-        <Renglon etiqueta="Movimientos" valor={conSigno(caja.movimientos)} />
+        <Renglon etiqueta="Extracciones y depósitos" valor={conSigno(caja.movimientos)} />
         {contado !== null && (
           <>
             <Renglon etiqueta="El sistema esperaba" valor={pesos(caja.esperado)} />
