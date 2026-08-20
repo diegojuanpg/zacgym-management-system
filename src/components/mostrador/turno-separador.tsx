@@ -25,7 +25,6 @@ export interface TurnoDelDia {
   caja_chica_final: number | null;
   caja_grande_esperada: number | null;
   caja_chica_esperada: number | null;
-  responsables: string[];
   stock: DiferenciaProducto[];
 }
 
@@ -61,9 +60,6 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
         <span className="text-heading-16 text-[var(--ds-gray-1000)]">
           Turno {hora(turno.abierto_en)} → {enCurso ? "en curso" : hora(turno.cerrado_en!)}
         </span>
-        <span className="text-copy-13 text-[var(--ds-gray-900)]">
-          {turno.responsables.length > 0 ? turno.responsables.join(", ") : "nadie fichó"}
-        </span>
         {enCurso && <Badge variant="blue-subtle">En curso</Badge>}
       </div>
 
@@ -93,7 +89,12 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
   );
 }
 
-/** Lo que contaron en un cajón y si dio. Sin conteo no se inventa un cero. */
+/**
+ * Lo que contaron en un cajón. El color dice si dio: verde alcanza, no hace
+ * falta escribir "cuadró". Si no dio va en rojo y ahí sí se aclara cuánto.
+ *
+ * Sin conteo no se inventa un cero.
+ */
 function Caja({
   etiqueta,
   contado,
@@ -104,15 +105,16 @@ function Caja({
   dif: number | null;
 }) {
   if (contado === null) return null;
+  const cuadro = dif === null || dif === 0;
+  const color = cuadro ? "text-[var(--ds-green-900)]" : "text-[var(--ds-red-900)]";
+
   return (
     <span className="flex items-baseline gap-1.5">
       <span className="text-[var(--ds-gray-900)]">{etiqueta}</span>
-      <span className="tabular-nums text-[var(--ds-gray-1000)]">{pesos(contado)}</span>
-      {dif === null || dif === 0 ? (
-        <span className="text-[var(--ds-green-900)]">cuadró</span>
-      ) : (
-        <span className={dif < 0 ? "text-[var(--ds-red-900)]" : "text-[var(--ds-amber-900)]"}>
-          {dif < 0 ? "faltan" : "sobran"} {pesos(dif)}
+      <span className={`tabular-nums ${color}`}>{pesos(contado)}</span>
+      {!cuadro && (
+        <span className={color}>
+          {dif! < 0 ? "faltan" : "sobran"} {pesos(dif!)}
         </span>
       )}
     </span>
