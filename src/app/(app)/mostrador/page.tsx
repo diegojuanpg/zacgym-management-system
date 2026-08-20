@@ -354,8 +354,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   };
 
   const totales = [
-    { etiqueta: "Caja grande efectivo", caja: cajaDe("grande") },
-    { etiqueta: "Caja chica efectivo", caja: cajaDe("chica") },
+    { etiqueta: "Caja grande", caja: cajaDe("grande") },
+    { etiqueta: "Caja chica", caja: cajaDe("chica") },
   ];
 
   type Registro =
