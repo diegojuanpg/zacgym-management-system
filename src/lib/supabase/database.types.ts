@@ -1131,6 +1131,7 @@ export type Database = {
       }
       anular_pago: { Args: { p_pago_id: string }; Returns: undefined }
       anular_venta: { Args: { p_venta_id: string }; Returns: undefined }
+      autocerrar_turno: { Args: never; Returns: undefined }
       borrar_movimiento: {
         Args: { p_movimiento_id: string }
         Returns: undefined

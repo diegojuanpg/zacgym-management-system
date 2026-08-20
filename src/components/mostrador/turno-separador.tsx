@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import type { PorCaja } from "@/lib/caja";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
@@ -22,10 +23,14 @@ export interface TurnoDelDia {
   abierto_en: string;
   /** Solo los cerrados dibujan separador: el abierto no lleva cabecera. */
   cerrado_en: string;
+  caja_grande_inicial: number;
+  caja_chica_inicial: number;
   caja_grande_final: number | null;
   caja_chica_final: number | null;
   caja_grande_esperada: number | null;
   caja_chica_esperada: number | null;
+  /** Lo que declaró al abrir de más o de menos contra el cierre del anterior. */
+  salto: PorCaja | null;
   responsables: string[];
   stock: DiferenciaProducto[];
 }
@@ -50,6 +55,10 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
       ? null
       : turno.caja_chica_final - turno.caja_chica_esperada;
 
+  // Sin ningún conteo final el turno no lo cerró una persona: lo cerró solo el
+  // sistema a la medianoche.
+  const loCerroNadie = turno.caja_grande_final === null && turno.caja_chica_final === null;
+
   return (
     // Banda de fondo y no una linea: el separador tiene que leerse de un vistazo
     // entre dos tablas de numeros, y una linea mas ahi adentro no se ve.
@@ -69,9 +78,24 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
 
       <div className="text-copy-13 flex flex-col items-end gap-2.5">
         <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-          <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
-          <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
+          {loCerroNadie ? (
+            <Badge variant="amber-subtle">No cerraron</Badge>
+          ) : (
+            <>
+              <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
+              <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
+            </>
+          )}
         </div>
+
+        {/* Lo que apareció o desapareció del cajón entre el cierre del turno
+            anterior y la apertura de este: plata que se movió sin anotarse. */}
+        {turno.salto && (
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <Salto etiqueta="Grande" monto={turno.salto.grande} />
+            <Salto etiqueta="Chica" monto={turno.salto.chica} />
+          </div>
+        )}
 
         {/* El stock va en su propio renglon: son nombres de producto largos y
             en la misma linea que la plata empujaban todo. Sin la palabra
@@ -92,6 +116,16 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** El salto contra el cierre anterior. Cero no se muestra: no hay nada que decir. */
+function Salto({ etiqueta, monto }: { etiqueta: string; monto: number }) {
+  if (monto === 0) return null;
+  return (
+    <Badge variant={monto < 0 ? "red-subtle" : "amber-subtle"}>
+      {etiqueta}: abrió con {pesos(monto)} de {monto < 0 ? "menos" : "más"}
+    </Badge>
   );
 }
 
