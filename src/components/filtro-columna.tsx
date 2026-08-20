@@ -10,13 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { Spinner } from "@/components/ui/spinner";
-import { ArrowRightIcon, ChevronDownIcon } from "@/components/icons";
+import { ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useNavegacion } from "@/hooks/use-navegacion";
 
 const ANCHO = 260;
-// Con dos campos uno al lado del otro el panel angosto los desborda: una fecha
-// entera no entra en la mitad de 260.
+// El panel se ensancha cuando trae campos: los del rango piden un renglon
+// entero cada uno y el "Entre" de los montos pone dos uno al lado del otro.
 const ANCHO_DOBLE = 320;
 
 /** Comparaciones del filtro de montos. "entre" es el unico que usa dos valores. */
@@ -266,32 +266,25 @@ export function FiltroColumna({
 
       {rango && (
         <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-1.5">
-            {/* El div de afuera es el que reparte el ancho: el className de
-                Input cae en el envoltorio de adentro, que ya es w-full, asi
-                que sin esto los dos campos piden el 100% cada uno y se salen
-                del panel. */}
-            <div className="min-w-0 flex-1">
-              <Input
-                size="sm"
-                type={rango.tipo}
-                value={rangoA}
-                onChange={(e) => setRangoA(e.target.value)}
-                aria-label={`${etiqueta} desde`}
-              />
-            </div>
-            <ArrowRightIcon className="size-3.5 shrink-0 text-[var(--ds-gray-700)]" />
-            <div className="min-w-0 flex-1">
-              <Input
-                size="sm"
-                type={rango.tipo}
-                value={rangoB}
-                min={rangoA || undefined}
-                onChange={(e) => setRangoB(e.target.value)}
-                aria-label={`${etiqueta} hasta`}
-              />
-            </div>
-          </div>
+          {/* Uno abajo del otro y no lado a lado: partido al medio, el campo
+              de fecha se comia el año y el icono del calendario. Cuanto ancho
+              necesita depende del formato del navegador, asi que darle el
+              renglon entero es lo unico que anda en todos. */}
+          <Input
+            size="sm"
+            label="Desde"
+            type={rango.tipo}
+            value={rangoA}
+            onChange={(e) => setRangoA(e.target.value)}
+          />
+          <Input
+            size="sm"
+            label="Hasta"
+            type={rango.tipo}
+            value={rangoB}
+            min={rangoA || undefined}
+            onChange={(e) => setRangoB(e.target.value)}
+          />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="sm" onClick={() => aplicarValor(rango.param, "")}>
               Limpiar
