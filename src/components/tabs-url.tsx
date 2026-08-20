@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Tabs } from "@/components/ui/tabs";
+import { useNavegacion } from "@/hooks/use-navegacion";
 
 export interface VistaTab {
   valor: string;
@@ -25,21 +27,25 @@ export function TabsUrl({
   valor: string;
   vistas: VistaTab[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { irA, cargando } = useNavegacion();
 
   return (
     <Tabs
       variant="secondary"
       // Las solapas del sistema vienen en h-6 (24px), demasiado bajas para el
       // mostrador. La API de array no deja pasar clases por solapa: van desde acá.
-      className="[&_button]:h-8 [&_button]:px-3"
+      // Mientras el server contesta las solapas se apagan un poco y dejan de
+      // aceptar clicks: es la unica senal de que el click entro.
+      className={cn(
+        "[&_button]:h-8 [&_button]:px-3",
+        cargando && "pointer-events-none opacity-60",
+      )}
       selected={valor}
       setSelected={(elegido) => {
         const nuevos = new URLSearchParams(searchParams.toString());
         nuevos.set(param, elegido);
-        router.push(`${pathname}?${nuevos.toString()}`);
+        irA(nuevos);
       }}
       tabs={vistas.map((v) => ({
         value: v.valor,
