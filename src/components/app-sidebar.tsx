@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   ChevronDoubleLeftIcon,
@@ -51,6 +51,7 @@ export function AppSidebar({
   fijoInicial: boolean;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
   const [fijo, setFijo] = React.useState(fijoInicial);
   const [encima, setEncima] = React.useState(false);
@@ -166,6 +167,14 @@ export function AppSidebar({
               <Link
                 key={href}
                 href={href}
+                // Sin prefetch automático: el menú está siempre a la vista, así
+                // que Next precargaría las cinco secciones en cada carga y cada
+                // una cuesta una vuelta al server. Se precarga la que el dedo o
+                // el mouse ya eligió, que es la que se va a abrir.
+                prefetch={false}
+                onMouseEnter={() => router.prefetch(href)}
+                onTouchStart={() => router.prefetch(href)}
+                onFocus={() => router.prefetch(href)}
                 // En el celular el cajón tapa la pantalla: elegir sección lo cierra.
                 onClick={() => setCajon(false)}
                 aria-current={activa ? "page" : undefined}
