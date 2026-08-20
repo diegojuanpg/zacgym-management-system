@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { rangoDe, comparador } from "@/lib/filtros";
+import { traerTodo } from "@/lib/traer-todo";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -41,31 +42,6 @@ const PERIODOS = [
 
 /** Cuántas filas dibuja la tabla por vez. */
 const TANDA_FILAS = 200;
-
-/**
- * Lo que PostgREST devuelve como maximo por pedido, de config.toml. Va pegado al
- * tope real y no mas abajo: cada tanda es un viaje mas, y van uno atras del otro.
- */
-const TOPE = 5000;
-
-/**
- * Trae la consulta entera, en tandas.
- *
- * PostgREST corta en `max_rows` y no avisa: sin esto, "Todo" sobre 5612 ventas
- * devolvia 5000 y las 612 que faltaban no aparecian en ningun lado.
- */
-async function traerTodo<T>(consulta: {
-  range: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null }>;
-}) {
-  const filas: T[] = [];
-  for (let desde = 0; ; desde += TOPE) {
-    const { data } = await consulta.range(desde, desde + TOPE - 1);
-    if (!data?.length) break;
-    filas.push(...data);
-    if (data.length < TOPE) break;
-  }
-  return filas;
-}
 
 const RUBROS = {
   mensualidad: "Mensualidades",
