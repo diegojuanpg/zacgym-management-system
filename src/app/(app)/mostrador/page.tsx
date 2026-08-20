@@ -10,6 +10,7 @@ import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
 import { AsistenciaModal } from "@/components/mostrador/asistencia-modal";
 import type { Asistencia } from "@/lib/asistencias";
 import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
+import { efectivoDelDia, saltosEntreTurnos } from "@/lib/caja";
 import { SelectorDia } from "@/components/mostrador/selector-dia";
 import {
   TurnoSeparador,
@@ -223,7 +224,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       ? supabase
           .from("turnos_cerrados")
           .select(
-            "id, abierto_en, cerrado_en, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, responsables",
+            "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, responsables",
           )
           .in("id", idsTurno)
           .overrideTypes<Omit<TurnoDelDia, "stock">[], { merge: false }>()
@@ -244,7 +245,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // es el bloque donde van a caer las ventas que se carguen ahora.
   const abiertoEnEsteDia = turno && (esHoy || idsTurno.includes(turno.id));
 
-  type TurnoDia = Omit<TurnoDelDia, "cerrado_en"> & { cerrado_en: string | null };
+  // El salto se calcula recien cuando estan todos los turnos del dia: sale de
+  // comparar cada uno con el que cerro antes.
+  type TurnoDia = Omit<TurnoDelDia, "cerrado_en" | "salto"> & { cerrado_en: string | null };
 
   const turnosDelDia: TurnoDia[] = [
     ...(abiertoEnEsteDia && turno
@@ -253,6 +256,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             id: turno.id,
             abierto_en: turno.abierto_en,
             cerrado_en: null,
+            caja_grande_inicial: turno.caja_grande_inicial,
+            caja_chica_inicial: turno.caja_chica_inicial,
             caja_grande_final: null,
             caja_chica_final: null,
             caja_grande_esperada: null,
@@ -311,9 +316,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     cobros.set(clave, fila);
   }
 
-  // Con el turno abierto la pregunta es cuanto tiene que haber ahora, y de donde
-  // sale. En un dia que ya cerro es otra: cuanto contaron y si dio. Se toma el
-  // ultimo cierre del dia, que es con lo que quedo el cajon.
+  // Con el turno abierto la pregunta es cuanto tiene que haber ahora en el cajon
+  // y de donde sale. Cuando ya no queda ninguno abierto la pregunta pasa a ser
+  // la del dia entero: se arranca de lo que declaro el primer turno, se le suma
+  // todo lo que paso por el cajon y eso tiene que dar lo que contaron al final.
+  // Asi Clemente controla contra la plata que entrego a la mañana.
+  const efectivo = efectivoDelDia(pagos ?? [], movimientos ?? []);
+  const primerTurno = turnosDelDia[turnosDelDia.length - 1];
   const ultimoCierre = turnosDelDia.find((t) => t.cerrado_en !== null) ?? null;
 
   const cajaDe = (cual: "grande" | "chica"): EstadoCaja => {
@@ -326,14 +335,22 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         esperado: cual === "grande" ? turno.caja_grande_esperada : turno.caja_chica_esperada,
       };
     }
-    const contado =
-      cual === "grande" ? ultimoCierre?.caja_grande_final : ultimoCierre?.caja_chica_final;
-    const esperado =
-      cual === "grande" ? ultimoCierre?.caja_grande_esperada : ultimoCierre?.caja_chica_esperada;
-    if (contado === null || contado === undefined || esperado === null || esperado === undefined) {
-      return { estado: "sin_datos" };
-    }
-    return { estado: "cerrado", contado, esperado };
+    if (!primerTurno || !ultimoCierre) return { estado: "sin_datos" };
+
+    const inicial =
+      cual === "grande" ? primerTurno.caja_grande_inicial : primerTurno.caja_chica_inicial;
+    const ventas = efectivo.ventas[cual];
+    const movidos = efectivo.movimientos[cual];
+    return {
+      estado: "cerrado",
+      inicial,
+      ventas,
+      movimientos: movidos,
+      esperado: inicial + ventas + movidos,
+      // Sin conteo final el turno lo cerro el sistema a la medianoche: no hay
+      // contra que comparar y el widget lo dice.
+      contado: cual === "grande" ? ultimoCierre.caja_grande_final : ultimoCierre.caja_chica_final,
+    };
   };
 
   const totales = [
@@ -357,6 +374,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     ...[...cobros.values()].map((c) => ({ clase: "cobro" as const, ...c })),
   ];
 
+  // Con un turno abierto la pantalla es la de ese turno: lo de los turnos
+  // anteriores del dia no aparece hasta que cierre el ultimo. El del mostrador
+  // controla su caja contra lo que ve, sin que le sumen movimientos ajenos. El
+  // dia entero queda para despues, con los separadores de siempre.
+  const delTurno = esHoy && turno ? todos.filter((r) => r.turno_id === turno.id) : todos;
+
   const metodoDe = (r: Registro) =>
     r.clase === "movimiento"
       ? capitalizar(r.metodo)
@@ -370,15 +393,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
   // Opciones de los menús: solo lo que aparece en el día, para no listar 200 alumnos.
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
-  const opcionesAlumno = ordenar(todos.map(alumnoDe));
-  const opcionesDetalle = ordenar(todos.map(detalleDe));
-  const opcionesMetodo = ordenar(todos.map(metodoDe));
+  const opcionesAlumno = ordenar(delTurno.map(alumnoDe));
+  const opcionesDetalle = ordenar(delTurno.map(detalleDe));
+  const opcionesMetodo = ordenar(delTurno.map(metodoDe));
 
   const filtroAlumno = lista(alumno);
   const filtroDetalle = lista(detalle);
   const filtroMetodo = lista(metodo);
 
-  const registros = todos
+  const registros = delTurno
     .filter(
       (r) =>
         (filtroAlumno.length === 0 || filtroAlumno.includes(alumnoDe(r))) &&
@@ -397,6 +420,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // Los turnos van del mas nuevo al mas viejo, y adentro de cada uno los
   // movimientos siguen el orden que pida la columna Hora.
   type Fila = { clase: "turno"; turno: TurnoDelDia } | { clase: "fila"; registro: Registro };
+  const saltos = saltosEntreTurnos(turnosDelDia);
   const filas: Fila[] = turnosDelDia.flatMap((t) => {
     const suyos = registros
       .filter((r) => r.turno_id === t.id)
@@ -406,7 +430,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     if (t.cerrado_en === null) return suyos;
     // Uno cerrado sin movimientos tampoco: no hay bloque que encabezar.
     if (suyos.length === 0) return [];
-    return [{ clase: "turno" as const, turno: { ...t, cerrado_en: t.cerrado_en } }, ...suyos];
+    return [
+      {
+        clase: "turno" as const,
+        turno: { ...t, cerrado_en: t.cerrado_en, salto: saltos.get(t.id) ?? null },
+      },
+      ...suyos,
+    ];
   });
 
   // Los dias elegibles. Hoy entra siempre: si todavia no se cargo nada, el
@@ -523,7 +553,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         ) : registros.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
-            title={hayFiltro ? "Nada coincide con el filtro" : "Sin movimientos este día"}
+            title={
+              hayFiltro
+                ? "Nada coincide con el filtro"
+                : esHoy && turno
+                  ? "Sin movimientos en este turno"
+                  : "Sin movimientos este día"
+            }
             description={
               hayFiltro
                 ? "Probá quitando el filtro desde el encabezado de la columna."
