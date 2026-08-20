@@ -4,6 +4,7 @@ import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { ToggleUrl } from "@/components/toggle-url";
 import { FiltroColumna } from "@/components/filtro-columna";
+import { Paginador, paginar } from "@/components/paginador";
 import { AlumnoModal } from "@/components/alumnos/alumno-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ import {
   TableCol,
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
+import { rangoDe, comparador } from "@/lib/filtros";
+import { traerTodo } from "@/lib/traer-todo";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 
@@ -80,7 +83,8 @@ interface FilaAlumno {
 
 export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos">) {
   const params = await searchParams;
-  const { q, ver, orden, apellido, estado, genero, contacto, pagina } = params;
+  const { q, ver, orden, apellido, estado, genero, contacto, pagina, vence, actividad, saldo } =
+    params;
   const busqueda = typeof q === "string" ? q.trim() : "";
   // El contacto se ve salvo que lo apaguen: ?contacto=no.
   const verContacto = contacto !== "no";
@@ -91,16 +95,16 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
     v === undefined ? [] : Array.isArray(v) ? v : [v];
 
   const supabase = await createClient();
-  const { data: alumnos } = await supabase
-    .from("alumnos_cuenta")
-    .select("id, apellido, nombre, celular, email, nacimiento, edad, genero, vence, saldo, activo, ultima_actividad")
-    // Son ~2000 alumnos y PostgREST corta en 1000 si no se le pide mas.
-    .limit(5000)
-    .order("apellido")
-    .order("nombre")
-    .overrideTypes<FilaAlumno[]>();
-
-  const todos = alumnos ?? [];
+  // Son ~2000 alumnos y PostgREST corta si no se le pide de a tandas.
+  const todos = await traerTodo<FilaAlumno>(
+    supabase
+      .from("alumnos_cuenta")
+      .select(
+        "id, apellido, nombre, celular, email, nacimiento, edad, genero, vence, saldo, activo, ultima_actividad",
+      )
+      .order("apellido")
+      .order("nombre"),
+  );
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
   const vencido = (a: FilaAlumno) => a.vence !== null && a.vence < hoy;
   const dormido = (a: FilaAlumno) => estaDormido(a.ultima_actividad);
@@ -128,6 +132,14 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   const filtroApellido = lista_(apellido);
   const filtroEstado = lista_(estado);
   const filtroGenero = lista_(genero);
+  // Los mismos filtros que en Ventas: un rango para las fechas y una
+  // comparacion para la plata. El vencimiento ya viene como "2026-08-20", asi
+  // que se compara como texto; la actividad es un instante y hay que pasarla a
+  // dia de Buenos Aires antes.
+  const rangoVence = rangoDe(vence);
+  const rangoActividad = rangoDe(actividad);
+  const filtroSaldo = comparador(saldo);
+  const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
   const texto = busqueda.toLowerCase();
 
   const lista = todos
@@ -137,6 +149,14 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
         (filtroApellido.length === 0 || filtroApellido.includes(a.apellido)) &&
         (filtroEstado.length === 0 || filtroEstado.includes(estadoDe(a))) &&
         (filtroGenero.length === 0 || filtroGenero.includes(generoDe(a))) &&
+        // Sin fecha no entra en ningun rango: no es "antes de todo", es que no hay dato.
+        (rangoVence.desde === "" || (a.vence !== null && a.vence >= rangoVence.desde)) &&
+        (rangoVence.hasta === "" || (a.vence !== null && a.vence <= rangoVence.hasta)) &&
+        (rangoActividad.desde === "" ||
+          (a.ultima_actividad !== null && diaDe(a.ultima_actividad) >= rangoActividad.desde)) &&
+        (rangoActividad.hasta === "" ||
+          (a.ultima_actividad !== null && diaDe(a.ultima_actividad) <= rangoActividad.hasta)) &&
+        (filtroSaldo === null || filtroSaldo(a.saldo)) &&
         (texto === "" ||
           `${a.apellido} ${a.nombre} ${a.celular ?? ""} ${a.email ?? ""}`
             .toLowerCase()
@@ -180,24 +200,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   // Son casi 2000 alumnos: dibujarlos todos hace la pagina inusable. La cuenta
   // de las solapas y las opciones de los filtros siguen saliendo de la lista
   // entera, solo se recorta lo que se pinta.
-  const POR_PAGINA = 100;
-  const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
-  // Se recorta contra el total: cambiar de solapa desde la pagina 15 cae en la
-  // ultima que exista en vez de mostrar una tabla vacia.
-  const actual = Math.min(Math.max(1, Number(pagina) || 1), paginas);
-  const desde = (actual - 1) * POR_PAGINA;
-  const visibles = lista.slice(desde, desde + POR_PAGINA);
-
-  const hrefPagina = (n: number) => {
-    const otros = new URLSearchParams();
-    for (const [clave, valor] of Object.entries(params)) {
-      if (clave === "pagina") continue;
-      for (const v of lista_(valor as string | string[] | undefined)) otros.append(clave, v);
-    }
-    if (n > 1) otros.set("pagina", String(n));
-    const cadena = otros.toString();
-    return cadena ? `/alumnos?${cadena}` : "/alumnos";
-  };
+  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
 
   return (
     <main className="flex flex-1 flex-col gap-4">
@@ -325,6 +328,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                           { valor: "act-antiguo", label: "Más antigua" },
                         ],
                       }}
+                      rango={{ param: "actividad", tipo: "date" }}
                     />
                   </TableHead>
                   <TableHead>
@@ -337,6 +341,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                           { valor: "vence-lejos", label: "Vence después" },
                         ],
                       }}
+                      rango={{ param: "vence", tipo: "date" }}
                     />
                   </TableHead>
                   <TableHead>
@@ -349,6 +354,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                           { valor: "favor", label: "Más a favor" },
                         ],
                       }}
+                      monto={{ param: "saldo" }}
                     />
                   </TableHead>
                   {verContacto && (
@@ -478,36 +484,15 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
             </Table>
           </TableRoot>
 
-          {paginas > 1 && (
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--ds-gray-alpha-400)] px-1 pt-2.5">
-              <p className="text-copy-13 text-[var(--ds-gray-900)]">
-                {desde + 1}–{desde + visibles.length} de {lista.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={actual === 1}
-                  nativeButton={false}
-                  render={<Link href={hrefPagina(actual - 1)} />}
-                >
-                  Anterior
-                </Button>
-                <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                  {actual} / {paginas}
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={actual === paginas}
-                  nativeButton={false}
-                  render={<Link href={hrefPagina(actual + 1)} />}
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
+          <Paginador
+            ruta="/alumnos"
+            params={params}
+            actual={actual}
+            paginas={paginas}
+            desde={desde}
+            enPagina={visibles.length}
+            total={lista.length}
+          />
         </div>
       )}
     </main>

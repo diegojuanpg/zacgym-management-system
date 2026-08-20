@@ -7,11 +7,14 @@ import { EstadoTareaSelect } from "@/components/tareas/estado-tarea";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
+import { Paginador, paginar } from "@/components/paginador";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RelativeTimeCard } from "@/components/ui/relative-time-card";
 import { ClipboardIcon } from "@/components/icons";
+import { rangoDe } from "@/lib/filtros";
+import { traerTodo } from "@/lib/traer-todo";
 import {
   TableRoot,
   Table,
@@ -60,7 +63,8 @@ interface Tarea {
 
 export default async function TareasPage({ searchParams }: PageProps<"/tareas">) {
   await requireStaff();
-  const { q, cat, alumno, orden, estado } = await searchParams;
+  const params = await searchParams;
+  const { q, cat, alumno, orden, estado, creada, pagina } = params;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const solapa = typeof cat === "string" ? cat : "todas";
   const criterio = typeof orden === "string" ? orden : "reciente";
@@ -68,19 +72,18 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
     v === undefined ? [] : Array.isArray(v) ? v : [v];
 
   const supabase = await createClient();
-  const [{ data: tareas }, { data: categorias }] = await Promise.all([
-    supabase
-      .from("tareas_detalle")
-      .select("id, alumno_id, alumno, categoria, detalle, creado_en, estado")
-      .order("creado_en", { ascending: false })
-      .limit(5000)
-      .overrideTypes<Tarea[]>(),
+  const [todas, { data: categorias }] = await Promise.all([
+    traerTodo<Tarea>(
+      supabase
+        .from("tareas_detalle")
+        .select("id, alumno_id, alumno, categoria, detalle, creado_en, estado")
+        .order("creado_en", { ascending: false }),
+    ),
     // Todas las categorías, incluso las que todavía no tiene ninguna tarea: la
     // solapa vacía dice que la categoría existe, que es distinto de no existir.
     supabase.from("tarea_categorias").select("nombre").order("nombre"),
   ]);
 
-  const todas = tareas ?? [];
   const categoriaDe = (t: Tarea) => t.categoria ?? SIN_CATEGORIA;
 
   const nombres = [
@@ -102,6 +105,11 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
   const filtroAlumno = lista_(alumno);
   const nombreEstado = (e: EstadoTarea) => ESTADOS.find((x) => x.valor === e)!.nombre;
   const filtroEstado = lista_(estado);
+  // El mismo rango de fechas que en Ventas. creado_en es un instante: se pasa a
+  // dia de Buenos Aires antes de comparar, o la tarea de las 21 cae en el
+  // siguiente.
+  const rangoCreada = rangoDe(creada);
+  const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
 
   const sinTerminar = todas.filter((t) => t.estado !== "terminada").length;
 
@@ -111,6 +119,8 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
         (vistaActual.valor === "todas" || categoriaDe(t) === vistaActual.valor) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(t.alumno)) &&
         (filtroEstado.length === 0 || filtroEstado.includes(nombreEstado(t.estado))) &&
+        (rangoCreada.desde === "" || diaDe(t.creado_en) >= rangoCreada.desde) &&
+        (rangoCreada.hasta === "" || diaDe(t.creado_en) <= rangoCreada.hasta) &&
         (busqueda === "" ||
           t.alumno.toLowerCase().includes(busqueda) ||
           t.detalle.toLowerCase().includes(busqueda) ||
@@ -121,6 +131,10 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
         ? a.creado_en.localeCompare(b.creado_en)
         : b.creado_en.localeCompare(a.creado_en),
     );
+
+  // Igual que en Alumnos: la cuenta de las solapas y las opciones de los
+  // filtros salen de la lista entera, solo se recorta lo que se dibuja.
+  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
 
   async function borrar(datos: FormData) {
     "use server";
@@ -182,6 +196,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Fecha y hora"
+                      rango={{ param: "creada", tipo: "date" }}
                       orden={{
                         param: "orden",
                         opciones: [
@@ -207,7 +222,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                 </TableRow>
               </TableHeader>
               <TableBody striped>
-                {lista.map((t) => (
+                {visibles.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>
                       <RelativeTimeCard date={t.creado_en} side="top">
@@ -255,6 +270,16 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
               </TableBody>
             </Table>
           </TableRoot>
+
+          <Paginador
+            ruta="/tareas"
+            params={params}
+            actual={actual}
+            paginas={paginas}
+            desde={desde}
+            enPagina={visibles.length}
+            total={lista.length}
+          />
         </div>
       )}
     </main>
