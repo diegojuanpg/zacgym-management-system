@@ -59,6 +59,7 @@ export function FiltroColumna({
   opciones = [],
   titulos = {},
   orden,
+  periodo,
   rango,
   monto,
 }: {
@@ -69,6 +70,8 @@ export function FiltroColumna({
   /** Texto a mostrar por opción cuando el valor de la URL no sirve como label. */
   titulos?: Record<string, string>;
   orden?: { param: string; opciones: OpcionOrden[] };
+  /** Elección única, como el orden, pero con su propio parámetro. */
+  periodo?: { param: string; predeterminado: string; opciones: OpcionOrden[] };
   /** Desde/hasta en un solo parámetro, "a..b". Cualquiera de los dos puede ir vacío. */
   rango?: { param: string; tipo: "date" | "time" };
   /** Comparación de montos, "operador:valor" ("entre:min:max"). */
@@ -83,6 +86,11 @@ export function FiltroColumna({
   );
   const ordenActual = orden ? searchParams.get(orden.param) : null;
   const ordenActiva = orden?.opciones.find((o) => o.valor === ordenActual) ?? null;
+
+  const periodoActual = periodo
+    ? (searchParams.get(periodo.param) ?? periodo.predeterminado)
+    : null;
+  const periodoActivo = periodo?.opciones.find((o) => o.valor === periodoActual) ?? null;
 
   const rangoActual = rango ? (searchParams.get(rango.param) ?? "") : "";
   const montoActual = monto ? (searchParams.get(monto.param) ?? "") : "";
@@ -172,6 +180,14 @@ export function FiltroColumna({
     irA(nuevos);
   }
 
+  function aplicarPeriodo(valor: string) {
+    const nuevos = new URLSearchParams(searchParams.toString());
+    // El predeterminado no se escribe: la URL limpia ya es ese período.
+    if (valor === periodo!.predeterminado) nuevos.delete(periodo!.param);
+    else nuevos.set(periodo!.param, valor);
+    irA(nuevos);
+  }
+
   /** Un parámetro suelto: vacío lo saca de la URL en vez de dejarlo colgando. */
   function aplicarValor(clave: string, valor: string) {
     const nuevos = new URLSearchParams(searchParams.toString());
@@ -223,7 +239,28 @@ export function FiltroColumna({
         </div>
       )}
 
-      {orden && (rango || monto) && (
+      {orden && periodo && <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />}
+
+      {periodo && (
+        <div className="flex flex-col">
+          {periodo.opciones.map((o) => (
+            <Button
+              key={o.valor}
+              variant="tertiary"
+              size="md"
+              onClick={() => aplicarPeriodo(o.valor)}
+              className={cn(
+                "justify-start",
+                o.valor === periodoActual && "bg-[var(--ds-gray-alpha-200)]",
+              )}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {(orden || periodo) && (rango || monto) && (
         <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />
       )}
 
@@ -340,7 +377,7 @@ export function FiltroColumna({
         </div>
       )}
 
-      {(orden || rango || monto) && hayFiltro && (
+      {(orden || periodo || rango || monto) && hayFiltro && (
         <div className="-mx-2 h-px bg-[var(--ds-gray-alpha-300)]" />
       )}
 
@@ -458,6 +495,11 @@ export function FiltroColumna({
             {montoActual && (
               <span className="font-normal text-[var(--ds-gray-900)]">
                 · {resumenMonto(montoActual)}
+              </span>
+            )}
+            {periodoActivo && periodoActual !== periodo?.predeterminado && (
+              <span className="font-normal text-[var(--ds-gray-900)]">
+                · {periodoActivo.label}
               </span>
             )}
             {ordenActiva && (
