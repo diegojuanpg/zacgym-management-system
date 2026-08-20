@@ -13,6 +13,9 @@ import { ArrowRightIcon, ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const ANCHO = 260;
+// Con dos campos uno al lado del otro el panel angosto los desborda: una fecha
+// entera no entra en la mitad de 260.
+const ANCHO_DOBLE = 320;
 
 /** Comparaciones del filtro de montos. "entre" es el unico que usa dos valores. */
 const OPERADORES = [
@@ -112,15 +115,17 @@ export function FiltroColumna({
     anclaRef.current?.querySelector("button")?.focus();
   }, []);
 
+  const ancho = rango || monto ? ANCHO_DOBLE : ANCHO;
+
   const ubicar = React.useCallback(() => {
     const r = anclaRef.current?.getBoundingClientRect();
     if (!r) return;
     // Portal y posición fija porque la tabla scrollea y recortaría el panel.
     setPos({
       top: r.bottom + 6,
-      left: Math.max(8, Math.min(r.left, window.innerWidth - ANCHO - 8)),
+      left: Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)),
     });
-  }, []);
+  }, [ancho]);
 
   // El panel vive en un portal, así que hay que ignorar también los clicks en el
   // encabezado que lo abre.
@@ -211,7 +216,7 @@ export function FiltroColumna({
       ref={panelRef}
       role="dialog"
       aria-label={`Ordenar y filtrar por ${etiqueta}`}
-      style={{ top: pos.top, left: pos.left, width: ANCHO }}
+      style={{ top: pos.top, left: pos.left, width: ancho }}
       className="material-menu animate-in fade-in-50 zoom-in-95 fixed z-50 flex flex-col gap-2 p-2 duration-100"
     >
       {orden && (
@@ -261,24 +266,30 @@ export function FiltroColumna({
       {rango && (
         <div className="flex flex-col gap-2 px-1">
           <div className="flex items-center gap-1.5">
-            <Input
-              size="sm"
-              type={rango.tipo}
-              value={rangoA}
-              onChange={(e) => setRangoA(e.target.value)}
-              aria-label={`${etiqueta} desde`}
-              className="min-w-0 flex-1"
-            />
+            {/* El div de afuera es el que reparte el ancho: el className de
+                Input cae en el envoltorio de adentro, que ya es w-full, asi
+                que sin esto los dos campos piden el 100% cada uno y se salen
+                del panel. */}
+            <div className="min-w-0 flex-1">
+              <Input
+                size="sm"
+                type={rango.tipo}
+                value={rangoA}
+                onChange={(e) => setRangoA(e.target.value)}
+                aria-label={`${etiqueta} desde`}
+              />
+            </div>
             <ArrowRightIcon className="size-3.5 shrink-0 text-[var(--ds-gray-700)]" />
-            <Input
-              size="sm"
-              type={rango.tipo}
-              value={rangoB}
-              min={rangoA || undefined}
-              onChange={(e) => setRangoB(e.target.value)}
-              aria-label={`${etiqueta} hasta`}
-              className="min-w-0 flex-1"
-            />
+            <div className="min-w-0 flex-1">
+              <Input
+                size="sm"
+                type={rango.tipo}
+                value={rangoB}
+                min={rangoA || undefined}
+                onChange={(e) => setRangoB(e.target.value)}
+                aria-label={`${etiqueta} hasta`}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="sm" onClick={() => aplicarValor(rango.param, "")}>
@@ -313,29 +324,31 @@ export function FiltroColumna({
             ))}
           </Select>
           <div className="flex items-center gap-1.5">
-            <Input
-              size="sm"
-              type="number"
-              inputMode="numeric"
-              placeholder="$"
-              value={montoA}
-              onChange={(e) => setMontoA(e.target.value)}
-              aria-label={`${etiqueta} ${operador === "entre" ? "mínimo" : "valor"}`}
-              className="min-w-0 flex-1"
-            />
+            <div className="min-w-0 flex-1">
+              <Input
+                size="sm"
+                type="number"
+                inputMode="numeric"
+                placeholder="$"
+                value={montoA}
+                onChange={(e) => setMontoA(e.target.value)}
+                aria-label={`${etiqueta} ${operador === "entre" ? "mínimo" : "valor"}`}
+              />
+            </div>
             {operador === "entre" && (
               <>
                 <span className="text-[var(--ds-gray-700)]">y</span>
-                <Input
-                  size="sm"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="$"
-                  value={montoB}
-                  onChange={(e) => setMontoB(e.target.value)}
-                  aria-label={`${etiqueta} máximo`}
-                  className="min-w-0 flex-1"
-                />
+                <div className="min-w-0 flex-1">
+                  <Input
+                    size="sm"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="$"
+                    value={montoB}
+                    onChange={(e) => setMontoB(e.target.value)}
+                    aria-label={`${etiqueta} máximo`}
+                  />
+                </div>
               </>
             )}
           </div>
