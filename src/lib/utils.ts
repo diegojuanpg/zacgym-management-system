@@ -16,19 +16,6 @@ export function fechaCorta(iso: string, anio: "2-digit" | "numeric" = "numeric")
 }
 
 /**
- * Ahora, en el formato que pide <input type="datetime-local"> (sin zona, hora
- * local). El navegador del mostrador esta en Buenos Aires, asi que la hora que
- * ve el que carga y la que interpreta `new Date(valor)` son la misma.
- *
- * Fuera del render: Date no es puro.
- */
-export function ahoraLocal() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
-
-/**
  * Hoy a las 00:00 en Buenos Aires, como instante ISO.
  *
  * No sirve `new Date()` a secas: el server corre en UTC, asi que entre las 21 y

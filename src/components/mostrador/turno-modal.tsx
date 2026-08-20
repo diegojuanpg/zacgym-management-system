@@ -14,15 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
-import { ahoraLocal } from "@/lib/utils";
 
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
 
 /**
  * Apertura de turno: con cuánta plata y con cuánto stock arranca.
  *
- * Ya no pregunta quién está a cargo. Eso sale de cruzar el rango del turno con
- * las asistencias fichadas, así que abrir es solo contar.
+ * No pregunta quién está a cargo ni desde qué hora: el turno arranca cuando se
+ * abre, y quién estaba sale de cruzar ese rango con las asistencias fichadas.
  */
 export function TurnoModal({
   trabajando,
@@ -40,29 +39,21 @@ export function TurnoModal({
   const [cajaGrande, setCajaGrande] = React.useState("");
   const [cajaChica, setCajaChica] = React.useState("");
   const [contados, setContados] = React.useState<Map<string, string>>(new Map());
-  const [arranco, setArranco] = React.useState("");
-  // El tope se congela al abrir: llamar a ahoraLocal() al dibujar no es puro.
-  const [tope, setTope] = React.useState("");
 
   function abrirModal() {
     setCajaGrande("");
     setCajaChica("");
     setContados(new Map());
-    setArranco(ahoraLocal());
-    setTope(ahoraLocal());
     setError(null);
     setAbierto(true);
   }
 
-  const listo =
-    arranco !== "" && cajaGrande !== "" && cajaChica !== "" && todoContado(productos, contados);
+  const listo = cajaGrande !== "" && cajaChica !== "" && todoContado(productos, contados);
 
   const faltaTexto =
-    arranco === ""
-      ? "Falta la hora de arranque"
-      : cajaGrande === "" || cajaChica === ""
-        ? "Falta el saldo de alguna caja"
-        : "Falta contar algún producto";
+    cajaGrande === "" || cajaChica === ""
+      ? "Falta el saldo de alguna caja"
+      : "Falta contar algún producto";
 
   async function guardar() {
     setGuardando(true);
@@ -71,7 +62,6 @@ export function TurnoModal({
       cajaGrande: Number(cajaGrande) || 0,
       cajaChica: Number(cajaChica) || 0,
       stock: aConteo(contados),
-      abiertoEn: new Date(arranco).toISOString(),
     });
     setGuardando(false);
     if (error) return setError(error);
@@ -106,19 +96,6 @@ export function TurnoModal({
         }
       >
         <div className="flex flex-col gap-6">
-          {/* Arranca lleno con la hora de ahora, que es el caso de siempre. Se
-              cambia cuando alguien entro temprano y recien abre el turno al
-              hacer la primera venta: esas horas tambien son de su turno. */}
-          <Input
-            label="Arrancó"
-            type="datetime-local"
-            size="large"
-            value={arranco}
-            max={tope}
-            onChange={(e) => setArranco(e.target.value)}
-            className="sm:max-w-64"
-          />
-
           {/* El turno ya no elige responsables, pero abrir sin que nadie haya
               fichado deja un turno sin nadie atado: si despues no cuadra, no
               hay a quien preguntarle. Avisa, no frena. */}

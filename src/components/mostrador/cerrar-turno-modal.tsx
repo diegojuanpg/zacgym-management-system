@@ -13,14 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
-import { ahoraLocal } from "@/lib/utils";
 
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 
 /**
- * Cierre de turno. La diferencia no bloquea: se avisa, se registra y queda
- * anotado quién cerró con faltante o sobrante.
+ * Cierre de turno. El turno termina cuando se cierra: la hora no se elige,
+ * igual que al abrir.
+ *
+ * La diferencia no bloquea: se avisa, se registra y queda anotado quién cerró
+ * con faltante o sobrante.
  */
 export function CerrarTurnoModal({
   esperadoGrande,
@@ -42,16 +44,11 @@ export function CerrarTurnoModal({
   const [cajaGrande, setCajaGrande] = React.useState("");
   const [cajaChica, setCajaChica] = React.useState("");
   const [contados, setContados] = React.useState<Map<string, string>>(new Map());
-  const [termino, setTermino] = React.useState("");
-  // El tope se congela al abrir: llamar a ahoraLocal() al dibujar no es puro.
-  const [tope, setTope] = React.useState("");
 
   function abrirModal() {
     setCajaGrande("");
     setCajaChica("");
     setContados(new Map());
-    setTermino(ahoraLocal());
-    setTope(ahoraLocal());
     setError(null);
     setAbierto(true);
   }
@@ -73,11 +70,7 @@ export function CerrarTurnoModal({
     (difChica !== null && difChica !== 0) ||
     stockQueDifiere.length > 0;
 
-  const listo =
-    cajaGrande !== "" &&
-    cajaChica !== "" &&
-    termino !== "" &&
-    todoContado(productos, contados);
+  const listo = cajaGrande !== "" && cajaChica !== "" && todoContado(productos, contados);
 
   async function guardar() {
     setGuardando(true);
@@ -86,7 +79,6 @@ export function CerrarTurnoModal({
       cajaGrande: Number(cajaGrande) || 0,
       cajaChica: Number(cajaChica) || 0,
       stock: aConteo(contados),
-      cerradoEn: new Date(termino).toISOString(),
     });
     setGuardando(false);
     if (error) return setError(error);
@@ -132,18 +124,6 @@ export function CerrarTurnoModal({
         }
       >
         <div className="flex flex-col gap-6">
-          {/* Igual que al abrir: el turno termina cuando se fue, no cuando se
-              acordo de cerrarlo. */}
-          <Input
-            label="Terminó"
-            type="datetime-local"
-            size="large"
-            value={termino}
-            max={tope}
-            onChange={(e) => setTermino(e.target.value)}
-            className="sm:max-w-64"
-          />
-
           <section className="flex flex-col gap-2">
             <h3 className="text-heading-16">¿Cuánto hay en caja?</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
