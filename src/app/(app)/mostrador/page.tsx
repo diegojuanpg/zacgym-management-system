@@ -244,7 +244,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // es el bloque donde van a caer las ventas que se carguen ahora.
   const abiertoEnEsteDia = turno && (esHoy || idsTurno.includes(turno.id));
 
-  const turnosDelDia: TurnoDelDia[] = [
+  type TurnoDia = Omit<TurnoDelDia, "cerrado_en"> & { cerrado_en: string | null };
+
+  const turnosDelDia: TurnoDia[] = [
     ...(abiertoEnEsteDia && turno
       ? [
           {
@@ -396,14 +398,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // movimientos siguen el orden que pida la columna Hora.
   type Fila = { clase: "turno"; turno: TurnoDelDia } | { clase: "fila"; registro: Registro };
   const filas: Fila[] = turnosDelDia.flatMap((t) => {
-    const suyos = registros.filter((r) => r.turno_id === t.id);
-    // Un turno sin nada que mostrar no dibuja cabecera, salvo que sea el abierto:
-    // ese es el bloque donde van a caer las ventas que se carguen ahora.
-    if (suyos.length === 0 && t.cerrado_en !== null) return [];
-    return [
-      { clase: "turno" as const, turno: t },
-      ...suyos.map((registro) => ({ clase: "fila" as const, registro })),
-    ];
+    const suyos = registros
+      .filter((r) => r.turno_id === t.id)
+      .map((registro) => ({ clase: "fila" as const, registro }));
+    // El turno abierto no lleva cabecera: va arriba de todo y el encabezado de
+    // la pagina ya dice desde cuando viene y quien esta a cargo.
+    if (t.cerrado_en === null) return suyos;
+    // Uno cerrado sin movimientos tampoco: no hay bloque que encabezar.
+    if (suyos.length === 0) return [];
+    return [{ clase: "turno" as const, turno: { ...t, cerrado_en: t.cerrado_en } }, ...suyos];
   });
 
   // Los dias elegibles. Hoy entra siempre: si todavia no se cargo nada, el
