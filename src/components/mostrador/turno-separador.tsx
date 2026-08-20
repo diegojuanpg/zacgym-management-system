@@ -1,5 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 
@@ -37,63 +35,62 @@ export interface TurnoDelDia {
  * nuevo a más viejo: el cierre es lo último que pasó en ese turno, así que
  * separarlo del bloque que describe lo dejaba a mitad de camino entre dos.
  *
- * El del turno siguiente entra al mostrador y lo primero que ve es si el
- * anterior dejó la caja o el stock descuadrado.
+ * Es una línea de texto y no una tarjeta: la tabla ya tiene bastante peso
+ * visual, y lo único que tiene que saltar acá es lo que no cuadró.
  */
-export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
+export function TurnoSeparador({ turno, primero }: { turno: TurnoDelDia; primero: boolean }) {
   const enCurso = turno.cerrado_en === null;
-  const difGrande =
-    turno.caja_grande_final === null || turno.caja_grande_esperada === null
-      ? null
-      : turno.caja_grande_final - turno.caja_grande_esperada;
-  const difChica =
-    turno.caja_chica_final === null || turno.caja_chica_esperada === null
-      ? null
-      : turno.caja_chica_final - turno.caja_chica_esperada;
+  const dif = (final: number | null, esperada: number | null) =>
+    final === null || esperada === null ? null : final - esperada;
 
   return (
-    // Banda de fondo y no una linea: el separador tiene que leerse de un vistazo
-    // entre dos tablas de numeros, y una linea mas ahi adentro no se ve.
-    <div className="flex flex-col gap-2 bg-[var(--ds-gray-alpha-200)] px-4 py-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-heading-16 text-[var(--ds-gray-1000)]">
-          Turno {hora(turno.abierto_en)} → {enCurso ? "en curso" : hora(turno.cerrado_en!)}
-        </span>
-        <span className="text-copy-13 text-[var(--ds-gray-900)]">
-          {turno.responsables.length > 0 ? turno.responsables.join(", ") : "nadie fichó"}
-        </span>
-        {enCurso && <Badge variant="blue-subtle">En curso</Badge>}
-      </div>
+    <div
+      className={`text-copy-13 flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 pb-2 ${
+        primero ? "pt-2" : "mt-1 border-t border-[var(--ds-gray-alpha-400)] pt-3"
+      }`}
+    >
+      <span className="font-medium text-[var(--ds-gray-1000)] tabular-nums">
+        {hora(turno.abierto_en)} → {enCurso ? "en curso" : hora(turno.cerrado_en!)}
+      </span>
+      <span className="text-[var(--ds-gray-900)]">
+        {turno.responsables.length > 0 ? turno.responsables.join(", ") : "nadie fichó"}
+      </span>
 
       {!enCurso && (
-        <div className="text-copy-13 flex flex-wrap items-center gap-x-5 gap-y-1">
-          <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
-          <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
+        <>
+          <Caja
+            etiqueta="Grande"
+            contado={turno.caja_grande_final}
+            dif={dif(turno.caja_grande_final, turno.caja_grande_esperada)}
+          />
+          <Caja
+            etiqueta="Chica"
+            contado={turno.caja_chica_final}
+            dif={dif(turno.caja_chica_final, turno.caja_chica_esperada)}
+          />
 
-          {turno.stock.length > 0 && (
-            <span className="flex flex-wrap items-center gap-1">
-              <span className="text-[var(--ds-gray-900)]">Stock</span>
-              {turno.stock.map((d) => (
-                <Badge
-                  key={`${d.producto}-${d.momento}`}
-                  variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
-                >
-                  {d.producto} {d.diferencia > 0 ? "+" : ""}
-                  {d.diferencia}
-                  {d.momento === "apertura" ? " (al abrir)" : ""}
-                </Badge>
-              ))}
+          {turno.stock.map((d) => (
+            <span key={`${d.producto}-${d.momento}`} className="text-[var(--ds-red-900)]">
+              <Punto />
+              {d.producto} {d.diferencia > 0 ? "+" : "−"}
+              {Math.abs(d.diferencia)}
+              {d.momento === "apertura" ? " al abrir" : ""}
+            </span>
+          ))}
+
+          {turno.nota_cierre && (
+            <span className="text-[var(--ds-gray-900)] italic">
+              <Punto />“{turno.nota_cierre}”
             </span>
           )}
-        </div>
-      )}
-
-      {turno.nota_cierre && (
-        <p className="text-copy-13 text-[var(--ds-gray-900)] italic">“{turno.nota_cierre}”</p>
+        </>
       )}
     </div>
   );
 }
+
+/** El separador entre datos sueltos de la misma línea. */
+const Punto = () => <span className="mr-2 text-[var(--ds-gray-700)]">·</span>;
 
 /** Lo que contaron en un cajón y si dio. Sin conteo no se inventa un cero. */
 function Caja({
@@ -107,12 +104,13 @@ function Caja({
 }) {
   if (contado === null) return null;
   return (
-    <span className="flex items-baseline gap-1.5">
-      <span className="text-[var(--ds-gray-900)]">{etiqueta}</span>
-      <span className="tabular-nums text-[var(--ds-gray-1000)]">{pesos(contado)}</span>
+    <span className="text-[var(--ds-gray-900)]">
+      <Punto />
+      {etiqueta} <span className="tabular-nums">{pesos(contado)}</span>{" "}
       {dif === null || dif === 0 ? (
-        <span className="text-[var(--ds-green-900)]">cuadró</span>
+        "cuadró"
       ) : (
+        // Lo unico que tiene color es lo que no cuadro.
         <span className={dif < 0 ? "text-[var(--ds-red-900)]" : "text-[var(--ds-amber-900)]"}>
           {dif < 0 ? "faltan" : "sobran"} {pesos(dif)}
         </span>
