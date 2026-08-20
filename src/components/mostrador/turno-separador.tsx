@@ -69,17 +69,17 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
       </div>
 
       {!enCurso && (
-        <div className="text-copy-13 flex flex-col items-end gap-1">
+        <div className="text-copy-13 flex flex-col items-end gap-2.5">
           <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
             <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
             <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
           </div>
 
           {/* El stock va en su propio renglon: son nombres de producto largos y
-              en la misma linea que la plata empujaban todo. */}
+              en la misma linea que la plata empujaban todo. Sin la palabra
+              "Stock" adelante: que falte un Monster ya se entiende solo. */}
           {turno.stock.length > 0 && (
             <div className="flex flex-wrap items-center justify-end gap-1">
-              <span className="text-[var(--ds-gray-900)]">Stock</span>
               {turno.stock.map((d) => (
                 <Badge
                   key={`${d.producto}-${d.momento}`}
@@ -99,8 +99,9 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
 }
 
 /**
- * Lo que contaron en un cajón. El color dice si dio: verde alcanza, no hace
- * falta escribir "cuadró". Si no dio va en rojo y ahí sí se aclara cuánto.
+ * Lo que contaron en un cajón. El monto va siempre en blanco: es un dato, no un
+ * veredicto. Lo que salta es la pastilla de al lado, que solo aparece cuando no
+ * dio y dice cuánto.
  *
  * Sin conteo no se inventa un cero.
  */
@@ -114,17 +115,15 @@ function Caja({
   dif: number | null;
 }) {
   if (contado === null) return null;
-  const cuadro = dif === null || dif === 0;
-  const color = cuadro ? "text-[var(--ds-green-900)]" : "text-[var(--ds-red-900)]";
 
   return (
-    <span className="flex items-baseline gap-1.5">
+    <span className="flex items-center gap-1.5">
       <span className="text-[var(--ds-gray-900)]">{etiqueta}</span>
-      <span className={`tabular-nums ${color}`}>{pesos(contado)}</span>
-      {!cuadro && (
-        <span className={color}>
-          {dif! < 0 ? "faltan" : "sobran"} {pesos(dif!)}
-        </span>
+      <span className="tabular-nums text-[var(--ds-gray-1000)]">{pesos(contado)}</span>
+      {dif !== null && dif !== 0 && (
+        <Badge variant={dif < 0 ? "red-subtle" : "amber-subtle"}>
+          {dif < 0 ? "faltan" : "sobran"} {pesos(dif)}
+        </Badge>
       )}
     </span>
   );
