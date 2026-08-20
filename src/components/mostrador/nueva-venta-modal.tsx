@@ -114,13 +114,15 @@ export function NuevaVentaModal({
   productos,
   promos = [],
   bloqueado = false,
+  motivoBloqueo,
 }: {
   alumnos: Alumno[];
   productos: Producto[];
   /** A qué promo pertenece cada alumno, para proponer su precio. */
   promos?: PromoDeAlumno[];
-  /** Sin turno abierto no se carga nada: el botón queda muerto y dice por qué. */
+  /** Sin turno abierto, o mirando un día pasado: el botón queda muerto. */
   bloqueado?: boolean;
+  motivoBloqueo?: string;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
@@ -359,7 +361,8 @@ export function NuevaVentaModal({
     setAbierto(false);
   }
 
-  if (bloqueado) return <BotonBloqueado>Agregar movimientos</BotonBloqueado>;
+  if (bloqueado)
+    return <BotonBloqueado motivo={motivoBloqueo}>Agregar movimientos</BotonBloqueado>;
 
   return (
     <>

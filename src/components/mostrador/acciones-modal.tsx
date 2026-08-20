@@ -16,18 +16,20 @@ export function AccionesModal({
   alumnos,
   categorias,
   bloqueado = false,
+  motivoBloqueo,
 }: {
   alumnos: AlumnoTarea[];
   categorias: Categoria[];
-  /** Sin turno abierto no se carga nada: el botón queda muerto y dice por qué. */
+  /** Sin turno abierto, o mirando un día pasado: el botón queda muerto. */
   bloqueado?: boolean;
+  motivoBloqueo?: string;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
   const [pestania, setPestania] = React.useState("alumno");
   const [hecho, setHecho] = React.useState<string | null>(null);
 
-  if (bloqueado) return <BotonBloqueado>Acciones</BotonBloqueado>;
+  if (bloqueado) return <BotonBloqueado motivo={motivoBloqueo}>Acciones</BotonBloqueado>;
 
   return (
     <>

@@ -20,6 +20,17 @@ function aTexto(fecha: Date) {
   ).padStart(2, "0")}`;
 }
 
+/**
+ * El calendario habla ingles de fabrica. Se traduce con las props de formato en
+ * vez del locale de date-fns: date-fns viene adentro de react-day-picker y no
+ * esta declarado como dependencia nuestra, e Intl ya hace esto sin instalar nada.
+ */
+const EN_ESPANIOL = {
+  formatCaption: (mes: Date) =>
+    mes.toLocaleDateString("es-AR", { month: "long", year: "numeric" }),
+  formatWeekdayName: (dia: Date) => dia.toLocaleDateString("es-AR", { weekday: "narrow" }),
+};
+
 export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
   const router = useRouter();
   const ref = React.useRef<HTMLDivElement>(null);
@@ -46,7 +57,7 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
       return;
     }
     if (!conVentas.has(valor)) {
-      setError("Ese día no tiene ventas cargadas.");
+      setError("Ese día no tiene nada cargado.");
       return;
     }
     ir(valor);
@@ -92,10 +103,11 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
           />
 
           <CalendarGrid
+            formatters={EN_ESPANIOL}
             mode="single"
             selected={seleccionado}
             defaultMonth={seleccionado}
-            // Los dias sin movimientos no se pueden elegir: no hay nada que ver.
+            // Los dias sin nada cargado no se pueden elegir: no hay nada que ver.
             disabled={(fecha: Date) => !conVentas.has(aTexto(fecha))}
             onSelect={(fecha) => fecha && ir(aTexto(fecha))}
           />

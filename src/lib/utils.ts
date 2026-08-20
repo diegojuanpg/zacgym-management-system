@@ -41,3 +41,21 @@ export function inicioDelDia() {
   });
   return `${hoy}T00:00:00-03:00`;
 }
+
+/** Hoy en Buenos Aires, como "YYYY-MM-DD". */
+export function hoyEnBsAs() {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+}
+
+/**
+ * Los dos extremos de un dia de Buenos Aires, como instantes ISO. Argentina no
+ * cambia de hora, asi que el offset es fijo todo el año y no hay que calcularlo.
+ */
+export function rangoDelDia(dia: string) {
+  const [a, m, d] = dia.split("-").map(Number);
+  const siguiente = new Date(Date.UTC(a, m - 1, d + 1));
+  const manana = siguiente.toISOString().slice(0, 10);
+  return { desde: `${dia}T00:00:00-03:00`, hasta: `${manana}T00:00:00-03:00` };
+}

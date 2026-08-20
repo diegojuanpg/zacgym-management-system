@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { inicioDelDia } from "@/lib/utils";
+import { inicioDelDia, hoyEnBsAs, rangoDelDia } from "@/lib/utils";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { AccionesModal } from "@/components/mostrador/acciones-modal";
@@ -9,7 +9,13 @@ import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
 import { AsistenciaModal } from "@/components/mostrador/asistencia-modal";
 import type { Asistencia } from "@/lib/asistencias";
-import { CajaCard } from "@/components/mostrador/caja-card";
+import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
+import { SelectorDia } from "@/components/mostrador/selector-dia";
+import {
+  TurnoSeparador,
+  type TurnoDelDia,
+  type DiferenciaProducto,
+} from "@/components/mostrador/turno-separador";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -55,6 +61,7 @@ interface MovimientoFila {
   monto: number;
   motivo: string;
   delta: number;
+  turno_id: string;
   creado_en: string;
   anulado_en: string | null;
 }
@@ -69,6 +76,7 @@ interface VentaFila {
   transferencia: number;
   no_paga: number;
   saldo: number;
+  turno_id: string;
   creado_en: string;
   anulada_en: string | null;
 }
@@ -81,6 +89,7 @@ interface PagoFila {
   monto: number;
   metodo: "efectivo" | "transferencia" | "no_paga";
   caja: "grande" | "chica";
+  turno_id: string;
   creado_en: string;
   anulada_en: string | null;
 }
@@ -105,22 +114,27 @@ interface CobroFila {
   alumno: string;
   efectivo: number;
   transferencia: number;
+  turno_id: string;
   creado_en: string;
 }
 
 export default async function MostradorPage({ searchParams }: PageProps<"/mostrador">) {
   await requireStaff();
-  const { orden, alumno, detalle, metodo } = await searchParams;
+  const { fecha, orden, alumno, detalle, metodo } = await searchParams;
+  // El mostrador arranca en hoy y se puede mover a cualquier día que tenga algo
+  // cargado. Un turno cerrado deja de vaciar la pantalla: sus movimientos siguen
+  // en el día que pasaron, que es lo que el del turno siguiente necesita ver.
+  const hoyDia = hoyEnBsAs();
+  const dia = typeof fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyDia;
+  const esHoy = dia === hoyDia;
+  const { desde, hasta } = rangoDelDia(dia);
   // Un filtro se manda como el mismo parametro repetido: ?alumno=X&alumno=Y.
   const lista = (v: string | string[] | undefined) =>
     v === undefined ? [] : Array.isArray(v) ? v : [v];
 
   const supabase = await createClient();
 
-  // El mostrador es el turno abierto, no el dia: un turno puede cruzar la
-  // medianoche y en un dia puede haber varios. Los dias pasados se miran en
-  // Ventas, que para eso esta.
-  // El turno y los catalogos no dependen entre si: van en la misma vuelta.
+  // El turno abierto y los catalogos no dependen entre si: van en la misma vuelta.
   const [
     { data: turno },
     { data: alumnos },
@@ -129,6 +143,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { data: asistencias },
     { data: promos },
     { data: categorias },
+    { data: dias },
   ] = await Promise.all([
       supabase
         .from("turno_actual")
@@ -164,33 +179,90 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .overrideTypes<Asistencia[]>(),
       supabase.from("alumno_promo").select("alumno_id, promo, producto_id, producto, precio"),
       supabase.from("tarea_categorias").select("id, nombre").order("nombre"),
+      // Los dias que tienen algo cargado: son los unicos elegibles en el calendario.
+      supabase.from("dias_con_ventas").select("dia").order("dia"),
     ]);
 
-  // Sin turno abierto no hay nada que listar: la tabla arranca vacia.
-  const porTurno = <T,>(tabla: string, columnas: string) =>
-    turno
-      ? supabase
-          .from(tabla)
-          .select(columnas)
-          .eq("turno_id", turno.id)
-          .order("creado_en", { ascending: false })
-          .overrideTypes<T[]>()
-      : Promise.resolve({ data: [] as T[] });
+  // Todo lo del dia elegido, sin importar en que turno cayo: despues se agrupa.
+  const porDia = <T,>(tabla: string, columnas: string) =>
+    supabase
+      .from(tabla)
+      .select(columnas)
+      .gte("creado_en", desde)
+      .lt("creado_en", hasta)
+      .order("creado_en", { ascending: false })
+      .overrideTypes<T[]>();
 
   const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
-    porTurno<VentaFila>(
+    porDia<VentaFila>(
       "ventas_saldo",
-      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, saldo, creado_en, anulada_en",
+      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, saldo, turno_id, creado_en, anulada_en",
     ),
-    porTurno<PagoFila>(
+    porDia<PagoFila>(
       "pagos_detalle",
-      "id, venta_id, alumno, producto, monto, metodo, caja, creado_en, anulada_en",
+      "id, venta_id, alumno, producto, monto, metodo, caja, turno_id, creado_en, anulada_en",
     ),
-    porTurno<MovimientoFila>(
+    porDia<MovimientoFila>(
       "movimientos_caja_detalle",
-      "id, tipo, caja, metodo, monto, motivo, delta, creado_en, anulado_en",
+      "id, tipo, caja, metodo, monto, motivo, delta, turno_id, creado_en, anulado_en",
     ),
   ]);
+
+  // Los turnos que tocaron el dia: los que dejaron movimientos, mas el abierto
+  // si estamos parados en hoy (puede no haber vendido nada todavia).
+  const idsTurno = [
+    ...new Set([
+      ...(ventas ?? []).map((v) => v.turno_id),
+      ...(pagos ?? []).map((p) => p.turno_id),
+      ...(movimientos ?? []).map((m) => m.turno_id),
+    ]),
+  ].filter(Boolean);
+
+  const [{ data: cerrados }, { data: difStock }] = await Promise.all([
+    idsTurno.length > 0
+      ? supabase
+          .from("turnos_cerrados")
+          .select(
+            "id, abierto_en, cerrado_en, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, nota_cierre, responsables",
+          )
+          .in("id", idsTurno)
+          .overrideTypes<Omit<TurnoDelDia, "stock">[], { merge: false }>()
+      : Promise.resolve({ data: [] as Omit<TurnoDelDia, "stock">[] }),
+    idsTurno.length > 0
+      ? supabase
+          .from("diferencias_stock")
+          .select("turno_id, producto, diferencia, momento")
+          .in("turno_id", idsTurno)
+          .overrideTypes<(DiferenciaProducto & { turno_id: string })[]>()
+      : Promise.resolve({ data: [] as (DiferenciaProducto & { turno_id: string })[] }),
+  ]);
+
+  const stockDe = (id: string) => (difStock ?? []).filter((d) => d.turno_id === id);
+
+  // El turno abierto entra si dejo movimientos este dia —puede haber arrancado
+  // ayer y seguir abierto— y ademas siempre que estemos parados en hoy, porque
+  // es el bloque donde van a caer las ventas que se carguen ahora.
+  const abiertoEnEsteDia = turno && (esHoy || idsTurno.includes(turno.id));
+
+  const turnosDelDia: TurnoDelDia[] = [
+    ...(abiertoEnEsteDia && turno
+      ? [
+          {
+            id: turno.id,
+            abierto_en: turno.abierto_en,
+            cerrado_en: null,
+            caja_grande_final: null,
+            caja_chica_final: null,
+            caja_grande_esperada: null,
+            caja_chica_esperada: null,
+            nota_cierre: null,
+            responsables: turno.responsables,
+            stock: stockDe(turno.id),
+          },
+        ]
+      : []),
+    ...(cerrados ?? []).map((t) => ({ ...t, stock: stockDe(t.id) })),
+  ].sort((a, b) => b.abierto_en.localeCompare(a.abierto_en));
 
   const hoy = asistencias ?? [];
   // El aviso al abrir turno mira quién está ahora, no quién pasó hoy: el que
@@ -225,11 +297,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     // Sin cargo no es plata que entró: no arma un cobro de deuda.
     if (p.metodo === "no_paga") continue;
     const clave = `${p.alumno}|${p.creado_en}`;
-    const fila = cobros.get(clave) ?? {
+    const fila: CobroFila = cobros.get(clave) ?? {
       ids: [],
       alumno: p.alumno,
       efectivo: 0,
       transferencia: 0,
+      turno_id: p.turno_id,
       creado_en: p.creado_en,
     };
     fila.ids.push(p.id);
@@ -237,24 +310,34 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     cobros.set(clave, fila);
   }
 
-  // Lo que deberia haber en cada cajon ahora mismo: el saldo con el que se abrio
-  // el turno mas todo lo que entro y salio desde entonces. Lo calcula la vista,
-  // que es la misma cuenta que usa el cierre para decir si cuadra.
+  // Con el turno abierto la pregunta es cuanto tiene que haber ahora, y de donde
+  // sale. En un dia que ya cerro es otra: cuanto contaron y si dio. Se toma el
+  // ultimo cierre del dia, que es con lo que quedo el cajon.
+  const ultimoCierre = turnosDelDia.find((t) => t.cerrado_en !== null) ?? null;
+
+  const cajaDe = (cual: "grande" | "chica"): EstadoCaja => {
+    if (esHoy && turno) {
+      return {
+        estado: "abierto",
+        inicial: cual === "grande" ? turno.caja_grande_inicial : turno.caja_chica_inicial,
+        ventas: cual === "grande" ? turno.ventas_grande : turno.ventas_chica,
+        movimientos: cual === "grande" ? turno.movimientos_grande : turno.movimientos_chica,
+        esperado: cual === "grande" ? turno.caja_grande_esperada : turno.caja_chica_esperada,
+      };
+    }
+    const contado =
+      cual === "grande" ? ultimoCierre?.caja_grande_final : ultimoCierre?.caja_chica_final;
+    const esperado =
+      cual === "grande" ? ultimoCierre?.caja_grande_esperada : ultimoCierre?.caja_chica_esperada;
+    if (contado === null || contado === undefined || esperado === null || esperado === undefined) {
+      return { estado: "sin_datos" };
+    }
+    return { estado: "cerrado", contado, esperado };
+  };
+
   const totales = [
-    {
-      etiqueta: "Caja grande efectivo",
-      inicial: turno?.caja_grande_inicial ?? 0,
-      ventas: turno?.ventas_grande ?? 0,
-      movimientos: turno?.movimientos_grande ?? 0,
-      esperado: turno?.caja_grande_esperada ?? 0,
-    },
-    {
-      etiqueta: "Caja chica efectivo",
-      inicial: turno?.caja_chica_inicial ?? 0,
-      ventas: turno?.ventas_chica ?? 0,
-      movimientos: turno?.movimientos_chica ?? 0,
-      esperado: turno?.caja_chica_esperada ?? 0,
-    },
+    { etiqueta: "Caja grande efectivo", caja: cajaDe("grande") },
+    { etiqueta: "Caja chica efectivo", caja: cajaDe("chica") },
   ];
 
   type Registro =
@@ -309,6 +392,28 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
   const hayFiltro = filtroAlumno.length + filtroDetalle.length + filtroMetodo.length > 0;
 
+  // La lista que se dibuja: cada turno con su cabecera y abajo sus movimientos.
+  // Los turnos van del mas nuevo al mas viejo, y adentro de cada uno los
+  // movimientos siguen el orden que pida la columna Hora.
+  type Fila = { clase: "turno"; turno: TurnoDelDia } | { clase: "fila"; registro: Registro };
+  const filas: Fila[] = turnosDelDia.flatMap((t) => {
+    const suyos = registros.filter((r) => r.turno_id === t.id);
+    // Un turno sin nada que mostrar no dibuja cabecera, salvo que sea el abierto:
+    // ese es el bloque donde van a caer las ventas que se carguen ahora.
+    if (suyos.length === 0 && t.cerrado_en !== null) return [];
+    return [
+      { clase: "turno" as const, turno: t },
+      ...suyos.map((registro) => ({ clase: "fila" as const, registro })),
+    ];
+  });
+
+  // Los dias elegibles. Hoy entra siempre: si todavia no se cargo nada, el
+  // calendario no puede arrancar parado en un dia deshabilitado.
+  const diasElegibles = [...new Set([...(dias ?? []).map((d) => d.dia as string), hoyDia])].sort();
+  const bloqueoPorFecha = esHoy
+    ? undefined
+    : `Estás viendo el ${dia.split("-").reverse().join("/")}. Volvé a hoy para cargar movimientos.`;
+
   async function borrarMov(formData: FormData) {
     "use server";
     await borrarMovimiento(String(formData.get("id")));
@@ -330,9 +435,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-heading-20">Mostrador</h1>
           <p className="text-copy-14 text-[var(--ds-gray-900)]">
-            {!turno ? (
-              "Turno cerrado"
-            ) : (
+            {esHoy && turno ? (
               <>
                 A cargo:{" "}
                 <span className="text-[var(--ds-gray-1000)]">
@@ -347,13 +450,24 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 {registros.length > 0 &&
                   ` · ${registros.length} ${registros.length === 1 ? "movimiento" : "movimientos"}`}
               </>
+            ) : (
+              <>
+                {turnosDelDia.length === 0
+                  ? "Sin turnos"
+                  : `${turnosDelDia.length} ${turnosDelDia.length === 1 ? "turno" : "turnos"}`}
+                {registros.length > 0 &&
+                  ` · ${registros.length} ${registros.length === 1 ? "movimiento" : "movimientos"}`}
+                {esHoy && !turno && " · turno cerrado"}
+              </>
             )}
           </p>
         </div>
 
+        <SelectorDia dia={dia} dias={diasElegibles} />
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {turno && (
+            {esHoy && turno && (
               <CerrarTurnoModal
                 esperadoGrande={turno.caja_grande_esperada}
                 esperadoChica={turno.caja_chica_esperada}
@@ -365,7 +479,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             <AsistenciaModal empleados={empleados ?? []} asistencias={hoy} />
           </div>
 
-          {/* Sin turno los dos botones quedan bloqueados: el tooltip dice por qué. */}
+          {/* Sin turno abierto, o parado en un día que ya pasó, los dos quedan
+              bloqueados: cargar iría al turno de hoy y no al día que se ve. */}
           <div className="flex flex-wrap items-center gap-2">
             {/* render: el botón del sistema se dibuja como link, sin anidar <a><button>.
                 nativeButton en false para que Base UI no espere un <button> real. */}
@@ -375,24 +490,28 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             <AccionesModal
               alumnos={alumnos ?? []}
               categorias={categorias ?? []}
-              bloqueado={!turno}
+              bloqueado={!turno || !esHoy}
+              motivoBloqueo={bloqueoPorFecha}
             />
             <NuevaVentaModal
               alumnos={alumnos ?? []}
               productos={productos ?? []}
               promos={promos ?? []}
-              bloqueado={!turno}
+              bloqueado={!turno || !esHoy}
+              motivoBloqueo={bloqueoPorFecha}
             />
           </div>
         </div>
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {totales.map((t) => (
-            <CajaCard key={t.etiqueta} {...t} abierto={turno !== null} />
+            <CajaCard key={t.etiqueta} {...t} />
           ))}
         </section>
 
-        {!turno ? (
+        {/* Iniciar turno solo aparece parado en hoy: abrir un turno con fecha de
+            la semana pasada no existe. */}
+        {esHoy && !turno && registros.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
             title="No hay ningún turno abierto"
@@ -402,11 +521,13 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         ) : registros.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
-            title={hayFiltro ? "Nada coincide con el filtro" : "Sin movimientos en este turno"}
+            title={hayFiltro ? "Nada coincide con el filtro" : "Sin movimientos este día"}
             description={
               hayFiltro
                 ? "Probá quitando el filtro desde el encabezado de la columna."
-                : "Cargá las ventas y los movimientos de caja con el botón de arriba y aparecen acá."
+                : esHoy
+                  ? "Cargá las ventas y los movimientos de caja con el botón de arriba y aparecen acá."
+                  : "Ese día no quedó nada anotado."
             }
           />
         ) : (
@@ -443,7 +564,19 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                   </TableRow>
                 </TableHeader>
                 <TableBody striped>
-                  {registros.map((r) => {
+                  {filas.map((f) => {
+                    // La cabecera del turno ocupa toda la fila: asi la tabla no
+                    // pierde el alineado de columnas ni el encabezado pegajoso.
+                    if (f.clase === "turno") {
+                      return (
+                        <TableRow key={`turno-${f.turno.id}`} className="!bg-transparent">
+                          <TableCell colSpan={8} className="whitespace-normal !p-0">
+                            <TurnoSeparador turno={f.turno} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    const r = f.registro;
                     const anulado =
                       r.clase === "venta"
                         ? r.anulada_en
@@ -457,11 +590,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                         className={anulado ? "text-muted-foreground" : undefined}
                       >
                         <TableCell>
-                          {new Date(r.creado_en).toLocaleTimeString("es-AR", {
-                            timeZone: ZONA,
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {horaCorta(r.creado_en)}
                         </TableCell>
 
                         {r.clase === "venta" ? (
