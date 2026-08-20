@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useNavegacion } from "@/hooks/use-navegacion";
 import { CalendarGrid } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ const EN_ESPANIOL = {
 };
 
 export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
-  const router = useRouter();
+  const { irA, cargando } = useNavegacion();
   const ref = React.useRef<HTMLDivElement>(null);
   const [abierto, setAbierto] = React.useState(false);
   const [tipeada, setTipeada] = React.useState(dia);
@@ -46,7 +46,7 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
   function ir(destino: string) {
     setAbierto(false);
     setError(null);
-    router.push(`/mostrador?fecha=${destino}`);
+    irA(new URLSearchParams({ fecha: destino }));
   }
 
   /** El input de fecha solo emite la fecha entera: al completarla, se aplica sola. */
@@ -80,6 +80,7 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
           setError(null);
         }}
         prefix={<CalendarIcon />}
+        loading={cargando}
         suffix={<ChevronDownIcon />}
         aria-haspopup="dialog"
         aria-expanded={abierto}

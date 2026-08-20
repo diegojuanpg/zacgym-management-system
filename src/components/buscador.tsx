@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { SearchInput } from "@/components/ui/search-input";
+import { useNavegacion } from "@/hooks/use-navegacion";
 
 /**
  * Busca mientras escribís. Va a la URL igual que el resto de los filtros, pero
@@ -17,9 +18,8 @@ export function Buscador({
   placeholder: string;
   param?: string;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { irA, cargando } = useNavegacion();
   const [texto, setTexto] = React.useState(inicial);
 
   React.useEffect(() => {
@@ -30,10 +30,10 @@ export function Buscador({
       const nuevos = new URLSearchParams(searchParams.toString());
       if (texto.trim() === "") nuevos.delete(param);
       else nuevos.set(param, texto.trim());
-      router.replace(`${pathname}?${nuevos.toString()}`, { scroll: false });
+      irA(nuevos, { reemplazar: true });
     }, 250);
     return () => clearTimeout(id);
-  }, [texto, param, searchParams, pathname, router]);
+  }, [texto, param, searchParams, irA]);
 
   return (
     <div className="w-72">
@@ -44,6 +44,8 @@ export function Buscador({
         aria-label={placeholder}
         value={texto}
         onValueChange={setTexto}
+        // La lupa se convierte en spinner mientras el server busca.
+        loading={cargando}
       />
     </div>
   );

@@ -2,15 +2,17 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { Spinner } from "@/components/ui/spinner";
 import { ArrowRightIcon, ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { useNavegacion } from "@/hooks/use-navegacion";
 
 const ANCHO = 260;
 // Con dos campos uno al lado del otro el panel angosto los desborda: una fecha
@@ -75,8 +77,7 @@ export function FiltroColumna({
   /** Comparación de montos, "operador:valor" ("entre:min:max"). */
   monto?: { param: string };
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const { irA: navegar, cargando } = useNavegacion();
   const searchParams = useSearchParams();
 
   const elegidas = React.useMemo(
@@ -168,7 +169,7 @@ export function FiltroColumna({
 
   function irA(nuevos: URLSearchParams) {
     cerrar();
-    router.push(`${pathname}?${nuevos.toString()}`);
+    navegar(nuevos);
   }
 
   function aplicarOrden(valor: string) {
@@ -467,7 +468,9 @@ export function FiltroColumna({
           onClick={abrir}
           aria-expanded={abierto}
           aria-haspopup="dialog"
-          suffix={<ChevronDownIcon className="size-3" />}
+          // El panel se cierra al aplicar, asi que el aviso de que el server
+          // esta trabajando tiene que quedar en el encabezado.
+          suffix={cargando ? <Spinner size={12} /> : <ChevronDownIcon className="size-3" />}
           className={cn(
             // Igual que los encabezados que no abren panel, que van en bold.
             "font-bold",

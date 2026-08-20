@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -9,8 +10,15 @@ export interface Staff {
   role: Role;
 }
 
-/** Usuario logueado + rol. Redirige a /login si no hay sesion. */
-export async function requireStaff(): Promise<Staff> {
+/**
+ * Usuario logueado + rol. Redirige a /login si no hay sesion.
+ *
+ * Con cache() porque el layout y la pagina la llaman las dos, y cada llamada
+ * era un viaje entero a Supabase Auth: getUser() valida el token contra el
+ * server, no lo lee de la cookie. Ahora sale una sola vez por request y la
+ * segunda llamada se la lleva de memoria.
+ */
+export const requireStaff = cache(async function requireStaff(): Promise<Staff> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -25,4 +33,4 @@ export async function requireStaff(): Promise<Staff> {
     // una cuenta cargada a mano sin el campo.
     role: user.app_metadata?.role === "admin" ? "admin" : "employee",
   };
-}
+});

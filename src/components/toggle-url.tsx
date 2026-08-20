@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useNavegacion } from "@/hooks/use-navegacion";
 
 /**
  * Interruptor atado a un parámetro de la URL, como las solapas y el buscador: el
@@ -25,15 +26,14 @@ export function ToggleUrl({
   etiqueta: string;
   encendido: boolean;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { irA, cargando } = useNavegacion();
 
   function alternar() {
     const nuevos = new URLSearchParams(searchParams.toString());
     if (encendido) nuevos.set(param, "no");
     else nuevos.delete(param);
-    router.push(`${pathname}?${nuevos.toString()}`, { scroll: false });
+    irA(nuevos);
   }
 
   return (
@@ -41,6 +41,7 @@ export function ToggleUrl({
       type="button"
       onClick={alternar}
       aria-pressed={encendido}
+      disabled={cargando}
       className={cn(
         "flex h-8 shrink-0 items-center rounded-md px-3 text-[13px] font-medium whitespace-nowrap outline-none transition-all duration-150 ease-in-out focus-visible:shadow-[var(--ds-focus-ring)]",
         encendido
