@@ -571,10 +571,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                       return (
                         <TableRow key={`turno-${f.turno.id}`} className="!bg-transparent">
                           <TableCell colSpan={8} className="whitespace-normal !p-0">
-                            <TurnoSeparador
-                              turno={f.turno}
-                              primero={f.turno.id === turnosDelDia[0]?.id}
-                            />
+                            <TurnoSeparador turno={f.turno} />
                           </TableCell>
                         </TableRow>
                       );
