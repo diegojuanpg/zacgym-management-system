@@ -361,7 +361,7 @@ export default async function TurnosPage({
                             )}
                             {alertasDe(t) > 0 && (
                               <span
-                                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-900)] text-[11px] font-medium tabular-nums text-white"
+                                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-200)] text-[11px] font-medium tabular-nums text-[var(--ds-red-900)]"
                                 aria-label={`${alertasDe(t)} ${alertasDe(t) === 1 ? "problema" : "problemas"} en este turno`}
                               >
                                 {alertasDe(t)}

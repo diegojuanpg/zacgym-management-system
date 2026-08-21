@@ -118,7 +118,7 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
             dibuja: un cero en un círculo rojo se lee como un problema. */}
         {alertas > 0 && (
           <span
-            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-900)] text-[11px] font-medium tabular-nums text-white"
+            className={`flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-200)] text-[11px] font-medium tabular-nums text-[var(--ds-red-900)] ${BORDE_ROJO}`}
             aria-label={`${alertas} ${alertas === 1 ? "problema" : "problemas"} en este turno`}
           >
             {alertas}
