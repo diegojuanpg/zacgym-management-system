@@ -7,7 +7,7 @@ import { EstadoTareaSelect } from "@/components/tareas/estado-tarea";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
-import { Paginador, paginar } from "@/components/paginador";
+import { MostrarMas, recortar } from "@/components/mostrar-mas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -64,7 +64,7 @@ interface Tarea {
 export default async function TareasPage({ searchParams }: PageProps<"/tareas">) {
   await requireStaff();
   const params = await searchParams;
-  const { q, cat, alumno, orden, estado, creada, pagina } = params;
+  const { q, cat, alumno, orden, estado, creada, filas } = params;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const solapa = typeof cat === "string" ? cat : "todas";
   const criterio = typeof orden === "string" ? orden : "reciente";
@@ -111,8 +111,6 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
   const rangoCreada = rangoDe(creada);
   const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
 
-  const sinTerminar = todas.filter((t) => t.estado !== "terminada").length;
-
   const lista = todas
     .filter(
       (t) =>
@@ -134,7 +132,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
 
   // Igual que en Alumnos: la cuenta de las solapas y las opciones de los
   // filtros salen de la lista entera, solo se recorta lo que se dibuja.
-  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
+  const { tope, visibles } = recortar(lista, filas);
 
   async function borrar(datos: FormData) {
     "use server";
@@ -143,22 +141,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
 
   return (
     <main className="flex flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-heading-20">Tareas</h1>
-        <p className="text-copy-14 text-[var(--ds-gray-900)]">
-          {todas.length === 0
-            ? "Ninguna cargada"
-            : lista.length === todas.length
-              ? `${todas.length} en total`
-              : `${lista.length} de ${todas.length}`}
-          {sinTerminar > 0 && (
-            <>
-              {" · "}
-              <span className="text-[var(--ds-amber-900)]">{sinTerminar} sin terminar</span>
-            </>
-          )}
-        </p>
-      </div>
+      <h1 className="text-heading-20">Tareas</h1>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -258,28 +241,27 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
                           type="submit"
                           variant="tertiary"
                           size="sm"
-                          aria-label={`Borrar la tarea de ${t.alumno} cargada el ${cuando(t.creado_en)}`}
+                          aria-label={`Eliminar la tarea de ${t.alumno} cargada el ${cuando(t.creado_en)}`}
                           className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
                         >
-                          Borrar
+                          Eliminar
                         </Button>
                       </form>
                     </TableCell>
                   </TableRow>
                 ))}
+                <MostrarMas
+                  ruta="/tareas"
+                  params={params}
+                  tope={tope}
+                  enPagina={visibles.length}
+                  total={lista.length}
+                  columnas={6}
+                />
               </TableBody>
             </Table>
           </TableRoot>
 
-          <Paginador
-            ruta="/tareas"
-            params={params}
-            actual={actual}
-            paginas={paginas}
-            desde={desde}
-            enPagina={visibles.length}
-            total={lista.length}
-          />
         </div>
       )}
     </main>
