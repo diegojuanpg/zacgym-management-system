@@ -134,7 +134,8 @@ export type Database = {
           empleado_id: string
           entro: string
           id: string
-          salio: string | null
+          inicia: string
+          termina: string | null
         }
         Insert: {
           creado_en?: string
@@ -142,7 +143,8 @@ export type Database = {
           empleado_id: string
           entro?: string
           id?: string
-          salio?: string | null
+          inicia: string
+          termina?: string | null
         }
         Update: {
           creado_en?: string
@@ -150,7 +152,8 @@ export type Database = {
           empleado_id?: string
           entro?: string
           id?: string
-          salio?: string | null
+          inicia?: string
+          termina?: string | null
         }
         Relationships: [
           {
@@ -754,8 +757,9 @@ export type Database = {
           empleado_id: string | null
           entro: string | null
           id: string | null
+          inicia: string | null
           nombre: string | null
-          salio: string | null
+          termina: string | null
           trabajando: boolean | null
         }
         Relationships: [
@@ -1151,8 +1155,8 @@ export type Database = {
         Args: { p_email: string; p_password: string; p_role?: string }
         Returns: string
       }
-      editar_salida: {
-        Args: { p_id: string; p_salio: string }
+      editar_horario: {
+        Args: { p_id: string; p_inicia: string; p_termina: string }
         Returns: undefined
       }
       empleados_en: {
@@ -1167,7 +1171,7 @@ export type Database = {
       }
       es_admin: { Args: never; Returns: boolean }
       fichar_asistencia: {
-        Args: { p_empleado: string; p_salida: string }
+        Args: { p_empleado: string; p_inicia: string; p_termina: string }
         Returns: string
       }
       registrar_cobro: {

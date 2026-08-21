@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ficharAsistencia, editarSalida, type Asistencia } from "@/lib/asistencias";
+import { ficharAsistencia, editarHorario, type Asistencia } from "@/lib/asistencias";
 import { crearEmpleado, type Empleado } from "@/lib/turnos";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { PlusIcon } from "@/components/icons";
+import { comoHora, duracion, horaCercaDe, horaDespuesDe } from "@/lib/horas";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 
@@ -23,44 +24,22 @@ const hora = (iso: string) =>
   });
 
 /**
- * "HH:MM" a la primera vez que esa hora cae después de la referencia. El que
- * entra a las 22 y sale a las 2 termina al otro día, no cuatro horas antes.
- */
-function horaDespuesDe(hhmm: string, referencia: Date) {
-  const [h, m] = hhmm.split(":").map(Number);
-  const salida = new Date(referencia);
-  salida.setHours(h, m, 0, 0);
-  if (salida.getTime() <= referencia.getTime()) salida.setDate(salida.getDate() + 1);
-  return salida;
-}
-
-/** "HH:MM" de una fecha, para precargar el campo al editar. */
-function comoHora(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/** Cuánto hay entre dos momentos, para confirmar que se entendió bien. */
-function duracion(desde: Date, hasta: Date) {
-  const minutos = Math.round((hasta.getTime() - desde.getTime()) / 60000);
-  const h = Math.floor(minutos / 60);
-  const m = minutos % 60;
-  return h === 0 ? `${m} min` : m === 0 ? `${h} h` : `${h} h ${m} min`;
-}
-
-/**
- * Fichaje de asistencia. La entrada es el momento del botón —no se elige— y la
- * salida la pone el empleado, porque los horarios varían todos los días.
+ * Check-in. Guarda tres horas y cada una responde algo distinto:
  *
- * De acá sale quién estuvo en cada turno: el turno ya no pregunta responsables,
- * se cruza su rango con estas jornadas.
+ * - Llegaste: el momento del botón. No se elige y no se corrige.
+ * - Inicia y Termina: el turno declarado. Se eligen, y después se corrigen.
+ *
+ * El inicio puede ser anterior a la llegada: el que llega 7:05 para un turno
+ * que arrancaba a las 7 declara las 7. De este par sale quién estuvo en cada
+ * turno de caja, así que es lo que decide a nombre de quién queda un faltante.
+ * La llegada queda como registro de puntualidad y no decide nada.
  */
-export function AsistenciaModal({
+export function CheckInModal({
   empleados,
   asistencias,
 }: {
   empleados: Empleado[];
-  /** Las jornadas de hoy, abiertas y cerradas. El día arranca a las 00:00. */
+  /** Los check-in de hoy, abiertos y cerrados. El día arranca a las 00:00. */
   asistencias: Asistencia[];
 }) {
   const router = useRouter();
@@ -69,24 +48,29 @@ export function AsistenciaModal({
   const [guardando, setGuardando] = React.useState(false);
 
   const [elegido, setElegido] = React.useState("");
-  const [hasta, setHasta] = React.useState("");
+  const [inicia, setInicia] = React.useState("");
+  const [termina, setTermina] = React.useState("");
   const [nuevo, setNuevo] = React.useState("");
   const [sumando, setSumando] = React.useState(false);
-  // A quién se le está corrigiendo el horario, y con qué hora.
+  // A quién se le está corrigiendo el horario, y con qué horas.
   const [editando, setEditando] = React.useState<Asistencia | null>(null);
-  const [salida, setSalida] = React.useState("");
-  // La hora que se muestra como entrada. Se congela al abrir: llamar a Date en
+  const [editaInicia, setEditaInicia] = React.useState("");
+  const [editaTermina, setEditaTermina] = React.useState("");
+  // La hora que se muestra como llegada. Se congela al abrir: llamar a Date en
   // el render no es puro, y de todas formas la que vale es la que pone la base.
   const [llegada, setLlegada] = React.useState("");
 
   function abrirModal() {
+    const ahora = new Date();
     setElegido("");
-    setHasta("");
+    // El turno arranca ahora salvo que digan otra cosa, que es el caso de siempre.
+    setInicia(comoHora(ahora.toISOString()));
+    setTermina("");
     setNuevo("");
     setSumando(false);
     setEditando(null);
     setLlegada(
-      new Date().toLocaleTimeString("es-AR", {
+      ahora.toLocaleTimeString("es-AR", {
         timeZone: ZONA,
         hour: "2-digit",
         minute: "2-digit",
@@ -98,17 +82,19 @@ export function AsistenciaModal({
   }
 
   async function fichar(empleadoId: string) {
-    if (empleadoId === "" || hasta === "") return;
+    if (empleadoId === "" || inicia === "" || termina === "") return;
     setGuardando(true);
     setError(null);
+    const desde = horaCercaDe(inicia, new Date());
     const { error } = await ficharAsistencia(
       empleadoId,
-      horaDespuesDe(hasta, new Date()).toISOString(),
+      desde.toISOString(),
+      horaDespuesDe(termina, desde).toISOString(),
     );
     setGuardando(false);
     if (error) return setError(error);
     setElegido("");
-    setHasta("");
+    setTermina("");
     router.refresh();
   }
 
@@ -116,7 +102,7 @@ export function AsistenciaModal({
     const nombre = nuevo.trim();
     if (nombre === "") return;
 
-    // Si ya existe se ficha y listo: al que solo quiere marcar la entrada no le
+    // Si ya existe se ficha y listo: al que solo quiere marcar la llegada no le
     // sirve un "ya existe" que lo manda a buscarlo al otro campo.
     const yaEsta = empleados.find((e) => e.nombre.toLowerCase() === nombre.toLowerCase());
     if (yaEsta) {
@@ -135,38 +121,42 @@ export function AsistenciaModal({
     if (empleado) await fichar(empleado.id);
   }
 
-  async function guardarSalida() {
-    if (!editando || salida === "") return;
+  async function guardarHorario() {
+    if (!editando || editaInicia === "" || editaTermina === "") return;
     setGuardando(true);
     setError(null);
-    // La hora nueva cuenta desde que entró, no desde ahora: así "02:00" es la
-    // madrugada de después de su entrada, se esté corrigiendo cuando se esté.
-    const cuando = horaDespuesDe(salida, new Date(editando.entro));
-    const { error } = await editarSalida(editando.id, cuando.toISOString());
+    // Las horas nuevas cuentan desde el día del turno que se está corrigiendo,
+    // no desde hoy: así se puede arreglar el de anoche sin que salte al futuro.
+    const desde = horaCercaDe(editaInicia, new Date(editando.inicia));
+    const { error } = await editarHorario(
+      editando.id,
+      desde.toISOString(),
+      horaDespuesDe(editaTermina, desde).toISOString(),
+    );
     setGuardando(false);
     if (error) return setError(error);
     setEditando(null);
     router.refresh();
   }
 
-  // Solo el que sigue adentro bloquea un fichaje nuevo: el que ya se fue puede
+  // Solo el que sigue adentro bloquea un check-in nuevo: el que ya se fue puede
   // volver a entrar más tarde el mismo día.
   const trabajando = asistencias.filter((a) => a.trabajando);
   const terminadas = asistencias.filter((a) => !a.trabajando);
-  const puedeFichar = hasta !== "" && !guardando;
+  const puedeFichar = inicia !== "" && termina !== "" && !guardando;
 
   return (
     <>
       <Button variant="secondary" onClick={abrirModal}>
-        Asistencia
+        Check-in
       </Button>
 
       <Modal
         open={abierto}
         onOpenChange={(v) => (v ? abrirModal() : setAbierto(false))}
-        title="Asistencia"
-        description="Registrá tu asistencia."
-        className="w-[min(38rem,94vw)]"
+        title="Check-in"
+        description="Indicá cuándo inicia y termina tu turno hoy."
+        className="w-[min(42rem,94vw)]"
         footer={
           <Button variant="secondary" onClick={() => setAbierto(false)} className="ml-auto">
             Listo
@@ -175,25 +165,32 @@ export function AsistenciaModal({
       >
         <div className="flex flex-col gap-5">
           <section className="flex flex-col gap-2">
-            <h3 className="text-heading-16">Fichar llegada</h3>
-
             {/* Grid y no flex: Input se dibuja dentro de un div w-full, asi que
                 en una fila flex se come todo el ancho y empuja al combo afuera. */}
-            <div className="grid grid-cols-[5rem_9rem_1fr] items-end gap-2">
-              {/* La entrada no se edita: es la hora en la que se apretó. */}
+            <div className="grid grid-cols-[5rem_7rem_7rem_1fr] items-end gap-2">
+              {/* La llegada no se edita: es la hora en la que se apretó. */}
               <div>
-                <Label>Ingrese</Label>
+                <Label>Llegaste</Label>
                 <div className="flex h-10 items-center rounded-lg px-3 text-base tabular-nums text-[var(--ds-gray-1000)] shadow-[0_0_0_1px_var(--ds-gray-alpha-400)]">
                   {llegada}
                 </div>
               </div>
               <div>
                 <Input
-                  label="Trabajo hasta"
+                  label="Inicia"
                   type="time"
                   size="large"
-                  value={hasta}
-                  onChange={(e) => setHasta(e.target.value)}
+                  value={inicia}
+                  onChange={(e) => setInicia(e.target.value)}
+                />
+              </div>
+              <div>
+                <Input
+                  label="Termina"
+                  type="time"
+                  size="large"
+                  value={termina}
+                  onChange={(e) => setTermina(e.target.value)}
                 />
               </div>
               <div className="min-w-0">
@@ -204,8 +201,8 @@ export function AsistenciaModal({
                     .map((e) => ({ value: e.id, label: e.nombre }))}
                   value={elegido}
                   onValueChange={fichar}
-                  placeholder={puedeFichar ? "Buscar empleado..." : "Poné la hora primero"}
-                  emptyMessage="Ya fichó todo el mundo"
+                  placeholder={puedeFichar ? "Buscar empleado..." : "Poné las horas primero"}
+                  emptyMessage="Ya hicieron el check-in todos"
                   disabled={!puedeFichar}
                   width="100%"
                 />
@@ -214,8 +211,11 @@ export function AsistenciaModal({
 
             <div className="flex min-h-6 items-center justify-between gap-3">
               <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                {hasta !== "" &&
-                  `Son ${duracion(new Date(), horaDespuesDe(hasta, new Date()))} de trabajo.`}
+                {puedeFichar &&
+                  `Son ${duracion(
+                    horaCercaDe(inicia, new Date()),
+                    horaDespuesDe(termina, horaCercaDe(inicia, new Date())),
+                  )} de trabajo.`}
               </span>
               {sumando ? null : (
                 <Button variant="link" size="xs" onClick={() => setSumando(true)}>
@@ -248,7 +248,7 @@ export function AsistenciaModal({
                   loading={guardando}
                   onClick={crearYFichar}
                 >
-                  Fichar
+                  Check-in
                 </Button>
                 <Button
                   variant="tertiary"
@@ -268,19 +268,19 @@ export function AsistenciaModal({
               <h3 className="text-heading-16">Historial</h3>
               <span className="text-copy-13 text-[var(--ds-gray-900)]">
                 {asistencias.length === 0
-                  ? "Hoy no fichó nadie"
-                  : `${asistencias.length} ${asistencias.length === 1 ? "jornada" : "jornadas"} hoy`}
+                  ? "Hoy no hizo check-in nadie"
+                  : `${asistencias.length} ${asistencias.length === 1 ? "turno" : "turnos"} hoy`}
                 {trabajando.length > 0 && ` · ${trabajando.length} trabajando`}
               </span>
             </div>
             {asistencias.length === 0 ? (
               <p className="text-copy-13 text-[var(--ds-gray-900)]">
-                El día arranca a las 00:00. Sin fichaje, el turno queda sin nadie a cargo.
+                El día arranca a las 00:00. Sin check-in, el turno queda sin nadie a cargo.
               </p>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--ds-gray-alpha-400)]">
                 {/* Los que siguen adentro arriba: son los que se tocan. Abajo,
-                    las jornadas que ya cerraron, que estan para mirar y corregir. */}
+                    los turnos que ya cerraron, que estan para mirar y corregir. */}
                 {[...trabajando, ...terminadas].map((a) => (
                   <li key={a.id} className="flex flex-col gap-2 py-2">
                     <div className="flex items-center justify-between gap-3">
@@ -295,21 +295,24 @@ export function AsistenciaModal({
                           {a.nombre}
                         </span>
                         <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                          {hora(a.entro)} →{" "}
-                          {a.salio === null ? "sin hora de salida" : hora(a.salio)}
-                          {a.salio !== null &&
-                            ` · ${duracion(new Date(a.entro), new Date(a.salio))}`}
+                          {hora(a.inicia)} →{" "}
+                          {a.termina === null ? "sin hora de fin" : hora(a.termina)}
+                          {a.termina !== null &&
+                            ` · ${duracion(new Date(a.inicia), new Date(a.termina))}`}
+                          {/* La llegada solo se muestra si no coincide con el
+                              inicio: repetir la misma hora dos veces no informa. */}
+                          {hora(a.entro) !== hora(a.inicia) && ` · llegó ${hora(a.entro)}`}
                         </span>
                       </div>
-                      {/* La hora de arriba es la que puso al fichar, o sea un
-                          plan: se puede ir antes o quedarse más. Las dos se
-                          arreglan acá. */}
+                      {/* Lo que se puso al fichar es un plan: se arranca antes,
+                          se sale despues. Las dos horas se arreglan aca. */}
                       <Button
                         variant="tertiary"
                         size="sm"
                         onClick={() => {
                           setEditando(editando?.id === a.id ? null : a);
-                          setSalida(a.salio === null ? "" : comoHora(a.salio));
+                          setEditaInicia(comoHora(a.inicia));
+                          setEditaTermina(a.termina === null ? "" : comoHora(a.termina));
                           setError(null);
                         }}
                       >
@@ -319,28 +322,41 @@ export function AsistenciaModal({
 
                     {editando?.id === a.id && (
                       <div className="flex items-end gap-2">
-                        <div className="w-36">
+                        <div className="w-28">
                           <Input
-                            label="Trabajo hasta"
+                            label="Inicia"
                             type="time"
                             size="large"
                             autoFocus
-                            value={salida}
-                            onChange={(e) => setSalida(e.target.value)}
+                            value={editaInicia}
+                            onChange={(e) => setEditaInicia(e.target.value)}
+                          />
+                        </div>
+                        <div className="w-28">
+                          <Input
+                            label="Termina"
+                            type="time"
+                            size="large"
+                            value={editaTermina}
+                            onChange={(e) => setEditaTermina(e.target.value)}
                           />
                         </div>
                         <Button
                           variant="secondary"
                           size="lg"
-                          disabled={salida === ""}
+                          disabled={editaInicia === "" || editaTermina === ""}
                           loading={guardando}
-                          onClick={guardarSalida}
+                          onClick={guardarHorario}
                         >
                           Guardar
                         </Button>
                         <span className="text-copy-13 pb-2.5 text-[var(--ds-gray-900)]">
-                          {salida !== "" &&
-                            `${duracion(new Date(a.entro), horaDespuesDe(salida, new Date(a.entro)))} de trabajo.`}
+                          {editaInicia !== "" &&
+                            editaTermina !== "" &&
+                            `${duracion(
+                              horaCercaDe(editaInicia, new Date(a.inicia)),
+                              horaDespuesDe(editaTermina, horaCercaDe(editaInicia, new Date(a.inicia))),
+                            )} de trabajo.`}
                         </span>
                       </div>
                     )}

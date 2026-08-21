@@ -27,7 +27,7 @@ export function TurnoModal({
   trabajando,
   productos,
 }: {
-  /** Solo para avisar si no fichó nadie: el turno no los guarda. */
+  /** Solo para avisar si no hizo check-in nadie: el turno no los guarda. */
   trabajando: Asistencia[];
   productos: ProductoConStock[];
 }) {
@@ -101,8 +101,8 @@ export function TurnoModal({
               hay a quien preguntarle. Avisa, no frena. */}
           {trabajando.length === 0 ? (
             <Note type="warning" fill>
-              Nadie fichó asistencia todavía, así que este turno va a quedar sin nadie a
-              cargo. Podés abrirlo igual y fichar después, desde Asistencia.
+              Nadie hizo el check-in todavía, así que este turno va a quedar sin nadie a
+              cargo. Podés abrirlo igual y hacerlo después, desde Check-in.
             </Note>
           ) : (
             <p className="text-copy-13 text-[var(--ds-gray-900)]">
@@ -110,7 +110,7 @@ export function TurnoModal({
               <span className="text-[var(--ds-gray-1000)]">
                 {trabajando.map((a) => a.nombre).join(", ")}
               </span>
-              , por lo que ficharon en Asistencia.
+              , por lo que declararon en Check-in.
             </p>
           )}
 
