@@ -90,12 +90,14 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
           <>
             <Caja
               etiqueta="Grande"
+              inicial={turno.caja_grande_inicial}
               contado={turno.caja_grande_final}
               dif={difGrande}
               salto={turno.salto?.grande ?? 0}
             />
             <Caja
               etiqueta="Chica"
+              inicial={turno.caja_chica_inicial}
               contado={turno.caja_chica_final}
               dif={difChica}
               salto={turno.salto?.chica ?? 0}
@@ -152,21 +154,27 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
 }
 
 /**
- * Lo que contaron en un cajón, con lo que no cuadra al lado.
+ * El cajón de punta a punta: con cuánto abrió y con cuánto cerró, y al lado lo
+ * que no cuadra.
  *
- * El monto va en blanco: es un dato. Lo que se pinta de rojo es el problema, y
- * sobrar es tan problema como faltar: los dos significan que la plata no es la
- * que el sistema puede explicar.
+ * Los dos montos y no solo el del cierre: $215.000 no dice nada suelto, y
+ * $130.000 → $215.000 dice cuánto entró en el turno sin hacer ninguna cuenta.
+ *
+ * Van en blanco: son datos. Lo que se pinta de rojo es el problema, y sobrar es
+ * tan problema como faltar: los dos significan que la plata no es la que el
+ * sistema puede explicar.
  *
  * Sin conteo no se inventa un cero.
  */
 function Caja({
   etiqueta,
+  inicial,
   contado,
   dif,
   salto,
 }: {
   etiqueta: string;
+  inicial: number;
   contado: number | null;
   dif: number | null;
   /** Lo que declaró al abrir de más o de menos contra el cierre del anterior. */
@@ -177,7 +185,11 @@ function Caja({
   return (
     <span className="flex flex-wrap items-center gap-x-2">
       <span className="text-[var(--ds-gray-900)]">{etiqueta}</span>
-      <span className="tabular-nums text-[var(--ds-gray-1000)]">{pesos(contado)}</span>
+      {/* La misma flecha de texto que separa las horas del turno, dos renglones
+          más arriba: un ícono acá al lado se leería como otra cosa. */}
+      <span className="tabular-nums text-[var(--ds-gray-1000)]">
+        {pesos(inicial)} → {pesos(contado)}
+      </span>
       {dif !== null && dif !== 0 && (
         <span className="font-medium text-[var(--ds-red-900)]">
           {dif < 0 ? "Faltan" : "Sobran"} {pesos(dif)}
