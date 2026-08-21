@@ -3,6 +3,13 @@ import { ChevronDownIcon } from "@/components/icons";
 import type { PorCaja } from "@/lib/caja";
 
 const ZONA = "America/Argentina/Buenos_Aires";
+
+// El separador es una banda gris, y en tema claro el fondo de una pastilla
+// "subtle" tiene la misma luminosidad que esa banda: se ve el texto flotando y
+// no la pastilla. Un anillo del mismo color le devuelve el borde, y el paso 500
+// de la escala esta pensado justo para eso, asi que anda en los dos temas.
+const BORDE_ROJO = "ring-1 ring-inset ring-[var(--ds-red-500)]";
+const BORDE_AMBAR = "ring-1 ring-inset ring-[var(--ds-amber-500)]";
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 
 const hora = (iso: string) =>
@@ -85,7 +92,9 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
 
       <div className="text-copy-13 flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
         {loCerroNadie ? (
-          <Badge variant="amber-subtle">No cerraron</Badge>
+          <Badge variant="amber-subtle" className={BORDE_AMBAR}>
+            No cerraron
+          </Badge>
         ) : (
           <>
             <Caja
@@ -146,6 +155,7 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
           <Badge
             key={`${d.producto}-${d.momento}`}
             variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
+            className={d.diferencia < 0 ? BORDE_ROJO : BORDE_AMBAR}
           >
             {d.diferencia > 0 ? "+" : ""}
             {d.diferencia} {d.producto}
