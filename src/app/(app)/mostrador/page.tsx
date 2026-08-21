@@ -7,7 +7,7 @@ import { NuevaVentaModal } from "@/components/mostrador/nueva-venta-modal";
 import { AccionesModal } from "@/components/mostrador/acciones-modal";
 import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
-import { AsistenciaModal } from "@/components/mostrador/asistencia-modal";
+import { CheckInModal } from "@/components/mostrador/checkin-modal";
 import type { Asistencia } from "@/lib/asistencias";
 import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
 import { efectivoDelDia, saltosEntreTurnos } from "@/lib/caja";
@@ -166,7 +166,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .eq("activo", true)
         .order("nombre"),
       supabase.from("empleados").select("id, nombre").eq("activo", true).order("nombre"),
-      // Las jornadas de hoy, no solo las abiertas: el que entró a las 7 y se
+      // Los check-in de hoy, no solo los abiertos: el que entró a las 7 y se
       // fue a las 15 tiene que seguir viéndose hasta que cierre el día.
       //
       // Y el que sigue adentro aparece aunque haya entrado ayer: el turno noche
@@ -174,7 +174,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       // lista mientras está atendiendo.
       supabase
         .from("asistencias_detalle")
-        .select("id, empleado_id, nombre, entro, salio, trabajando")
+        .select("id, empleado_id, nombre, entro, inicia, termina, trabajando")
         .or(`entro.gte.${inicioDelDia()},trabajando.is.true`)
         .order("entro")
         .overrideTypes<Asistencia[]>(),
@@ -471,8 +471,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
               <>
                 A cargo:{" "}
                 <span className="text-[var(--ds-gray-1000)]">
-                  {/* Sale del fichaje: el que tenga asistencia dentro del rango
-                      del turno estuvo en el turno. */}
+                  {/* Sale del check-in: el que tenga un turno declarado dentro
+                      del rango del turno de caja estuvo en el turno. */}
                   {turno.responsables.length === 0
                     ? "nadie fichó"
                     : turno.responsables.join(", ")}
@@ -507,8 +507,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 productos={aContar}
               />
             )}
-            {/* Fichar no depende del turno: se llega antes de abrirlo. */}
-            <AsistenciaModal empleados={empleados ?? []} asistencias={hoy} />
+            {/* El check-in no depende del turno: se llega antes de abrirlo. */}
+            <CheckInModal empleados={empleados ?? []} asistencias={hoy} />
           </div>
 
           {/* Sin turno abierto, o parado en un día que ya pasó, los dos quedan

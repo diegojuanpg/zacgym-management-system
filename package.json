@@ -19,6 +19,7 @@
     "db:types": "supabase gen types typescript --db-url postgresql://postgres:postgres@127.0.0.1:55322/postgres > src/lib/supabase/database.types.ts",
     "test:filtros": "node --experimental-strip-types scripts/filtros.test.mjs",
     "test:caja": "node --experimental-strip-types scripts/caja.test.mjs",
+    "test:horas": "node --experimental-strip-types scripts/horas.test.mjs",
     "smoke:auth": "node --env-file=.env.local scripts/smoke-auth.mjs",
     "mail": "xdg-open http://127.0.0.1:55324"
   },

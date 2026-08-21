@@ -7,8 +7,12 @@ export interface Asistencia {
   id: string;
   empleado_id: string;
   nombre: string;
+  /** "Llegaste": el momento del botón. No se elige ni se corrige. */
   entro: string;
-  salio: string | null;
+  /** Desde cuándo corre el turno. Puede ser anterior a la llegada. */
+  inicia: string;
+  /** Hasta cuándo. Null solo en jornadas viejas, de antes del check-in. */
+  termina: string | null;
   trabajando: boolean;
 }
 
@@ -18,17 +22,19 @@ const refrescar = () => {
 };
 
 /**
- * Ficha la llegada. La entrada la pone la base: es el momento del botón, no
- * algo que se elige. Lo único que se elige es hasta qué hora se queda.
+ * Check-in. La llegada la pone la base: es el momento del botón, no algo que se
+ * elige. Lo que se declara es el turno entero, y puede haber arrancado antes.
  */
 export async function ficharAsistencia(
   empleadoId: string,
-  salida: string,
+  inicia: string,
+  termina: string,
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("fichar_asistencia", {
     p_empleado: empleadoId,
-    p_salida: salida,
+    p_inicia: inicia,
+    p_termina: termina,
   });
   if (error) return { error: error.message };
   refrescar();
@@ -36,12 +42,20 @@ export async function ficharAsistencia(
 }
 
 /**
- * Corrige la salida. La que se puso al fichar es un plan: se va antes, o se
- * queda más. Por eso la hora nueva puede caer para cualquiera de los dos lados.
+ * Corrige el turno declarado. Lo que se puso al fichar es un plan: se arranca
+ * antes, se sale después. Las dos horas se mueven; la llegada no.
  */
-export async function editarSalida(id: string, salio: string): Promise<{ error?: string }> {
+export async function editarHorario(
+  id: string,
+  inicia: string,
+  termina: string,
+): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("editar_salida", { p_id: id, p_salio: salio });
+  const { error } = await supabase.rpc("editar_horario", {
+    p_id: id,
+    p_inicia: inicia,
+    p_termina: termina,
+  });
   if (error) return { error: error.message };
   refrescar();
   return {};
