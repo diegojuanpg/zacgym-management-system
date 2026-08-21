@@ -4,7 +4,7 @@ import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { ToggleUrl } from "@/components/toggle-url";
 import { FiltroColumna } from "@/components/filtro-columna";
-import { Paginador, paginar } from "@/components/paginador";
+import { MostrarMas, recortar } from "@/components/mostrar-mas";
 import { AlumnoModal } from "@/components/alumnos/alumno-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ interface FilaAlumno {
 
 export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos">) {
   const params = await searchParams;
-  const { q, ver, orden, apellido, estado, genero, contacto, pagina, vence, actividad, saldo } =
+  const { q, ver, orden, apellido, estado, genero, contacto, filas, vence, actividad, saldo } =
     params;
   const busqueda = typeof q === "string" ? q.trim() : "";
   // El contacto se ve salvo que lo apaguen: ?contacto=no.
@@ -200,7 +200,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   // Son casi 2000 alumnos: dibujarlos todos hace la pagina inusable. La cuenta
   // de las solapas y las opciones de los filtros siguen saliendo de la lista
   // entera, solo se recorta lo que se pinta.
-  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
+  const { tope, visibles } = recortar(lista, filas);
 
   return (
     <main className="flex flex-1 flex-col gap-4">
@@ -480,19 +480,18 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
                     </TableCell>
                   </TableRow>
                 ))}
+                <MostrarMas
+                  ruta="/alumnos"
+                  params={params}
+                  tope={tope}
+                  enPagina={visibles.length}
+                  total={lista.length}
+                  columnas={verContacto ? 11 : 9}
+                />
               </TableBody>
             </Table>
           </TableRoot>
 
-          <Paginador
-            ruta="/alumnos"
-            params={params}
-            actual={actual}
-            paginas={paginas}
-            desde={desde}
-            enPagina={visibles.length}
-            total={lista.length}
-          />
         </div>
       )}
     </main>
