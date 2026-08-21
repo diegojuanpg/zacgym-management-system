@@ -1,12 +1,13 @@
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { FiltroColumna } from "@/components/filtro-columna";
-import { Paginador, paginar } from "@/components/paginador";
+import { MostrarMas, recortar } from "@/components/mostrar-mas";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClockIcon } from "@/components/icons";
 import { saltosEntreTurnos, type PorCaja } from "@/lib/caja";
 import { rangoDe, comparador } from "@/lib/filtros";
+import { traerTodo } from "@/lib/traer-todo";
 import {
   TableRoot,
   Table,
@@ -101,20 +102,31 @@ export default async function TurnosPage({
 }: PageProps<"/turnos">) {
   await requireStaff();
   const params = await searchParams;
-  const { orden, fecha, cargo, cierre, grande, chica, producto, pagina } = params;
+  const { orden, fecha, cargo, cierre, grande, chica, producto, filas: cuantas } = params;
   // Un filtro se manda como el mismo parametro repetido: ?cargo=X&cargo=Y.
   const lista_ = (v: string | string[] | undefined) =>
     v === undefined ? [] : Array.isArray(v) ? v : [v];
 
+  // El rango se resuelve antes de consultar para que recorte en la base y no en
+  // memoria: pedir tres años de turnos para mostrar una semana es traer de gusto.
+  // Argentina no cambia de hora, asi que el -03:00 fijo alcanza.
+  const rangoFecha = rangoDe(fecha);
+  const desdeISO = rangoFecha.desde ? `${rangoFecha.desde}T00:00:00-03:00` : null;
+  const hastaISO = rangoFecha.hasta ? `${rangoFecha.hasta}T23:59:59.999-03:00` : null;
+
   const supabase = await createClient();
-  const [{ data: turnos }, { data: enCurso }, { data: diferencias }] = await Promise.all([
-    supabase
-      .from("turnos_cerrados")
-      .select(
-        "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, responsables_detalle, contados",
-      )
-      .order("cerrado_en", { ascending: false })
-      .overrideTypes<TurnoCerrado[]>(),
+  let qTurnos = supabase
+    .from("turnos_cerrados")
+    .select(
+      "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, responsables_detalle, contados",
+    );
+  if (desdeISO) qTurnos = qTurnos.gte("abierto_en", desdeISO);
+  if (hastaISO) qTurnos = qTurnos.lte("abierto_en", hastaISO);
+
+  const [turnos, { data: enCurso }, { data: diferencias }] = await Promise.all([
+    // En tandas: sin esto PostgREST corta en max_rows y no avisa, y a tres o
+    // cuatro turnos por dia ese techo llega solo.
+    traerTodo<TurnoCerrado>(qTurnos.order("cerrado_en", { ascending: false })),
     supabase
       .from("turno_actual")
       .select(
@@ -131,7 +143,7 @@ export default async function TurnosPage({
       .overrideTypes<DiferenciaStock[]>(),
   ]);
 
-  const cerrados = turnos ?? [];
+  const cerrados = turnos;
   const difs = diferencias ?? [];
 
   const stockPorTurno = new Map<string, DiferenciaStock[]>();
@@ -208,15 +220,6 @@ export default async function TurnosPage({
 
   const noCuadro = (f: Fila) => f.cerrado_en !== null && alertasDe(f) > 0;
 
-  const conProblema = filas.filter(noCuadro);
-
-  // Lo que se perdio en stock: solo lo que falto, valuado al precio de hoy.
-  const perdido = -difs.reduce((suma, d) => suma + Math.min(0, d.valor), 0);
-  const cajaPerdida = conProblema.reduce(
-    (suma, t) => suma + Math.min(0, t.dif_grande ?? 0) + Math.min(0, t.dif_chica ?? 0),
-    0,
-  );
-
   // ============================== filtros ==============================
   // Los mismos que en Ventas, adaptados: los encabezados filtran y ordenan, y
   // el estado vive en la URL.
@@ -228,7 +231,7 @@ export default async function TurnosPage({
         ? "No cerraron"
         : noCuadro(f)
           ? "Con diferencias"
-          : "Ok";
+          : "Cerró bien";
 
   const nombresDe = (f: Fila) => f.responsables_detalle.map((r) => r.nombre);
   const productosDe = (f: Fila) => (stockPorTurno.get(f.id) ?? []).map((d) => d.producto);
@@ -241,7 +244,6 @@ export default async function TurnosPage({
   const filtroCargo = lista_(cargo);
   const filtroCierre = lista_(cierre);
   const filtroProducto = lista_(producto);
-  const rangoFecha = rangoDe(fecha);
   // La comparacion de las cajas es contra la diferencia, no contra el monto: en
   // esta pantalla lo que se busca es lo que no cuadro, no cuanta plata habia.
   const filtroGrande = comparador(grande);
@@ -256,6 +258,8 @@ export default async function TurnosPage({
         (filtroCierre.length === 0 || filtroCierre.includes(estadoDe(f))) &&
         (filtroProducto.length === 0 ||
           productosDe(f).some((p) => filtroProducto.includes(p))) &&
+        // Los cerrados ya vienen recortados de la base; esto queda por el turno
+        // abierto, que sale de otra consulta y no pasa por ese filtro.
         (rangoFecha.desde === "" || diaDe(f.abierto_en) >= rangoFecha.desde) &&
         (rangoFecha.hasta === "" || diaDe(f.abierto_en) <= rangoFecha.hasta) &&
         (filtroGrande === null || filtroGrande(f.dif_grande)) &&
@@ -269,38 +273,11 @@ export default async function TurnosPage({
 
   // Son pocos hoy, pero entra un turno por vez y no para: la tabla se recorta
   // igual que Alumnos y Tareas.
-  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
+  const { tope, visibles } = recortar(lista, cuantas);
 
   return (
     <main className="flex flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-heading-20">Turnos</h1>
-        <p className="text-copy-14 text-[var(--ds-gray-900)]">
-          {cerrados.length} {cerrados.length === 1 ? "turno cerrado" : "turnos cerrados"}
-          {conProblema.length === 0 ? (
-            ", todos cuadraron"
-          ) : (
-            <>
-              {" · "}
-              <span className="text-[var(--ds-amber-900)]">
-                {conProblema.length} con diferencias
-              </span>
-              {perdido > 0 && (
-                <>
-                  {" · "}
-                  <span className="text-[var(--ds-red-900)]">{pesos(perdido)} en stock</span>
-                </>
-              )}
-              {cajaPerdida < 0 && (
-                <>
-                  {" · "}
-                  <span className="text-[var(--ds-red-900)]">{pesos(cajaPerdida)} en caja</span>
-                </>
-              )}
-            </>
-          )}
-        </p>
-      </div>
+      <h1 className="text-heading-20">Turnos</h1>
 
       {lista.length === 0 ? (
           <EmptyState
@@ -380,7 +357,7 @@ export default async function TurnosPage({
                             ) : noCuadro(t) ? (
                               <Badge variant="red-subtle">Con diferencias</Badge>
                             ) : (
-                              <Badge variant="green-subtle">Ok</Badge>
+                              <Badge variant="green-subtle">Cerró bien</Badge>
                             )}
                             {alertasDe(t) > 0 && (
                               <span
@@ -432,21 +409,20 @@ export default async function TurnosPage({
                       </TableRow>
                     );
                   })}
+                  <MostrarMas
+                    ruta="/turnos"
+                    params={params}
+                    tope={tope}
+                    enPagina={visibles.length}
+                    total={lista.length}
+                    columnas={6}
+                  />
                 </TableBody>
               </Table>
             </TableRoot>
           </div>
       )}
 
-      <Paginador
-        ruta="/turnos"
-        params={params}
-        actual={actual}
-        paginas={paginas}
-        desde={desde}
-        enPagina={visibles.length}
-        total={lista.length}
-      />
     </main>
   );
 }
