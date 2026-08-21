@@ -86,8 +86,9 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
   const { q, ver, orden, apellido, estado, genero, contacto, filas, vence, actividad, saldo } =
     params;
   const busqueda = typeof q === "string" ? q.trim() : "";
-  // El contacto se ve salvo que lo apaguen: ?contacto=no.
-  const verContacto = contacto !== "no";
+  // El contacto viene oculto: son dos columnas que casi nunca se miran y que
+  // corren el resto de la tabla fuera de la pantalla. Se pide con ?contacto=si.
+  const verContacto = contacto === "si";
   const vista = typeof ver === "string" ? ver : "todos";
   const criterio = typeof orden === "string" ? orden : "";
   // Un filtro se manda como el mismo parámetro repetido: ?apellido=X&apellido=Y.
@@ -194,9 +195,6 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
       }
     });
 
-  const deudaTotal = todos.reduce((suma, a) => suma + Math.max(0, a.saldo), 0);
-  const cuantosVencidos = todos.filter(vencido).length;
-
   // Son casi 2000 alumnos: dibujarlos todos hace la pagina inusable. La cuenta
   // de las solapas y las opciones de los filtros siguen saliendo de la lista
   // entera, solo se recorta lo que se pinta.
@@ -213,18 +211,6 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
           {lista.length === todos.length
             ? `${todos.length} en total`
             : `${lista.length} de ${todos.length}`}
-          {cuantosVencidos > 0 && (
-            <>
-              {" · "}
-              <span className="text-[var(--ds-amber-900)]">{cuantosVencidos} vencidos</span>
-            </>
-          )}
-          {deudaTotal > 0 && (
-            <>
-              {" · "}
-              <span className="text-[var(--ds-gray-1000)]">{pesos(deudaTotal)} de deuda</span>
-            </>
-          )}
         </p>
       </div>
 
@@ -239,7 +225,12 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
             valor={vistaActual.valor}
             vistas={vistas.map(({ valor, nombre, cuantos }) => ({ valor, nombre, cuantos }))}
           />
-          <ToggleUrl param="contacto" etiqueta="Contacto" encendido={verContacto} />
+          <ToggleUrl
+            param="contacto"
+            etiqueta="Contacto"
+            encendido={verContacto}
+            predeterminado={false}
+          />
         </div>
 
         <div className="flex items-center gap-2">
