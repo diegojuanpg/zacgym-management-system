@@ -122,50 +122,18 @@ export function AppSidebar({
           !fijo && encima && "md:shadow-[var(--ds-shadow-menu)]",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center gap-2 px-4">
-          <Link href="/mostrador" className="text-heading-16 truncate">
-            <span className="md:hidden">ZacGym</span>
-            <span className="hidden md:inline">{abierto ? "ZacGym" : "Z"}</span>
-          </Link>
-
-          <Button
-            variant="tertiary"
-            size="icon-sm"
-            onClick={() => setCajon(false)}
-            aria-label="Cerrar menú"
-            className="ml-auto shrink-0 text-[var(--ds-gray-900)] md:hidden"
-          >
-            <XIcon className="size-4" />
-          </Button>
-
-          {abierto && (
-            <Button
-              variant="tertiary"
-              size="icon-sm"
-              onClick={alternar}
-              title={fijo ? "Plegar menú" : "Dejar el menú fijo"}
-              aria-label={fijo ? "Plegar menú" : "Dejar el menú fijo"}
-              aria-pressed={fijo}
-              className="ml-auto hidden shrink-0 text-[var(--ds-gray-900)] md:inline-flex"
-            >
-              {fijo ? (
-                <ChevronDoubleLeftIcon className="size-4" />
-              ) : (
-                <ChevronDoubleRightIcon className="size-4" />
-              )}
-            </Button>
-          )}
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-0.5 px-2">
-          {SECCIONES.map(({ href, nombre, icono: Icono, incluye }) => {
+        {/* Las secciones arrancan arriba de todo: el nombre del gimnasio ya
+            esta en la barra del celular, y en escritorio ocupaba una fila
+            entera para no decir nada que el contenido no diga. */}
+        <nav className="flex flex-1 flex-col gap-0.5 px-2 pt-3">
+          {SECCIONES.map(({ href, nombre, icono: Icono, incluye }, i) => {
             // startsWith para que las subpáginas dejen la sección marcada.
             const activa = [href, ...incluye].some(
               (ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`),
             );
             return (
+              <div key={href} className="flex items-center gap-1">
               <Link
-                key={href}
                 href={href}
                 // Sin prefetch automático: el menú está siempre a la vista, así
                 // que Next precargaría las cinco secciones en cada carga y cada
@@ -180,7 +148,7 @@ export function AppSidebar({
                 aria-current={activa ? "page" : undefined}
                 className={cn(
                   // h-11 en el celular: 44px es el mínimo que se toca sin errarle.
-                  "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-label-14 whitespace-nowrap transition-colors md:h-9",
+                  "flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 text-label-14 whitespace-nowrap transition-colors md:h-9",
                   activa
                     ? "bg-[var(--ds-gray-alpha-200)] text-foreground"
                     : "text-muted-foreground hover:bg-[var(--ds-gray-alpha-100)] hover:text-foreground",
@@ -191,11 +159,54 @@ export function AppSidebar({
                 <span className={cn("md:hidden")}>{nombre}</span>
                 <span className="hidden md:inline">{abierto ? nombre : null}</span>
               </Link>
+
+              {/* Los dos botones viven al lado de la primera sección: sin el
+                  nombre del gimnasio arriba, la fila que los sostenía quedaba
+                  vacía. */}
+              {i === 0 && (
+                <>
+                  <Button
+                    variant="tertiary"
+                    size="icon-sm"
+                    onClick={() => setCajon(false)}
+                    aria-label="Cerrar menú"
+                    className="shrink-0 text-[var(--ds-gray-900)] md:hidden"
+                  >
+                    <XIcon className="size-4" />
+                  </Button>
+
+                  {abierto && (
+                    <Button
+                      variant="tertiary"
+                      size="icon-sm"
+                      onClick={alternar}
+                      title={fijo ? "Plegar menú" : "Dejar el menú fijo"}
+                      aria-label={fijo ? "Plegar menú" : "Dejar el menú fijo"}
+                      aria-pressed={fijo}
+                      className="hidden shrink-0 text-[var(--ds-gray-900)] md:inline-flex"
+                    >
+                      {fijo ? (
+                        <ChevronDoubleLeftIcon className="size-4" />
+                      ) : (
+                        <ChevronDoubleRightIcon className="size-4" />
+                      )}
+                    </Button>
+                  )}
+                </>
+              )}
+              </div>
             );
           })}
         </nav>
 
-        <div className="flex flex-col gap-2 border-t border-border p-3">
+        <div
+          className={cn(
+            "flex flex-col gap-2 border-t border-border p-3",
+            // Plegado no queda nada util abajo: el sol suelto sobre una linea
+            // parecia un boton perdido.
+            !abierto && "md:hidden",
+          )}
+        >
           <Button
             variant="tertiary"
             size="sm"

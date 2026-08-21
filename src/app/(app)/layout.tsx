@@ -4,7 +4,6 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { COOKIE_MENU } from "@/lib/menu";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -25,12 +24,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         fijoInicial={fijo}
         pie={
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-copy-13 text-muted-foreground">{staff.email}</span>
-              <Badge variant={staff.role === "admin" ? "gray-subtle" : "blue-subtle"}>
-                {staff.role}
-              </Badge>
-            </div>
+            {/* Solo el mail: el rol no cambia nada de lo que se ve, asi que
+                era una pastilla que ocupaba lugar y no informaba. */}
+            <span className="truncate text-copy-13 text-muted-foreground">{staff.email}</span>
             <form action={cerrarSesion}>
               <Button type="submit" variant="secondary" size="sm" className="w-full">
                 Salir
