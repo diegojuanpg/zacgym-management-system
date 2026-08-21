@@ -138,13 +138,19 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         {cabecera}
       </summary>
-      <div className="flex flex-wrap items-center gap-1 px-4 pb-3">
+      {/* Alineado a la derecha, debajo de las cajas: el ojo ya esta de ese lado
+          leyendo lo que no cuadra. Una pastilla por producto, con el signo
+          adelante, que es como se anota un faltante. */}
+      <div className="flex flex-wrap items-center justify-end gap-1 px-4 pb-3">
         {turno.stock.map((d) => (
           <Badge
             key={`${d.producto}-${d.momento}`}
             variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
           >
-            {d.diferencia < 0 ? "Falta" : "Sobra"} {Math.abs(d.diferencia)} {d.producto}
+            {d.diferencia > 0 ? "+" : ""}
+            {d.diferencia} {d.producto}
+            {/* Sin esto, una diferencia detectada al abrir y otra al cerrar son
+                dos pastillas identicas que dicen cosas distintas. */}
             {d.momento === "apertura" ? " (al abrir)" : ""}
           </Badge>
         ))}
