@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { rangoDe, comparador } from "@/lib/filtros";
 import { traerTodo } from "@/lib/traer-todo";
+import { MostrarMas, recortar } from "@/components/mostrar-mas";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -39,9 +39,6 @@ const PERIODOS = [
   { valor: "90d", label: "Últimos 90 días", dias: 90 },
   { valor: "365d", label: "Último año", dias: 365 },
 ] as const;
-
-/** Cuántas filas dibuja la tabla por vez. */
-const TANDA_FILAS = 200;
 
 const RUBROS = {
   mensualidad: "Mensualidades",
@@ -283,19 +280,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   // La tabla se dibuja de a tandas. Con el período en "Todo" el filtro deja más
   // de cinco mil filas, y pintarlas todas de una es medio segundo de puro HTML
   // que nadie va a leer. El resumen de arriba y el total sí miran todo.
-  const tope = Math.max(TANDA_FILAS, Number(typeof filas === "string" ? filas : "") || 0);
-  const visibles = registros.slice(0, tope);
-
-  /** La misma búsqueda pero con una tanda más. Es un link: no necesita JS. */
-  function linkConMasFilas() {
-    const otros = new URLSearchParams();
-    for (const [clave, valor] of Object.entries(parametros)) {
-      if (valor === undefined) continue;
-      for (const uno of Array.isArray(valor) ? valor : [valor]) otros.append(clave, uno);
-    }
-    otros.set("filas", String(tope + TANDA_FILAS));
-    return `/ventas?${otros}`;
-  }
+  const { tope, visibles } = recortar(registros, filas);
 
   async function borrar(formData: FormData) {
     "use server";
@@ -488,19 +473,14 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
                     </TableRow>
                   );
                 })}
-                {registros.length > visibles.length && (
-                  <TableRow className="!bg-transparent">
-                    <TableCell colSpan={10} className="!py-3 text-center">
-                      <Button variant="secondary" nativeButton={false} render={<Link href={linkConMasFilas()} />}>
-                        Mostrar {Math.min(TANDA_FILAS, registros.length - visibles.length)} más
-                        <span className="text-[var(--ds-gray-900)]">
-                          {" "}
-                          · {visibles.length} de {registros.length}
-                        </span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )}
+                <MostrarMas
+                  ruta="/ventas"
+                  params={parametros}
+                  tope={tope}
+                  enPagina={visibles.length}
+                  total={registros.length}
+                  columnas={10}
+                />
               </TableBody>
             </Table>
           </TableRoot>
