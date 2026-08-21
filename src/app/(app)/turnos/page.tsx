@@ -1,10 +1,12 @@
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { TabsUrl } from "@/components/tabs-url";
-import { ToggleUrl } from "@/components/toggle-url";
+import { FiltroColumna } from "@/components/filtro-columna";
+import { Paginador, paginar } from "@/components/paginador";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AlertIcon, ClockIcon } from "@/components/icons";
+import { ClockIcon } from "@/components/icons";
+import { saltosEntreTurnos, type PorCaja } from "@/lib/caja";
+import { rangoDe, comparador } from "@/lib/filtros";
 import {
   TableRoot,
   Table,
@@ -98,10 +100,11 @@ export default async function TurnosPage({
   searchParams,
 }: PageProps<"/turnos">) {
   await requireStaff();
-  const { ver, cuadraron } = await searchParams;
-  const vista = ver === "producto" ? "producto" : "turno";
-  // Se ven todos salvo que pidan lo contrario: ?cuadraron=no deja solo lo malo.
-  const verCuadraron = cuadraron !== "no";
+  const params = await searchParams;
+  const { orden, fecha, cargo, cierre, grande, chica, producto, pagina } = params;
+  // Un filtro se manda como el mismo parametro repetido: ?cargo=X&cargo=Y.
+  const lista_ = (v: string | string[] | undefined) =>
+    v === undefined ? [] : Array.isArray(v) ? v : [v];
 
   const supabase = await createClient();
   const [{ data: turnos }, { data: enCurso }, { data: diferencias }] = await Promise.all([
@@ -170,44 +173,103 @@ export default async function TurnosPage({
     ),
   ];
 
-  const noCuadro = (f: Fila) =>
-    f.cerrado_en !== null &&
-    ((f.dif_grande ?? 0) !== 0 || (f.dif_chica ?? 0) !== 0 || stockPorTurno.has(f.id));
+  // Lo que cada turno declaro al abrir de mas o de menos contra el cierre del
+  // anterior. Solo entre turnos del mismo dia: de un dia para el otro la
+  // recaudacion a veces se levanta y no siempre queda cargada como egreso, asi
+  // que comparar contra el cierre de ayer marcaria un salto casi cada mañana.
+  const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
+  const saltos = new Map<string, PorCaja>();
+  for (const dia of new Set(filas.map((f) => diaDe(f.abierto_en)))) {
+    const delDia = filas
+      .filter((f) => diaDe(f.abierto_en) === dia)
+      .map((f) => ({
+        id: f.id,
+        abierto_en: f.abierto_en,
+        caja_grande_inicial: f.grande[0],
+        caja_chica_inicial: f.chica[0],
+        caja_grande_final: f.grande[1],
+        caja_chica_final: f.chica[1],
+      }));
+    for (const [id, salto] of saltosEntreTurnos(delDia)) saltos.set(id, salto);
+  }
+
+  /** El turno cerro pero nadie conto la caja: lo cerro el sistema a medianoche. */
+  const sinCerrar = (f: Fila) =>
+    f.cerrado_en !== null && f.grande[1] === null && f.chica[1] === null;
+
+  // Una alerta por cada cosa que salio mal, igual que en el separador del
+  // Mostrador: cada caja descuadrada, cada salto de apertura y cada producto.
+  const alertasDe = (f: Fila) =>
+    ((f.dif_grande ?? 0) !== 0 ? 1 : 0) +
+    ((f.dif_chica ?? 0) !== 0 ? 1 : 0) +
+    (saltos.get(f.id)?.grande ? 1 : 0) +
+    (saltos.get(f.id)?.chica ? 1 : 0) +
+    (stockPorTurno.get(f.id)?.length ?? 0);
+
+  const noCuadro = (f: Fila) => f.cerrado_en !== null && alertasDe(f) > 0;
 
   const conProblema = filas.filter(noCuadro);
-  const visibles = verCuadraron ? filas : filas.filter((f) => noCuadro(f) || f.cerrado_en === null);
 
-  // Por producto: el patrón. Una vez es un error de conteo; seis veces no.
-  const porProducto = [
-    ...difs
-      .reduce((mapa, d) => {
-        const actual = mapa.get(d.producto_id) ?? {
-          producto: d.producto,
-          precio: d.precio,
-          veces: 0,
-          faltaron: 0,
-          sobraron: 0,
-          ultimo: d.cerrado_en,
-        };
-        actual.veces += 1;
-        if (d.diferencia < 0) actual.faltaron += -d.diferencia;
-        else actual.sobraron += d.diferencia;
-        mapa.set(d.producto_id, actual);
-        return mapa;
-      }, new Map<string, { producto: string; precio: number; veces: number; faltaron: number; sobraron: number; ultimo: string | null }>())
-      .values(),
-  ].sort((a, b) => b.faltaron * b.precio - a.faltaron * a.precio);
-
-  const perdido = porProducto.reduce((suma, p) => suma + p.faltaron * p.precio, 0);
+  // Lo que se perdio en stock: solo lo que falto, valuado al precio de hoy.
+  const perdido = -difs.reduce((suma, d) => suma + Math.min(0, d.valor), 0);
   const cajaPerdida = conProblema.reduce(
     (suma, t) => suma + Math.min(0, t.dif_grande ?? 0) + Math.min(0, t.dif_chica ?? 0),
     0,
   );
 
-  const vistas = [
-    { valor: "turno", nombre: "Por turno", cuantos: filas.length },
-    { valor: "producto", nombre: "Por producto", cuantos: porProducto.length },
-  ];
+  // ============================== filtros ==============================
+  // Los mismos que en Ventas, adaptados: los encabezados filtran y ordenan, y
+  // el estado vive en la URL.
+
+  const estadoDe = (f: Fila) =>
+    f.cerrado_en === null
+      ? "En curso"
+      : sinCerrar(f)
+        ? "No cerraron"
+        : noCuadro(f)
+          ? "Con diferencias"
+          : "Ok";
+
+  const nombresDe = (f: Fila) => f.responsables_detalle.map((r) => r.nombre);
+  const productosDe = (f: Fila) => (stockPorTurno.get(f.id) ?? []).map((d) => d.producto);
+
+  const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
+  const opcionesCargo = ordenar(filas.flatMap(nombresDe));
+  const opcionesCierre = ordenar(filas.map(estadoDe));
+  const opcionesProducto = ordenar(filas.flatMap(productosDe));
+
+  const filtroCargo = lista_(cargo);
+  const filtroCierre = lista_(cierre);
+  const filtroProducto = lista_(producto);
+  const rangoFecha = rangoDe(fecha);
+  // La comparacion de las cajas es contra la diferencia, no contra el monto: en
+  // esta pantalla lo que se busca es lo que no cuadro, no cuanta plata habia.
+  const filtroGrande = comparador(grande);
+  const filtroChica = comparador(chica);
+
+  const lista = filas
+    .filter(
+      (f) =>
+        // Un turno entra si alguno de los suyos esta elegido: la fila es de
+        // varias personas, no de una.
+        (filtroCargo.length === 0 || nombresDe(f).some((n) => filtroCargo.includes(n))) &&
+        (filtroCierre.length === 0 || filtroCierre.includes(estadoDe(f))) &&
+        (filtroProducto.length === 0 ||
+          productosDe(f).some((p) => filtroProducto.includes(p))) &&
+        (rangoFecha.desde === "" || diaDe(f.abierto_en) >= rangoFecha.desde) &&
+        (rangoFecha.hasta === "" || diaDe(f.abierto_en) <= rangoFecha.hasta) &&
+        (filtroGrande === null || filtroGrande(f.dif_grande)) &&
+        (filtroChica === null || filtroChica(f.dif_chica)),
+    )
+    .sort((a, b) =>
+      orden === "antiguo"
+        ? a.abierto_en.localeCompare(b.abierto_en)
+        : b.abierto_en.localeCompare(a.abierto_en),
+    );
+
+  // Son pocos hoy, pero entra un turno por vez y no para: la tabla se recorta
+  // igual que Alumnos y Tareas.
+  const { actual, paginas, desde, visibles } = paginar(lista, pagina, 100);
 
   return (
     <main className="flex flex-1 flex-col gap-4">
@@ -240,19 +302,15 @@ export default async function TurnosPage({
         </p>
       </div>
 
-      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <TabsUrl param="ver" valor={vista} vistas={vistas} />
-        {vista === "turno" && conProblema.length > 0 && (
-          <ToggleUrl param="cuadraron" etiqueta="Los que cuadraron" encendido={verCuadraron} />
-        )}
-      </div>
-
-      {vista === "turno" ? (
-        filas.length === 0 ? (
+      {lista.length === 0 ? (
           <EmptyState
             icon={<ClockIcon />}
-            title="Todavía no hubo ningún turno"
-            description="Cuando se abra el primero, acá queda anotado con cuánto arrancó, con cuánto cerró y qué no coincidió."
+            title={filas.length === 0 ? "Todavía no hubo ningún turno" : "Nada coincide"}
+            description={
+              filas.length === 0
+                ? "Cuando se abra el primero, acá queda anotado con cuánto arrancó, con cuánto cerró y qué no coincidió."
+                : "Probá quitando los filtros de los encabezados."
+            }
           />
         ) : (
           <div className="overflow-hidden rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
@@ -260,12 +318,40 @@ export default async function TurnosPage({
               <Table aria-label="Turnos">
                 <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
                   <TableRow>
-                    <TableHead>Turno</TableHead>
-                    <TableHead>A cargo</TableHead>
-                    <TableHead>Cierre</TableHead>
-                    <TableHead>Caja grande</TableHead>
-                    <TableHead>Caja chica</TableHead>
-                    <TableHead>Stock</TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Turno"
+                        orden={{
+                          param: "orden",
+                          opciones: [
+                            { valor: "reciente", label: "Más reciente" },
+                            { valor: "antiguo", label: "Más antiguo" },
+                          ],
+                        }}
+                        rango={{ param: "fecha", tipo: "date" }}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="A cargo" param="cargo" opciones={opcionesCargo} />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="Cierre" param="cierre" opciones={opcionesCierre} />
+                    </TableHead>
+                    <TableHead>
+                      {/* La comparación es contra la diferencia: acá se busca lo
+                          que no cuadró, no cuánta plata había. */}
+                      <FiltroColumna etiqueta="Caja grande" monto={{ param: "grande" }} />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="Caja chica" monto={{ param: "chica" }} />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Stock"
+                        param="producto"
+                        opciones={opcionesProducto}
+                      />
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody striped>
@@ -285,19 +371,42 @@ export default async function TurnosPage({
                           />
                         </TableCell>
                         <TableCell>
-                          {t.cerrado_en === null ? (
-                            <Badge variant="blue-subtle">En curso</Badge>
-                          ) : noCuadro(t) ? (
-                            <Badge variant="red-subtle">Con diferencias</Badge>
-                          ) : (
-                            <Badge variant="green-subtle">Cuadró</Badge>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {t.cerrado_en === null ? (
+                              <Badge variant="blue-subtle">En curso</Badge>
+                            ) : sinCerrar(t) ? (
+                              // Nadie conto la caja: no cuadro ni dejo de cuadrar.
+                              <Badge variant="amber-subtle">No cerraron</Badge>
+                            ) : noCuadro(t) ? (
+                              <Badge variant="red-subtle">Con diferencias</Badge>
+                            ) : (
+                              <Badge variant="green-subtle">Ok</Badge>
+                            )}
+                            {alertasDe(t) > 0 && (
+                              <span
+                                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-900)] text-[11px] font-medium tabular-nums text-white"
+                                aria-label={`${alertasDe(t)} ${alertasDe(t) === 1 ? "problema" : "problemas"} en este turno`}
+                              >
+                                {alertasDe(t)}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <Caja de={t.grande[0]} a={t.grande[1]} dif={t.dif_grande} />
+                          <Caja
+                            de={t.grande[0]}
+                            a={t.grande[1]}
+                            dif={t.dif_grande}
+                            salto={saltos.get(t.id)?.grande ?? 0}
+                          />
                         </TableCell>
                         <TableCell>
-                          <Caja de={t.chica[0]} a={t.chica[1]} dif={t.dif_chica} />
+                          <Caja
+                            de={t.chica[0]}
+                            a={t.chica[1]}
+                            dif={t.dif_chica}
+                            salto={saltos.get(t.id)?.chica ?? 0}
+                          />
                         </TableCell>
                         <TableCell>
                           {stock.length > 0 ? (
@@ -307,24 +416,18 @@ export default async function TurnosPage({
                                   key={`${d.producto_id}-${d.momento}`}
                                   variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
                                 >
-                                  {d.producto} {d.diferencia > 0 ? "+" : ""}
-                                  {d.diferencia}
+                                  {d.diferencia > 0 ? "+" : ""}
+                                  {d.diferencia} {d.producto}
                                   {d.momento === "apertura" ? " (al abrir)" : ""}
                                 </Badge>
                               ))}
                             </div>
-                          ) : t.cerrado_en === null ? (
-                            <span className="text-[var(--ds-gray-900)]">Sin contar</span>
-                          ) : t.contados > 0 ? (
-                            // Contar y que dé bien no es lo mismo que no contar:
-                            // lo segundo no prueba nada y hay que poder verlo.
-                            <span className="text-[var(--ds-gray-900)]">
-                              {t.contados} {t.contados === 1 ? "producto" : "productos"}, sin
-                              diferencias
-                            </span>
-                          ) : (
+                          ) : t.cerrado_en !== null && t.contados === 0 && !sinCerrar(t) ? (
+                            // Cerraron sin contar nada. No es "dio bien": no
+                            // prueba nada, y por eso es lo unico que se avisa
+                            // cuando no hay diferencias.
                             <span className="text-[var(--ds-amber-900)]">No se contó</span>
-                          )}
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     );
@@ -333,76 +436,17 @@ export default async function TurnosPage({
               </Table>
             </TableRoot>
           </div>
-        )
-      ) : porProducto.length === 0 ? (
-        <EmptyState
-          icon={<AlertIcon />}
-          title="Ningún producto dio distinto"
-          description="Todos los conteos coincidieron con lo que el sistema esperaba."
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
-          <TableRoot className="md:max-h-[calc(100vh-17rem)]">
-            <Table aria-label="Productos que no cuadraron">
-              <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Veces que no dio</TableHead>
-                  <TableHead>Faltaron</TableHead>
-                  <TableHead>Sobraron</TableHead>
-                  <TableHead>Plata perdida</TableHead>
-                  <TableHead>Última vez</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody striped>
-                {porProducto.map((p) => (
-                  <TableRow key={p.producto}>
-                    <TableCell className="text-[var(--ds-gray-1000)]">{p.producto}</TableCell>
-                    <TableCell>
-                      {/* Repetirse es la señal: una vez es un error de conteo. */}
-                      {p.veces >= 3 ? (
-                        <Badge variant="red-subtle">{p.veces} veces</Badge>
-                      ) : (
-                        `${p.veces} ${p.veces === 1 ? "vez" : "veces"}`
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.faltaron > 0 ? (
-                        <span className="text-[var(--ds-red-900)]">{p.faltaron}</span>
-                      ) : (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.sobraron > 0 ? (
-                        <span className="text-[var(--ds-amber-900)]">{p.sobraron}</span>
-                      ) : (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.faltaron > 0 ? (
-                        <span className="text-[var(--ds-red-900)]">
-                          {pesos(p.faltaron * p.precio)}
-                        </span>
-                      ) : (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.ultimo ? (
-                        cuando(p.ultimo)
-                      ) : (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableRoot>
-        </div>
       )}
+
+      <Paginador
+        ruta="/turnos"
+        params={params}
+        actual={actual}
+        paginas={paginas}
+        desde={desde}
+        enPagina={visibles.length}
+        total={lista.length}
+      />
     </main>
   );
 }
@@ -451,8 +495,24 @@ function Responsables({
   );
 }
 
-/** Con cuánto arrancó la caja y con cuánto terminó, y lo que falte o sobre. */
-function Caja({ de, a, dif }: { de: number; a: number | null; dif: number | null }) {
+/**
+ * Con cuánto arrancó la caja y con cuánto terminó, y abajo lo que no cuadra.
+ *
+ * Sobrar va en rojo igual que faltar, como en el separador del Mostrador: los
+ * dos significan que la plata no es la que el sistema puede explicar.
+ */
+function Caja({
+  de,
+  a,
+  dif,
+  salto,
+}: {
+  de: number;
+  a: number | null;
+  dif: number | null;
+  /** Lo que declaró al abrir de más o de menos contra el cierre del anterior. */
+  salto: number;
+}) {
   return (
     <div className="flex flex-col leading-tight">
       <span className="text-[var(--ds-gray-1000)] whitespace-nowrap">
@@ -460,14 +520,13 @@ function Caja({ de, a, dif }: { de: number; a: number | null; dif: number | null
         {a === null ? "—" : pesos(a)}
       </span>
       {dif !== null && dif !== 0 && (
-        <span
-          className={
-            dif < 0
-              ? "text-copy-13 text-[var(--ds-red-900)]"
-              : "text-copy-13 text-[var(--ds-amber-900)]"
-          }
-        >
+        <span className="text-copy-13 text-[var(--ds-red-900)]">
           {dif < 0 ? "Faltan" : "Sobran"} {pesos(dif)}
+        </span>
+      )}
+      {salto !== 0 && (
+        <span className="text-copy-13 text-[var(--ds-red-900)]">
+          Abrió con {pesos(salto)} de {salto < 0 ? "menos" : "más"}
         </span>
       )}
     </div>
