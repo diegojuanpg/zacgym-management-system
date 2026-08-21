@@ -897,6 +897,7 @@ export type Database = {
           alumno_id: string | null
           anulada_en: string | null
           caja: Database["public"]["Enums"]["caja"] | null
+          categoria: Database["public"]["Enums"]["categoria_producto"] | null
           creado_en: string | null
           id: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1049,6 +1050,14 @@ export type Database = {
           nota_cierre: string | null
           responsables: string[] | null
           responsables_detalle: Json | null
+        }
+        Relationships: []
+      }
+      ventas_por_dia: {
+        Row: {
+          dia: string | null
+          monto: number | null
+          rubro: string | null
         }
         Relationships: []
       }
