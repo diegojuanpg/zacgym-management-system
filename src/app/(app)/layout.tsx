@@ -38,9 +38,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       {/* min-w-0: sin esto una tabla ancha estira el layout y empuja el menú.
           pt-14 deja lugar a la barra fija del celular. El ancho de página lo
           define el shell y no cada sección: antes cada una elegía el suyo y
-          cambiar de solapa movía todo de lugar. */}
+          cambiar de solapa movía todo de lugar.
+
+          100rem y no 80: las tablas anchas —Alumnos con el contacto a la vista
+          son once columnas— se salían del borde y había que scrollear al
+          costado para leer un mail. En una pantalla de 1920 el tope viejo
+          dejaba 300px de margen muerto de cada lado. */}
       <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[100rem] flex-1 flex-col px-4 py-6 sm:px-6">
           {children}
         </div>
       </div>
