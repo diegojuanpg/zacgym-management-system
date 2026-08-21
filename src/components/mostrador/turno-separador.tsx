@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ChevronDownIcon } from "@/components/icons";
 import type { PorCaja } from "@/lib/caja";
 
 const ZONA = "America/Argentina/Buenos_Aires";
@@ -44,6 +45,11 @@ export interface TurnoDelDia {
  *
  * El del turno siguiente entra al mostrador y lo primero que ve es si el
  * anterior dejó la caja o el stock descuadrado.
+ *
+ * Lo que no cuadra se dice al lado del monto, y el circulito de la derecha
+ * cuenta cuántos problemas hay en total: de un vistazo se sabe si este turno
+ * hay que mirarlo o no. El stock se despliega porque son nombres largos y en
+ * la mayoría de los turnos no hay ninguno.
  */
 export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
   const difGrande =
@@ -56,17 +62,18 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
       : turno.caja_chica_final - turno.caja_chica_esperada;
 
   // Sin ningún conteo final el turno no lo cerró una persona: lo cerró solo el
-  // sistema a la medianoche.
+  // sistema a la medianoche. No es un problema del turno, así que no suma.
   const loCerroNadie = turno.caja_grande_final === null && turno.caja_chica_final === null;
 
-  return (
-    // Banda de fondo y no una linea: el separador tiene que leerse de un vistazo
-    // entre dos tablas de numeros, y una linea mas ahi adentro no se ve.
-    //
-    // A la izquierda de que turno es, a la derecha como cerro. El horario queda
-    // centrado contra el bloque de la derecha, que crece a dos renglones cuando
-    // falta stock. En pantallas angostas el cierre baja en vez de apretarlo.
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-[var(--ds-gray-alpha-200)] px-4 py-3">
+  const alertas =
+    (difGrande ? 1 : 0) +
+    (difChica ? 1 : 0) +
+    (turno.salto?.grande ? 1 : 0) +
+    (turno.salto?.chica ? 1 : 0) +
+    turno.stock.length;
+
+  const cabecera = (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-heading-16 text-[var(--ds-gray-1000)]">
           {hora(turno.abierto_en)} → {hora(turno.cerrado_en)}
@@ -76,63 +83,80 @@ export function TurnoSeparador({ turno }: { turno: TurnoDelDia }) {
         </span>
       </div>
 
-      <div className="text-copy-13 flex flex-col items-end gap-2.5">
-        <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-          {loCerroNadie ? (
-            <Badge variant="amber-subtle">No cerraron</Badge>
-          ) : (
-            <>
-              <Caja etiqueta="Grande" contado={turno.caja_grande_final} dif={difGrande} />
-              <Caja etiqueta="Chica" contado={turno.caja_chica_final} dif={difChica} />
-            </>
-          )}
-        </div>
-
-        {/* Lo que apareció o desapareció del cajón entre el cierre del turno
-            anterior y la apertura de este: plata que se movió sin anotarse. */}
-        {turno.salto && (
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            <Salto etiqueta="Grande" monto={turno.salto.grande} />
-            <Salto etiqueta="Chica" monto={turno.salto.chica} />
-          </div>
+      <div className="text-copy-13 flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
+        {loCerroNadie ? (
+          <Badge variant="amber-subtle">No cerraron</Badge>
+        ) : (
+          <>
+            <Caja
+              etiqueta="Grande"
+              contado={turno.caja_grande_final}
+              dif={difGrande}
+              salto={turno.salto?.grande ?? 0}
+            />
+            <Caja
+              etiqueta="Chica"
+              contado={turno.caja_chica_final}
+              dif={difChica}
+              salto={turno.salto?.chica ?? 0}
+            />
+          </>
         )}
 
-        {/* El stock va en su propio renglon: son nombres de producto largos y
-            en la misma linea que la plata empujaban todo. Sin la palabra
-            "Stock" adelante: que falte un Monster ya se entiende solo. */}
+        {/* Cuántas cosas salieron mal, sin abrir nada. Si no hay ninguna no se
+            dibuja: un cero en un círculo rojo se lee como un problema. */}
+        {alertas > 0 && (
+          <span
+            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-900)] text-[11px] font-medium tabular-nums text-white"
+            aria-label={`${alertas} ${alertas === 1 ? "problema" : "problemas"} en este turno`}
+          >
+            {alertas}
+          </span>
+        )}
+
         {turno.stock.length > 0 && (
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            {turno.stock.map((d) => (
-              <Badge
-                key={`${d.producto}-${d.momento}`}
-                variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
-              >
-                {d.producto} {d.diferencia > 0 ? "+" : ""}
-                {d.diferencia}
-                {d.momento === "apertura" ? " (al abrir)" : ""}
-              </Badge>
-            ))}
-          </div>
+          <ChevronDownIcon
+            aria-hidden
+            className="size-4 shrink-0 text-[var(--ds-gray-900)] transition-transform group-open:rotate-180"
+          />
         )}
       </div>
     </div>
   );
-}
 
-/** El salto contra el cierre anterior. Cero no se muestra: no hay nada que decir. */
-function Salto({ etiqueta, monto }: { etiqueta: string; monto: number }) {
-  if (monto === 0) return null;
+  // Sin diferencias de stock no hay nada que desplegar, así que tampoco flecha.
+  // <details> y no estado de React: es una sola cosa que se abre y se cierra, y
+  // así el separador sigue siendo server component y anda sin JS.
+  if (turno.stock.length === 0) {
+    return <div className="bg-[var(--ds-gray-alpha-200)]">{cabecera}</div>;
+  }
+
   return (
-    <Badge variant={monto < 0 ? "red-subtle" : "amber-subtle"}>
-      {etiqueta}: abrió con {pesos(monto)} de {monto < 0 ? "menos" : "más"}
-    </Badge>
+    <details className="group bg-[var(--ds-gray-alpha-200)]">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        {cabecera}
+      </summary>
+      <div className="flex flex-wrap items-center gap-1 px-4 pb-3">
+        {turno.stock.map((d) => (
+          <Badge
+            key={`${d.producto}-${d.momento}`}
+            variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
+          >
+            {d.diferencia < 0 ? "Falta" : "Sobra"} {Math.abs(d.diferencia)} {d.producto}
+            {d.momento === "apertura" ? " (al abrir)" : ""}
+          </Badge>
+        ))}
+      </div>
+    </details>
   );
 }
 
 /**
- * Lo que contaron en un cajón. El monto va siempre en blanco: es un dato, no un
- * veredicto. Lo que salta es la pastilla de al lado, que solo aparece cuando no
- * dio y dice cuánto.
+ * Lo que contaron en un cajón, con lo que no cuadra al lado.
+ *
+ * El monto va en blanco: es un dato. Lo que se pinta de rojo es el problema, y
+ * sobrar es tan problema como faltar: los dos significan que la plata no es la
+ * que el sistema puede explicar.
  *
  * Sin conteo no se inventa un cero.
  */
@@ -140,21 +164,29 @@ function Caja({
   etiqueta,
   contado,
   dif,
+  salto,
 }: {
   etiqueta: string;
   contado: number | null;
   dif: number | null;
+  /** Lo que declaró al abrir de más o de menos contra el cierre del anterior. */
+  salto: number;
 }) {
   if (contado === null) return null;
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex flex-wrap items-center gap-x-2">
       <span className="text-[var(--ds-gray-900)]">{etiqueta}</span>
       <span className="tabular-nums text-[var(--ds-gray-1000)]">{pesos(contado)}</span>
       {dif !== null && dif !== 0 && (
-        <Badge variant={dif < 0 ? "red-subtle" : "amber-subtle"}>
-          {dif < 0 ? "faltan" : "sobran"} {pesos(dif)}
-        </Badge>
+        <span className="font-medium text-[var(--ds-red-900)]">
+          {dif < 0 ? "Faltan" : "Sobran"} {pesos(dif)}
+        </span>
+      )}
+      {salto !== 0 && (
+        <span className="font-medium text-[var(--ds-red-900)]">
+          Abrió con {pesos(salto)} de {salto < 0 ? "menos" : "más"}
+        </span>
       )}
     </span>
   );
