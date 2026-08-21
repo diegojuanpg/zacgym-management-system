@@ -3,12 +3,10 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { rangoDe, comparador } from "@/lib/filtros";
-import { DIAS_MAXIMOS, sumarDias, type DiaRubro } from "@/lib/grafico";
 import { traerTodo } from "@/lib/traer-todo";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
-import { GraficoVentas } from "@/components/ventas/grafico-ventas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -175,19 +173,10 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     qMovs = qMovs.lte("creado_en", hasta);
   }
 
-  // El gráfico no mira los filtros de la tabla: es la foto del negocio. Un año
-  // de plata cobrada ya viene sumada por día y rubro desde la base.
-  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
-  const qGrafico = supabase
-    .from("ventas_por_dia")
-    .select("dia, rubro, monto")
-    .gte("dia", sumarDias(hoy, -(DIAS_MAXIMOS - 1)));
-
-  const [ventas, pagos, movimientos, porDia] = await Promise.all([
+  const [ventas, pagos, movimientos] = await Promise.all([
     traerTodo<VentaFila>(qVentas.order("creado_en", { ascending: false })),
     traerTodo<PagoFila>(qPagos.order("creado_en", { ascending: false })),
     traerTodo<MovimientoFila>(qMovs.order("creado_en", { ascending: false })),
-    traerTodo<DiaRubro>(qGrafico.order("dia")),
   ]);
 
   // El pago hecho el mismo día que su venta ya está contado en la fila de esa
@@ -335,8 +324,6 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
             : elegido.label.toLowerCase()}
         </p>
       </div>
-
-      <GraficoVentas filas={porDia} hoy={hoy} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
