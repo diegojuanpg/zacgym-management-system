@@ -9,8 +9,8 @@ import { useNavegacion } from "@/hooks/use-navegacion";
  * estado se comparte, sobrevive al refresh y el server sigue siendo el que decide
  * qué se dibuja.
  *
- * Encendido es el valor por defecto y no escribe nada en la URL; apagar pone
- * `?<param>=no`. Así el link limpio es el estado normal.
+ * El estado por defecto no escribe nada en la URL: el link limpio es el normal.
+ * El otro pone `?<param>=si` o `?<param>=no`, según de cuál se salga.
  *
  * Va pintado igual que una solapa secundaria del sistema —encendido en claro,
  * apagado en gris— porque convive con ellas en la misma fila y una píldora con
@@ -21,17 +21,22 @@ export function ToggleUrl({
   param,
   etiqueta,
   encendido,
+  predeterminado = true,
 }: {
   param: string;
   etiqueta: string;
   encendido: boolean;
+  /** En qué estado arranca sin parámetro en la URL. */
+  predeterminado?: boolean;
 }) {
   const searchParams = useSearchParams();
   const { irA, cargando } = useNavegacion();
 
   function alternar() {
     const nuevos = new URLSearchParams(searchParams.toString());
-    if (encendido) nuevos.set(param, "no");
+    // Volver al estado por defecto limpia el parámetro en vez de escribir el
+    // valor: dos URLs distintas para la misma pantalla no ayudan a nadie.
+    if (encendido === predeterminado) nuevos.set(param, encendido ? "no" : "si");
     else nuevos.delete(param);
     irA(nuevos);
   }
