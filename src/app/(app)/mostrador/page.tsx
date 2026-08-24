@@ -499,14 +499,20 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {esHoy && turno && (
-              <CerrarTurnoModal
-                esperadoGrande={turno.caja_grande_esperada}
-                esperadoChica={turno.caja_chica_esperada}
-                responsables={turno.responsables}
-                productos={aContar}
-              />
-            )}
+            {/* Abrir y cerrar viven en la barra, no en el estado vacío: después
+                de cerrar un turno con movimientos la tabla sigue llena y el
+                botón de iniciar el siguiente no tiene dónde aparecer. */}
+            {esHoy &&
+              (turno ? (
+                <CerrarTurnoModal
+                  esperadoGrande={turno.caja_grande_esperada}
+                  esperadoChica={turno.caja_chica_esperada}
+                  responsables={turno.responsables}
+                  productos={aContar}
+                />
+              ) : (
+                <TurnoModal trabajando={trabajando} productos={aContar} />
+              ))}
             {/* El check-in no depende del turno: se llega antes de abrirlo. */}
             <CheckInModal empleados={empleados ?? []} asistencias={hoy} />
           </div>
@@ -548,7 +554,6 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             icon={<CartIcon />}
             title="No hay ningún turno abierto"
             description="Para cargar ventas, cobros o movimientos de caja tenés que iniciar el turno contando la caja y el stock."
-            action={<TurnoModal trabajando={trabajando} productos={aContar} />}
           />
         ) : registros.length === 0 ? (
           <EmptyState
