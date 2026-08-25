@@ -13,24 +13,29 @@ export interface Staff {
 /**
  * Usuario logueado + rol. Redirige a /login si no hay sesion.
  *
- * Con cache() porque el layout y la pagina la llaman las dos, y cada llamada
- * era un viaje entero a Supabase Auth: getUser() valida el token contra el
- * server, no lo lee de la cookie. Ahora sale una sola vez por request y la
- * segunda llamada se la lleva de memoria.
+ * `getClaims()` y no `getUser()`: el proyecto firma los tokens con clave
+ * asimetrica (ES256), asi que la firma se verifica en el mismo proceso contra
+ * la clave publica —que queda cacheada en memoria— y no hay viaje a Supabase
+ * Auth. `getUser()` era una vuelta a la red antes de la primera consulta, en
+ * cada navegacion. Si el token vencio, `getClaims()` lo renueva igual: por
+ * dentro pasa por `getSession()`.
+ *
+ * Sigue con cache() porque el layout y la pagina la llaman las dos.
  */
 export const requireStaff = cache(async function requireStaff(): Promise<Staff> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) redirect("/login");
+  if (!claims) redirect("/login");
+
+  const rol = (claims.app_metadata as { role?: string } | undefined)?.role;
 
   return {
-    id: user.id,
-    email: user.email ?? "",
+    id: claims.sub,
+    email: claims.email ?? "",
     // Cuentas creadas con create_staff() siempre traen role; el fallback cubre
     // una cuenta cargada a mano sin el campo.
-    role: user.app_metadata?.role === "admin" ? "admin" : "employee",
+    role: rol === "admin" ? "admin" : "employee",
   };
 });

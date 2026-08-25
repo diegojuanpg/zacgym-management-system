@@ -27,10 +27,14 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Refresca el token. No meter logica entre createServerClient y este getUser.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresca el token si hace falta y verifica la firma en el proceso, contra
+  // la clave publica del proyecto (ES256) que queda cacheada en memoria. No
+  // meter logica entre createServerClient y esta llamada.
+  //
+  // Antes era getUser(), que pregunta por red a Supabase Auth: eran dos viajes
+  // por navegacion —uno aca y otro en requireStaff()— antes de mirar un dato.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
