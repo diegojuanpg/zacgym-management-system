@@ -117,6 +117,7 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const lista_ = (nombre: string) => parametros.getAll(nombre);
 
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
+  const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
   const desdeLunes = lunesPasado(hoy);
   const viene = (a: FilaAlumno) =>
     a.ultima_actividad !== null && diaDe(a.ultima_actividad) >= desdeLunes;
@@ -161,7 +162,6 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const rangoVence = rangoDe(parametros.get("vence") ?? undefined);
   const rangoActividad = rangoDe(parametros.get("actividad") ?? undefined);
   const filtroSaldo = comparador(parametros.get("saldo") ?? undefined);
-  const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
   const texto = busqueda.toLowerCase();
 
   const lista = todos
