@@ -252,6 +252,7 @@ export type Database = {
       }
       pagos: {
         Row: {
+          contraparte_id: string | null
           creado_en: string
           creado_por: string
           id: string
@@ -261,6 +262,7 @@ export type Database = {
           venta_id: string
         }
         Insert: {
+          contraparte_id?: string | null
           creado_en?: string
           creado_por: string
           id?: string
@@ -270,6 +272,7 @@ export type Database = {
           venta_id: string
         }
         Update: {
+          contraparte_id?: string | null
           creado_en?: string
           creado_por?: string
           id?: string
@@ -279,6 +282,20 @@ export type Database = {
           venta_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pagos_contraparte_id_fkey"
+            columns: ["contraparte_id"]
+            isOneToOne: false
+            referencedRelation: "pagos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_contraparte_id_fkey"
+            columns: ["contraparte_id"]
+            isOneToOne: false
+            referencedRelation: "pagos_detalle"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pagos_turno_id_fkey"
             columns: ["turno_id"]
@@ -320,7 +337,7 @@ export type Database = {
         Row: {
           activo: boolean
           caja: Database["public"]["Enums"]["caja"] | null
-          categoria: Database["public"]["Enums"]["categoria_producto"] | null
+          categoria: string | null
           contar_en_turno: boolean
           creado_en: string
           id: string
@@ -331,7 +348,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           caja?: Database["public"]["Enums"]["caja"] | null
-          categoria?: Database["public"]["Enums"]["categoria_producto"] | null
+          categoria?: string | null
           contar_en_turno?: boolean
           creado_en?: string
           id?: string
@@ -342,7 +359,7 @@ export type Database = {
         Update: {
           activo?: boolean
           caja?: Database["public"]["Enums"]["caja"] | null
-          categoria?: Database["public"]["Enums"]["categoria_producto"] | null
+          categoria?: string | null
           contar_en_turno?: boolean
           creado_en?: string
           id?: string
@@ -897,7 +914,7 @@ export type Database = {
           alumno_id: string | null
           anulada_en: string | null
           caja: Database["public"]["Enums"]["caja"] | null
-          categoria: Database["public"]["Enums"]["categoria_producto"] | null
+          categoria: string | null
           creado_en: string | null
           id: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1063,11 +1080,12 @@ export type Database = {
       }
       ventas_saldo: {
         Row: {
+          a_favor: number | null
           alumno: string | null
           alumno_id: string | null
           anulada_en: string | null
           cantidad: number | null
-          categoria: Database["public"]["Enums"]["categoria_producto"] | null
+          categoria: string | null
           creado_en: string | null
           creado_por: string | null
           efectivo: number | null
@@ -1144,6 +1162,10 @@ export type Database = {
       }
       anular_pago: { Args: { p_pago_id: string }; Returns: undefined }
       anular_venta: { Args: { p_venta_id: string }; Returns: undefined }
+      aplicar_a_favor: {
+        Args: { p_alumno_id: string; p_venta_id: string }
+        Returns: number
+      }
       autocerrar_turno: { Args: never; Returns: undefined }
       borrar_movimiento: {
         Args: { p_movimiento_id: string }
@@ -1232,9 +1254,8 @@ export type Database = {
     }
     Enums: {
       caja: "grande" | "chica"
-      categoria_producto: "mensualidad" | "consumible" | "suplemento"
       genero: "femenino" | "masculino" | "otro"
-      metodo_pago: "efectivo" | "transferencia" | "no_paga"
+      metodo_pago: "efectivo" | "transferencia" | "no_paga" | "a_favor"
       movimiento_tipo: "ingreso" | "egreso"
       tarea_estado: "pendiente" | "en_proceso" | "terminada"
     }
@@ -1368,9 +1389,8 @@ export const Constants = {
   public: {
     Enums: {
       caja: ["grande", "chica"],
-      categoria_producto: ["mensualidad", "consumible", "suplemento"],
       genero: ["femenino", "masculino", "otro"],
-      metodo_pago: ["efectivo", "transferencia", "no_paga"],
+      metodo_pago: ["efectivo", "transferencia", "no_paga", "a_favor"],
       movimiento_tipo: ["ingreso", "egreso"],
       tarea_estado: ["pendiente", "en_proceso", "terminada"],
     },

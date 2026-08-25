@@ -7,12 +7,35 @@ checkins, vencimientos, apps-script) — mirar ahi antes de modelar el schema.
 ## Stack
 
 - Next.js 16 (App Router) + React 19 + TypeScript strict
-- Tailwind CSS v4 (sin design system por ahora: markup plano)
+- Tailwind CSS v4 + Geist (design system de Vercel, copiado en el repo)
 - Supabase (`@supabase/ssr` — clientes en `src/lib/supabase/`)
 - pnpm, ESLint
 
-Lo unico construido hoy es la auth: login por email/password, recuperacion por
-mail y roles admin/employee. Todo lo demas (pagos, stock, caja) esta por hacer.
+## Interfaz
+
+Toda la interfaz se hace con Geist. La fuente de verdad es la skill local
+`geist-design-system` (`~/.claude/skills/geist-design-system/`), nunca la web de
+Vercel. Antes de usar un componente, leer su `references/<nombre>.md` y copiar
+el archivo de `assets/components/ui/` a `src/components/ui/` con sus
+dependencias. No re-estilar un componente copiado: componer con tokens y las
+variantes que documenta.
+
+- Colores: solo variables `--ds-*` o los tokens semanticos (`bg-background`,
+  `text-muted-foreground`, `border-border`). Nada de hex/oklch a mano ni
+  `dark:` para colores de token, que `.dark` ya los da vuelta.
+- Texto: utilidades `text-heading-*` / `text-copy-*` / `text-label-*` /
+  `text-button-*`, no `text-xl font-bold` armado a ojo.
+- Superficies: utilidades `material-*` para cards, menus, modales, tooltips.
+- Radio: `rounded-md` controles, `rounded-lg` controles grandes, `rounded-xl`
+  superficies flotantes.
+- Foco: `--ds-focus-ring`, ya viene en los componentes; no sacarlo.
+- Iconos: buscar en `assets/components/icons.tsx` de la skill y copiar el que
+  haga falta a `src/components/icons.tsx`. Nada de lucide, unicode (`x`, `->`)
+  ni SVG dibujado a mano.
+- Espaciado: escala de 4px.
+
+El CSS ya esta puesto: `src/app/geist-tokens.css`, `geist-typography.css`,
+`geist-materials.css`, `geist-book.css`, importados desde `globals.css`.
 
 ## Entorno local
 
