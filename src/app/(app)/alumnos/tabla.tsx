@@ -25,7 +25,7 @@ import {
   TableCol,
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
-import { rangoDe, comparador } from "@/lib/filtros";
+import { rangoDe, comparador, lunesPasado } from "@/lib/filtros";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 
 const ZONA = "America/Argentina/Buenos_Aires";
@@ -61,19 +61,6 @@ function haceCuanto(iso: string | null) {
   if (dias < 30) return `Hace ${dias} días`;
   if (dias < 60) return "Hace 1 mes";
   return `Hace ${Math.floor(dias / 30)} meses`;
-}
-
-/**
- * El lunes de la semana pasada. Con la semana de lunes a domingo, es el piso de
- * "está viniendo": entra el que hizo check-in esta semana o la anterior.
- *
- * Mediodía UTC para hacer la cuenta: la fecha ya viene resuelta en hora
- * Argentina y a esa hora ningún cambio de huso la corre de día.
- */
-function lunesPasado(hoy: string) {
-  const d = new Date(`${hoy}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
-  return d.toISOString().slice(0, 10);
 }
 
 /** Dormido: no movió plata en 30 días. Es el que hay que salir a buscar. */
@@ -137,13 +124,17 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
           ? "Vencido"
           : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
+  // El que entrena sin haber renovado. El mismo lunes que abre la ventana de
+  // "esta viniendo" la cierra para el vencimiento: si vencio la semana pasada
+  // todavia no se le reclama, y si vencio antes ya son dos semanas entrenando
+  // de prestado. Es a quien hay que pararle en el mostrador.
+  const adeudando = (a: FilaAlumno) =>
+    viene(a) && a.vence !== null && a.vence < desdeLunes;
 
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
-    { valor: "vencidos", nombre: "Vencidos", filtro: vencido },
-    { valor: "deudores", nombre: "Con deuda", filtro: (a: FilaAlumno) => a.saldo > 0 },
-    { valor: "dormidos", nombre: "Sin actividad", filtro: dormido },
-    { valor: "inactivos", nombre: "Inactivos", filtro: (a: FilaAlumno) => !a.activo },
+    { valor: "activos", nombre: "Activos", filtro: (a: FilaAlumno) => estadoDe(a) === "Activo" },
+    { valor: "adeudando", nombre: "Adeudando", filtro: adeudando },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
 

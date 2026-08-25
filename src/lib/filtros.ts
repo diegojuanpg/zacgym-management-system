@@ -27,3 +27,19 @@ export function comparador(v: string | string[] | undefined) {
   }
   return null;
 }
+
+/**
+ * El lunes de la semana pasada, en "YYYY-MM-DD", a partir de la fecha de hoy.
+ *
+ * Es el mojón de las dos ventanas del listado de Alumnos, y por eso vive en un
+ * solo lado: de ahí para acá el alumno "está viniendo", y de ahí para atrás su
+ * vencimiento ya lleva dos semanas. La semana va de lunes a domingo.
+ *
+ * La cuenta se hace a mediodía UTC: la fecha ya viene resuelta en hora
+ * Argentina y a esa hora ningún cambio de huso la corre de día.
+ */
+export function lunesPasado(hoy: string) {
+  const d = new Date(`${hoy}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
+  return d.toISOString().slice(0, 10);
+}
