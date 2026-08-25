@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { RadioGroup, Radio } from "@/components/ui/radio";
 import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -148,7 +149,9 @@ export function NuevaVentaModal({
   const [movMonto, setMovMonto] = React.useState("");
   const [movMotivo, setMovMotivo] = React.useState("");
 
-  // --- cobro de deuda ---
+  // --- cuenta del alumno: cobrarle lo que debe o devolverle lo que tiene a favor ---
+  const [cuentaOp, setCuentaOp] = React.useState<"cobro" | "devolucion">("cobro");
+  const [devCaja, setDevCaja] = React.useState<ItemMovimiento["caja"]>("grande");
   const [cobroAlumnoId, setCobroAlumnoId] = React.useState("");
   const [cobroMetodo, setCobroMetodo] = React.useState<Metodo>("efectivo");
   const [cobroEfectivo, setCobroEfectivo] = React.useState("");
@@ -181,13 +184,23 @@ export function NuevaVentaModal({
     cobros
       .filter((c) => c.alumno_id === id)
       .reduce((suma, c) => suma + c.efectivo + c.transferencia, 0);
+  // Saldo a favor que las ventas del lote ya consumen.
+  const creditoDeLote = (id: string) =>
+    ventas.filter((v) => v.alumno_id === id).reduce((suma, v) => suma + v.creditoAplicado, 0);
+  // Y lo que ya se le devuelve acá mismo: no se puede ofrecer dos veces.
+  const devueltoEnLote = (id: string) =>
+    movimientos.filter((m) => m.alumno_id === id).reduce((suma, m) => suma + m.monto, 0);
+  /** Plata a favor que le queda, descontando lo que este lote ya usa. */
+  const aFavorDe = (id: string) =>
+    Math.max(
+      0,
+      -(alumnos.find((a) => a.id === id)?.saldo ?? 0) - creditoDeLote(id) - devueltoEnLote(id),
+    );
 
   // La cuenta ya viene neteada: un alumno no puede deber y tener a favor a la vez.
   const debePrevio = Math.max(0, (alumnoElegido?.saldo ?? 0) - cobradoEnLote(alumnoId));
   // Descontamos lo que ya consumieron otras líneas del lote para el mismo alumno.
-  const creditoUsado = ventas
-    .filter((v) => v.alumno_id === alumnoId)
-    .reduce((suma, v) => suma + v.creditoAplicado, 0);
+  const creditoUsado = creditoDeLote(alumnoId);
   const aFavorPrevio = Math.max(0, -(alumnoElegido?.saldo ?? 0) - creditoUsado);
   // Lo que tiene a favor se descuenta de lo que hay que cobrarle hoy. Lo que debe
   // de antes no se suma: es otra deuda, se cobra aparte.
@@ -204,8 +217,13 @@ export function NuevaVentaModal({
 
   // --- cobro de deuda: lo que debe hoy, menos lo que ya se cobra en el lote ---
   const deudores = alumnos.filter((a) => a.saldo - cobradoEnLote(a.id) > 0);
+  const acreedores = alumnos.filter((a) => aFavorDe(a.id) > 0);
   const alumnoCobro = alumnos.find((a) => a.id === cobroAlumnoId);
   const deudaCobro = Math.max(0, (alumnoCobro?.saldo ?? 0) - cobradoEnLote(cobroAlumnoId));
+  const aFavorCobro = aFavorDe(cobroAlumnoId);
+  // Vacío = devolverle todo lo que tiene a favor, que es el caso común.
+  const devuelve = cobroEfectivo === "" ? aFavorCobro : Number(cobroEfectivo) || 0;
+  const quedaDebiendo = devuelve - aFavorCobro;
   const entregaCobro = repartir(cobroMetodo, cobroEfectivo, cobroTransferencia, deudaCobro);
   const restaCobro = deudaCobro - entregaCobro.efectivo - entregaCobro.transferencia;
 
@@ -309,6 +327,54 @@ export function NuevaVentaModal({
     enfocarPrimero(form);
   }
 
+  /**
+   * Devolverle plata: sale del cajón como egreso y le baja el saldo a favor.
+   *
+   * Es un movimiento de caja, no una fila aparte: la plata que sale del cajón
+   * es un egreso y nada más. El descuento en la cuenta lo hace la base, atado a
+   * ese egreso, así que borrarlo devuelve el saldo a favor.
+   */
+  function agregarDevolucion(event: React.FormEvent) {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    if (!alumnoCobro) {
+      setError("Elegí a quién le estás devolviendo.");
+      return;
+    }
+    if (devuelve <= 0) {
+      setError("Poné cuánta plata le devolvés.");
+      return;
+    }
+
+    setFilas((previas) => [
+      ...previas,
+      {
+        clase: "movimiento",
+        tipo: "egreso",
+        monto: devuelve,
+        motivo: `Devolución a ${alumnoCobro.nombre_completo}`,
+        caja: devCaja,
+        metodo: cobroMetodo === "transferencia" ? "transferencia" : "efectivo",
+        alumno_id: alumnoCobro.id,
+      },
+    ]);
+    setCobroAlumnoId("");
+    setCobroEfectivo("");
+    setError(null);
+    enfocarPrimero(form);
+  }
+
+  // Cobrar y devolver no comparten ni los alumnos ni los métodos: al cambiar de
+  // sentido se limpia todo para no cargar una cosa con los datos de la otra.
+  function cambiarOperacion(op: string) {
+    setCuentaOp(op as "cobro" | "devolucion");
+    setCobroAlumnoId("");
+    setCobroMetodo("efectivo");
+    setCobroEfectivo("");
+    setCobroTransferencia("");
+    setError(null);
+  }
+
   async function confirmar() {
     setGuardando(true);
     setError(null);
@@ -321,12 +387,13 @@ export function NuevaVentaModal({
         transferencia,
         no_paga,
       })),
-      movimientos.map(({ tipo, monto, motivo, caja, metodo }) => ({
+      movimientos.map(({ tipo, monto, motivo, caja, metodo, alumno_id }) => ({
         tipo,
         monto,
         motivo,
         caja,
         metodo,
+        alumno_id,
       })),
       cobros.map(({ alumno_id, efectivo, transferencia }) => ({
         alumno_id,
@@ -422,7 +489,7 @@ export function NuevaVentaModal({
         <Tabs value={pestania} onValueChange={setPestania} className="mb-4">
           <TabsList>
             <TabsTrigger value="venta">Venta</TabsTrigger>
-            <TabsTrigger value="cobro">Cobrar deuda</TabsTrigger>
+            <TabsTrigger value="cobro">Cuenta</TabsTrigger>
             <TabsTrigger value="caja">Movimiento de caja</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -597,20 +664,47 @@ export function NuevaVentaModal({
             </div>
           </form>
         ) : pestania === "cobro" ? (
-          <form onSubmit={agregarCobro} onKeyDown={enterAvanza} className="flex flex-col gap-1 pb-4">
-            <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_9rem_minmax(7rem,auto)]">
+          <form
+            onSubmit={cuentaOp === "cobro" ? agregarCobro : agregarDevolucion}
+            onKeyDown={enterAvanza}
+            className="flex flex-col gap-1 pb-4"
+          >
+            {/* El sentido de la plata se elige, no se deduce del alumno: cobrar y
+                devolver mueven el cajón para lados opuestos. */}
+            <RadioGroup
+              value={cuentaOp}
+              onValueChange={cambiarOperacion}
+              className="mb-4 flex-row gap-6"
+            >
+              <Radio value="cobro">Cobrar deuda</Radio>
+              <Radio value="devolucion">Devolver plata</Radio>
+            </RadioGroup>
+
+            <div
+              className={`grid grid-cols-2 items-end gap-3 ${
+                cuentaOp === "cobro"
+                  ? "sm:grid-cols-[1fr_9rem_minmax(7rem,auto)]"
+                  : "sm:grid-cols-[1fr_9rem_7rem_minmax(7rem,auto)]"
+              }`}
+            >
               <div>
                 <Label>Alumno</Label>
                 <Combobox
-                  // Solo los que deben: cobrarle a alguien sin deuda no es un cobro.
-                  options={deudores.map((a) => ({
+                  // Cobrarle a alguien sin deuda no es un cobro, y devolverle a
+                  // alguien sin plata a favor es prestarle: cada lado lista lo suyo.
+                  options={(cuentaOp === "cobro" ? deudores : acreedores).map((a) => ({
                     value: a.id,
-                    label: `${a.nombre_completo.replace(",", "")} — debe ${pesos(a.saldo)}`,
+                    label:
+                      cuentaOp === "cobro"
+                        ? `${a.nombre_completo.replace(",", "")} — debe ${pesos(a.saldo)}`
+                        : `${a.nombre_completo.replace(",", "")} — a favor ${pesos(aFavorDe(a.id))}`,
                   }))}
                   value={cobroAlumnoId}
                   onValueChange={setCobroAlumnoId}
                   placeholder="Buscar alumno..."
-                  emptyMessage="Nadie debe plata"
+                  emptyMessage={
+                    cuentaOp === "cobro" ? "Nadie debe plata" : "Nadie tiene plata a favor"
+                  }
                   width="100%"
                   clearable
                   autoFocus
@@ -631,21 +725,39 @@ export function NuevaVentaModal({
                 >
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia</option>
-                  <option value="mixto">Mixto</option>
+                  {/* Devolver es una sola entrega: partirla en dos es cargar dos. */}
+                  {cuentaOp === "cobro" && <option value="mixto">Mixto</option>}
                 </Select>
               </div>
 
+              {cuentaOp === "devolucion" && (
+                <div>
+                  <Label htmlFor="dev-caja">Caja</Label>
+                  <Select
+                    id="dev-caja"
+                    size="large"
+                    value={devCaja}
+                    onChange={(e) => setDevCaja(e.target.value as ItemMovimiento["caja"])}
+                  >
+                    <option value="grande">Grande</option>
+                    <option value="chica">Chica</option>
+                  </Select>
+                </div>
+              )}
+
               <div className="flex flex-col items-end">
-                <Label>Debe</Label>
+                <Label>{cuentaOp === "cobro" ? "Debe" : "A favor"}</Label>
                 <span className="flex h-10 items-center text-heading-20 tabular-nums">
-                  {cobroAlumnoId === "" ? "—" : pesos(deudaCobro)}
+                  {cobroAlumnoId === ""
+                    ? "—"
+                    : pesos(cuentaOp === "cobro" ? deudaCobro : aFavorCobro)}
                 </span>
               </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
               <div className="flex flex-wrap items-end gap-3">
-                {cobroMetodo === "mixto" ? (
+                {cuentaOp === "cobro" && cobroMetodo === "mixto" ? (
                   <>
                     <div className="w-40">
                       <Input
@@ -673,11 +785,11 @@ export function NuevaVentaModal({
                 ) : (
                   <div className="w-40">
                     <Input
-                      label="Paga"
+                      label={cuentaOp === "cobro" ? "Paga" : "Devuelve"}
                       size="large"
                       inputMode="numeric"
                       prefix="$"
-                      placeholder={String(deudaCobro)}
+                      placeholder={String(cuentaOp === "cobro" ? deudaCobro : aFavorCobro)}
                       value={cobroEfectivo}
                       onChange={(e) => setCobroEfectivo(e.target.value.replace(/\D/g, ""))}
                     />
@@ -692,18 +804,32 @@ export function NuevaVentaModal({
 
             <div className="flex min-h-5 items-center justify-between gap-4 text-copy-13">
               <span className="text-muted-foreground">
-                {cobroAlumnoId !== "" && "Se descuenta de las compras impagas más viejas primero."}
+                {cobroAlumnoId !== "" &&
+                  (cuentaOp === "cobro"
+                    ? "Se descuenta de las compras impagas más viejas primero."
+                    : "Sale del cajón y se descuenta de lo que pagó de más, de lo más viejo primero.")}
               </span>
               <span>
-                {restaCobro > 0 && cobroAlumnoId !== "" && (
-                  <span className="text-[var(--ds-amber-900)]">
-                    Le siguen quedando {pesos(restaCobro)}
-                  </span>
-                )}
-                {restaCobro < 0 && (
-                  <span className="text-[var(--ds-blue-900)]">
-                    Le quedan {pesos(-restaCobro)} a favor
-                  </span>
+                {cuentaOp === "cobro" ? (
+                  <>
+                    {restaCobro > 0 && cobroAlumnoId !== "" && (
+                      <span className="text-[var(--ds-amber-900)]">
+                        Le siguen quedando {pesos(restaCobro)}
+                      </span>
+                    )}
+                    {restaCobro < 0 && (
+                      <span className="text-[var(--ds-blue-900)]">
+                        Le quedan {pesos(-restaCobro)} a favor
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  quedaDebiendo > 0 &&
+                  cobroAlumnoId !== "" && (
+                    <span className="text-[var(--ds-amber-900)]">
+                      Le queda debiendo {pesos(quedaDebiendo)}
+                    </span>
+                  )
                 )}
               </span>
             </div>
