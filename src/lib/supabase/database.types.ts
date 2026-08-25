@@ -258,6 +258,7 @@ export type Database = {
           id: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
+          movimiento_id: string | null
           turno_id: string | null
           venta_id: string
         }
@@ -268,6 +269,7 @@ export type Database = {
           id?: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
+          movimiento_id?: string | null
           turno_id?: string | null
           venta_id: string
         }
@@ -278,6 +280,7 @@ export type Database = {
           id?: string
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
+          movimiento_id?: string | null
           turno_id?: string | null
           venta_id?: string
         }
@@ -294,6 +297,20 @@ export type Database = {
             columns: ["contraparte_id"]
             isOneToOne: false
             referencedRelation: "pagos_detalle"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_caja"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_caja_detalle"
             referencedColumns: ["id"]
           },
           {
@@ -1219,6 +1236,7 @@ export type Database = {
       }
       registrar_movimiento: {
         Args: {
+          p_alumno_id?: string
           p_caja?: Database["public"]["Enums"]["caja"]
           p_metodo?: Database["public"]["Enums"]["metodo_pago"]
           p_monto: number

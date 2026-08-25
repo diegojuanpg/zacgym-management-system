@@ -20,6 +20,8 @@ export interface ItemMovimiento {
   motivo: string;
   caja: "grande" | "chica";
   metodo: "efectivo" | "transferencia";
+  /** Devolución: además de sacar la plata del cajón, le baja el saldo a favor. */
+  alumno_id?: string;
 }
 
 export interface ItemCobro {
