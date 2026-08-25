@@ -473,31 +473,21 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     <main className="flex flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-heading-20">Mostrador</h1>
-          <p className="text-copy-14 text-[var(--ds-gray-900)]">
+          <p className="text-copy-14 text-muted-foreground">
             {esHoy && turno ? (
               <>
-                A cargo:{" "}
-                <span className="text-[var(--ds-gray-1000)]">
-                  {/* Sale del check-in: el que tenga un turno declarado dentro
-                      del rango del turno de caja estuvo en el turno. */}
-                  {turno.responsables.length === 0
-                    ? "nadie fichó"
-                    : turno.responsables.join(", ")}
-                </span>
-                {" · turno desde las "}
+                {/* Sale del check-in: el que tenga un turno declarado dentro
+                    del rango del turno de caja estuvo en el turno. */}
+                {turno.responsables.length === 0
+                  ? "Nadie fichó"
+                  : turno.responsables.join(", ")}
+                {" · desde "}
                 {horaCorta(turno.abierto_en)}
-                {registros.length > 0 &&
-                  ` · ${registros.length} ${registros.length === 1 ? "movimiento" : "movimientos"}`}
               </>
+            ) : turnosDelDia.length === 0 ? (
+              esHoy ? "Turno cerrado" : "Sin turnos"
             ) : (
-              <>
-                {turnosDelDia.length === 0
-                  ? "Sin turnos"
-                  : `${turnosDelDia.length} ${turnosDelDia.length === 1 ? "turno" : "turnos"}`}
-                {registros.length > 0 &&
-                  ` · ${registros.length} ${registros.length === 1 ? "movimiento" : "movimientos"}`}
-                {esHoy && !turno && " · turno cerrado"}
-              </>
+              `${turnosDelDia.length} ${turnosDelDia.length === 1 ? "turno" : "turnos"}`
             )}
           </p>
         </div>
