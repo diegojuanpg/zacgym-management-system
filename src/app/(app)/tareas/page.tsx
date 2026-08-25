@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/traer-todo";
 import { comoQuery } from "@/lib/query";
 import { FiltrosLocales } from "@/hooks/use-navegacion";
+import type { Categoria } from "@/lib/tareas";
 import { TablaTareas, type Tarea } from "./tabla";
 
 /**
@@ -18,19 +19,18 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
     traerTodo<Tarea>(
       supabase
         .from("tareas_detalle")
-        .select("id, alumno_id, alumno, categoria, detalle, creado_en, estado")
+        .select("id, alumno_id, alumno, categoria_id, categoria, detalle, creado_en, estado")
         .order("creado_en", { ascending: false }),
     ),
-    // Todas las categorías, incluso las que todavía no tiene ninguna tarea: la
-    // solapa vacía dice que la categoría existe, que es distinto de no existir.
-    supabase.from("tarea_categorias").select("nombre").order("nombre"),
+    // Todas las categorías para filtros y asignación rápida en la tabla.
+    supabase.from("tarea_categorias").select("id, nombre").order("nombre"),
   ]);
 
   const query = comoQuery(params);
 
   return (
     <FiltrosLocales key={query} inicial={query}>
-      <TablaTareas tareas={todas} categorias={(categorias ?? []).map((c) => c.nombre)} />
+      <TablaTareas tareas={todas} categorias={(categorias ?? []) as Categoria[]} />
     </FiltrosLocales>
   );
 }

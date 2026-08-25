@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { ESTADOS, type EstadoTarea } from "@/lib/tarea-estados";
+import type { Categoria } from "@/lib/tareas";
 import { EstadoTareaSelect } from "@/components/tareas/estado-tarea";
+import { CategoriaTareaSelect } from "@/components/tareas/categoria-tarea";
+import { DetalleTareaEditable } from "@/components/tareas/detalle-tarea";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { MostrarMas } from "@/components/mostrar-mas";
 import { recortar } from "@/lib/recorte";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RelativeTimeCard } from "@/components/ui/relative-time-card";
@@ -56,48 +58,56 @@ export interface Tarea {
   id: string;
   alumno_id: string;
   alumno: string;
+  categoria_id: string | null;
   categoria: string | null;
   detalle: string;
   creado_en: string;
   estado: EstadoTarea;
 }
 
-/** La tabla de tareas: solapas por categoría, buscador, filtros y filas. */
+/** La tabla de tareas: solapas por estado, buscador, filtros y filas editables. */
 export function TablaTareas({
   tareas: todas,
   categorias,
 }: {
   tareas: Tarea[];
-  /** Todas las del catálogo: una sin tareas igual tiene que tener su solapa. */
-  categorias: string[];
+  categorias: Categoria[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
   const busqueda = (parametros.get("q") ?? "").trim().toLowerCase();
-  const solapa = parametros.get("cat") ?? "todas";
+  const solapa = parametros.get("tab") ?? "todas";
   const criterio = parametros.get("orden") ?? "reciente";
   const filas = parametros.get("filas") ?? undefined;
   const lista_ = (nombre: string) => parametros.getAll(nombre);
 
   const categoriaDe = (t: Tarea) => t.categoria ?? SIN_CATEGORIA;
 
-  const nombres = [
-    ...new Set([...categorias, ...todas.map(categoriaDe)]),
-  ].sort((a, b) => a.localeCompare(b, "es"));
-
   const vistas = [
     { valor: "todas", nombre: "Todas", cuantos: todas.length },
-    ...nombres.map((n) => ({
-      valor: n,
-      nombre: n,
-      cuantos: todas.filter((t) => categoriaDe(t) === n).length,
-    })),
+    {
+      valor: "pendiente",
+      nombre: "Pendiente",
+      cuantos: todas.filter((t) => t.estado === "pendiente").length,
+    },
+    {
+      valor: "en_proceso",
+      nombre: "En proceso",
+      cuantos: todas.filter((t) => t.estado === "en_proceso").length,
+    },
+    {
+      valor: "terminada",
+      nombre: "Terminada",
+      cuantos: todas.filter((t) => t.estado === "terminada").length,
+    },
   ];
   const vistaActual = vistas.find((v) => v.valor === solapa) ?? vistas[0];
 
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
   const opcionesAlumno = ordenar(todas.map((t) => t.alumno));
+  const opcionesCategoria = ordenar([...categorias.map((c) => c.nombre), ...todas.map(categoriaDe)]);
   const filtroAlumno = lista_("alumno");
+  const filtroCategoria = lista_("categoria");
   const nombreEstado = (e: EstadoTarea) => ESTADOS.find((x) => x.valor === e)!.nombre;
   const filtroEstado = lista_("estado");
   // El mismo rango de fechas que en Ventas. creado_en es un instante: se pasa a
@@ -109,7 +119,8 @@ export function TablaTareas({
   const lista = todas
     .filter(
       (t) =>
-        (vistaActual.valor === "todas" || categoriaDe(t) === vistaActual.valor) &&
+        (vistaActual.valor === "todas" || t.estado === vistaActual.valor) &&
+        (filtroCategoria.length === 0 || filtroCategoria.includes(categoriaDe(t))) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(t.alumno)) &&
         (filtroEstado.length === 0 || filtroEstado.includes(nombreEstado(t.estado))) &&
         (rangoCreada.desde === "" || diaDe(t.creado_en) >= rangoCreada.desde) &&
@@ -135,7 +146,7 @@ export function TablaTareas({
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <TabsUrl param="cat" valor={vistaActual.valor} vistas={vistas} />
+          <TabsUrl param="tab" valor={vistaActual.valor} vistas={vistas} />
         </div>
         <Buscador inicial={busqueda} placeholder="Buscar por alumno o texto" />
       </div>
@@ -179,7 +190,13 @@ export function TablaTareas({
                       }}
                     />
                   </TableHead>
-                  <TableHead>Categoría</TableHead>
+                  <TableHead>
+                    <FiltroColumna
+                      etiqueta="Categoría"
+                      param="categoria"
+                      opciones={opcionesCategoria}
+                    />
+                  </TableHead>
                   <TableHead>
                     <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
                   </TableHead>
@@ -206,20 +223,21 @@ export function TablaTareas({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {t.categoria ? (
-                        <Badge variant="gray-subtle">{t.categoria}</Badge>
-                      ) : (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      )}
+                      <CategoriaTareaSelect
+                        id={t.id}
+                        categoriaId={t.categoria_id}
+                        categoriaNombre={t.categoria}
+                        categorias={categorias}
+                      />
                     </TableCell>
                     <TableCell className="text-[var(--ds-gray-1000)]">
                       <Link href={`/alumnos/${t.alumno_id}`} className="hover:underline">
                         {t.alumno}
                       </Link>
                     </TableCell>
-                    {/* La tarea es texto libre: acá se lee entera, no cortada. */}
+                    {/* La tarea es editable directamente en la celda. */}
                     <TableCell className="whitespace-normal text-[var(--ds-gray-1000)]">
-                      {t.detalle}
+                      <DetalleTareaEditable id={t.id} detalle={t.detalle} />
                     </TableCell>
                     <TableCell>
                       <EstadoTareaSelect id={t.id} estado={t.estado} />

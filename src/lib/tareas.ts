@@ -56,6 +56,35 @@ export async function cambiarEstadoTarea(
   return {};
 }
 
+export async function editarTarea(
+  id: string,
+  datos: { categoria_id?: string | null; detalle?: string },
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const actualizacion: { categoria_id?: string | null; detalle?: string } = {};
+
+  if (datos.categoria_id !== undefined) {
+    actualizacion.categoria_id = datos.categoria_id;
+  }
+  if (datos.detalle !== undefined) {
+    if (datos.detalle.trim() === "") return { error: "El detalle no puede estar vacío." };
+    actualizacion.detalle = datos.detalle.trim();
+  }
+
+  const { data, error } = await supabase
+    .from("tareas")
+    .update(actualizacion)
+    .eq("id", id)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if ((data ?? []).length === 0) return { error: "No se pudo actualizar la tarea." };
+
+  revalidatePath("/tareas");
+  revalidatePath("/mostrador");
+  return {};
+}
+
 /** Se cargo mal, nunca existio. Lo que se hizo se marca terminada, no se borra. */
 export async function borrarTarea(id: string): Promise<{ error?: string }> {
   const supabase = await createClient();
