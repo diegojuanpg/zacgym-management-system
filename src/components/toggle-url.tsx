@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { Toggle } from "@/components/ui/toggle";
 import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 /**
@@ -11,10 +11,9 @@ import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
  * El estado por defecto no escribe nada en la URL: el link limpio es el normal.
  * El otro pone `?<param>=si` o `?<param>=no`, según de cuál se salga.
  *
- * Va pintado igual que una solapa secundaria del sistema —encendido en claro,
- * apagado en gris— porque convive con ellas en la misma fila y una píldora con
- * otra forma se leería como otra cosa. Es un botón de dos estados, no una vista:
- * por eso `aria-pressed` y no `aria-selected`.
+ * Es un interruptor y se ve como uno. Antes iba pintado como una solapa más, y
+ * al lado de las de verdad no se distinguía lo que elige filas de lo que
+ * enciende columnas.
  */
 export function ToggleUrl({
   param,
@@ -41,19 +40,8 @@ export function ToggleUrl({
   }
 
   return (
-    <button
-      type="button"
-      onClick={alternar}
-      aria-pressed={encendido}
-      disabled={cargando}
-      className={cn(
-        "flex h-8 shrink-0 items-center rounded-md px-3 text-[13px] font-medium whitespace-nowrap outline-none transition-all duration-150 ease-in-out focus-visible:shadow-[var(--ds-focus-ring)]",
-        encendido
-          ? "bg-[var(--ds-gray-1000)] text-[var(--ds-background-100)]"
-          : "bg-[var(--ds-gray-alpha-200)] text-[var(--ds-gray-900)] hover:bg-[var(--ds-gray-alpha-300)] hover:text-[var(--ds-gray-1000)]",
-      )}
-    >
+    <Toggle checked={encendido} onCheckedChange={alternar} disabled={cargando} className="shrink-0">
       {etiqueta}
-    </button>
+    </Toggle>
   );
 }
