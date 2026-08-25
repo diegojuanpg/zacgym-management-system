@@ -46,10 +46,10 @@ const vacio = (
 
 const GENERO = { femenino: "Femenino", masculino: "Masculino", otro: "Otro" } as const;
 
-/** Apellido, nombre, género, edad, estado, actividad, vencimiento, balance [, mail, número], acciones. */
+/** Apellido, nombre, género, edad, actividad, vencimiento, estado, balance [, número, mail], acciones. */
 const ANCHOS = {
-  conContacto: ["10%", "11%", "8%", "5%", "8%", "9%", "10%", "8%", "14%", "10%", "7%"],
-  sinContacto: ["13%", "15%", "11%", "7%", "10%", "12%", "13%", "12%", "7%"],
+  conContacto: ["10%", "11%", "8%", "5%", "9%", "10%", "8%", "8%", "10%", "14%", "7%"],
+  sinContacto: ["13%", "15%", "11%", "7%", "12%", "13%", "10%", "12%", "7%"],
 };
 
 /** Los días importan más que la fecha exacta: "hace 3 días" se lee de un vistazo. */
@@ -304,9 +304,6 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                     />
                   </TableHead>
                   <TableHead>
-                    <FiltroColumna etiqueta="Estado" param="estado" opciones={opcionesEstado} />
-                  </TableHead>
-                  <TableHead>
                     <FiltroColumna
                       etiqueta="Actividad"
                       orden={{
@@ -333,6 +330,9 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                     />
                   </TableHead>
                   <TableHead>
+                    <FiltroColumna etiqueta="Estado" param="estado" opciones={opcionesEstado} />
+                  </TableHead>
+                  <TableHead>
                     <FiltroColumna
                       etiqueta="Balance"
                       orden={{
@@ -347,8 +347,8 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                   </TableHead>
                   {verContacto && (
                     <>
-                      <TableHead>Mail</TableHead>
                       <TableHead>Número</TableHead>
+                      <TableHead>Mail</TableHead>
                     </>
                   )}
                   <TableHead className="text-center" />
@@ -383,10 +383,6 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                     <TableCell>{a.edad ?? vacio}</TableCell>
 
                     <TableCell>
-                      <Badge variant={ESTADO_COLOR[estadoDe(a)]}>{estadoDe(a)}</Badge>
-                    </TableCell>
-
-                    <TableCell>
                       {a.ultima_actividad ? (
                         // La fecha exacta y la hora local salen al pasar el mouse.
                         <RelativeTimeCard date={a.ultima_actividad} side="top">
@@ -409,6 +405,10 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                       )}
                     </TableCell>
 
+                    <TableCell>
+                      <Badge variant={ESTADO_COLOR[estadoDe(a)]}>{estadoDe(a)}</Badge>
+                    </TableCell>
+
                     {/* En la base `saldo > 0` es lo que el alumno DEBE: para el que
                         mira la tabla eso es estar en rojo, y tener a favor, en verde. */}
                     <TableCell>
@@ -425,24 +425,24 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
                     {verContacto && (
                       <>
                         <TableCell>
-                          {a.email ? (
-                            <a
-                              href={`mailto:${a.email}`}
-                              className="hover:text-[var(--ds-gray-1000)] hover:underline"
-                            >
-                              {a.email}
-                            </a>
-                          ) : (
-                            vacio
-                          )}
-                        </TableCell>
-                        <TableCell>
                           {a.celular ? (
                             <a
                               href={`tel:${a.celular.replace(/\s/g, "")}`}
                               className="hover:text-[var(--ds-gray-1000)] hover:underline"
                             >
                               {a.celular}
+                            </a>
+                          ) : (
+                            vacio
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {a.email ? (
+                            <a
+                              href={`mailto:${a.email}`}
+                              className="hover:text-[var(--ds-gray-1000)] hover:underline"
+                            >
+                              {a.email}
                             </a>
                           ) : (
                             vacio
