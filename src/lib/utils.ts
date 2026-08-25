@@ -5,6 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Primera en mayúscula. Los rubros y los métodos se guardan en minúscula. */
+export const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /**
  * Una fecha sin hora ("2026-07-07") no tiene zona. Pasarla por Date la lee como
  * medianoche UTC y en Buenos Aires (UTC-3) cae el dia anterior: el vencimiento

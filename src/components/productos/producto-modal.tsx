@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { crearProducto, editarProducto, reponerStock, type Categoria } from "@/lib/productos";
+import { crearProducto, editarProducto, reponerStock } from "@/lib/productos";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ export interface Producto {
   id: string;
   nombre: string;
   precio: number;
-  categoria: Categoria | null;
+  categoria: string | null;
   caja: "grande" | "chica" | null;
   stock: number | null;
   activo: boolean;
@@ -25,8 +25,22 @@ export interface Producto {
 
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
 
-/** Alta y edición del catálogo. Sin producto = alta. */
-export function ProductoModal({ producto }: { producto?: Producto }) {
+/** Valor del select que abre el campo de texto. No se guarda nunca. */
+const NUEVA = "__nueva__";
+
+/**
+ * Alta y edición del catálogo. Sin producto = alta.
+ *
+ * `categorias` son los rubros que ya existen en el catálogo, para elegir de una
+ * lista en vez de tipearlos: son texto libre y "Ropa"/"ropa" serían dos solapas.
+ */
+export function ProductoModal({
+  producto,
+  categorias,
+}: {
+  producto?: Producto;
+  categorias: string[];
+}) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -34,7 +48,8 @@ export function ProductoModal({ producto }: { producto?: Producto }) {
 
   const [nombre, setNombre] = React.useState(producto?.nombre ?? "");
   const [precio, setPrecio] = React.useState(producto ? String(producto.precio) : "");
-  const [categoria, setCategoria] = React.useState<Categoria | "">(producto?.categoria ?? "");
+  const [categoria, setCategoria] = React.useState(producto?.categoria ?? "");
+  const [nueva, setNueva] = React.useState("");
   const [caja, setCaja] = React.useState(producto?.caja ?? "");
   const [llevaStock, setLlevaStock] = React.useState(producto ? producto.stock !== null : false);
   const [stock, setStock] = React.useState(producto?.stock != null ? String(producto.stock) : "0");
@@ -47,6 +62,7 @@ export function ProductoModal({ producto }: { producto?: Producto }) {
     setNombre(producto?.nombre ?? "");
     setPrecio(producto ? String(producto.precio) : "");
     setCategoria(producto?.categoria ?? "");
+    setNueva("");
     setCaja(producto?.caja ?? "");
     setLlevaStock(producto ? producto.stock !== null : false);
     setStock(producto?.stock != null ? String(producto.stock) : "0");
@@ -60,7 +76,7 @@ export function ProductoModal({ producto }: { producto?: Producto }) {
   const datos = () => ({
     nombre,
     precio: Number(precio) || 0,
-    categoria: (categoria === "" ? null : categoria) as Categoria | null,
+    categoria: categoria === NUEVA ? nueva : categoria === "" ? null : categoria,
     caja: (caja === "" ? null : caja) as Producto["caja"],
     stock: llevaStock ? Number(stock) || 0 : null,
     // Sin stock no hay unidades que contar: la base lo rechaza.
@@ -136,19 +152,41 @@ export function ProductoModal({ producto }: { producto?: Producto }) {
             onChange={(e) => setNombre(e.target.value)}
           />
 
-          <div>
-            <Label htmlFor="categoria">Categoría</Label>
-            <Select
-              id="categoria"
-              size="large"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value as Categoria | "")}
-            >
-              <option value="">Sin categoría</option>
-              <option value="mensualidad">Mensualidad</option>
-              <option value="consumible">Consumible</option>
-              <option value="suplemento">Suplemento</option>
-            </Select>
+          <div className="flex flex-col gap-2">
+            <div>
+              <Label htmlFor="categoria">Categoría</Label>
+              <Select
+                id="categoria"
+                size="large"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+              >
+                <option value="">Sin categoría</option>
+                {categorias.map((c) => (
+                  <option key={c} value={c} className="capitalize">
+                    {c}
+                  </option>
+                ))}
+                {/* El rubro del producto que se está editando puede haber sido
+                    el último de su clase: sin esto el select no lo encuentra y
+                    se muestra vacío. */}
+                {producto?.categoria && !categorias.includes(producto.categoria) && (
+                  <option value={producto.categoria}>{producto.categoria}</option>
+                )}
+                <option value={NUEVA}>Nueva categoría…</option>
+              </Select>
+            </div>
+
+            {categoria === NUEVA && (
+              <Input
+                aria-label="Nombre de la categoría"
+                size="large"
+                maxLength={40}
+                placeholder="Ropa, Alquiler, Clase suelta..."
+                value={nueva}
+                onChange={(e) => setNueva(e.target.value)}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

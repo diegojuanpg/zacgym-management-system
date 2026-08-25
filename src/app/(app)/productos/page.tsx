@@ -8,6 +8,7 @@ import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CartIcon, InvoiceIcon } from "@/components/icons";
+import { capitalizar } from "@/lib/utils";
 import {
   TableRoot,
   Table,
@@ -19,12 +20,6 @@ import {
 } from "@/components/ui/table";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
-
-const NOMBRE_RUBRO = {
-  mensualidad: "Mensualidad",
-  consumible: "Consumible",
-  suplemento: "Suplemento",
-} as const;
 
 export default async function ProductosPage({ searchParams }: PageProps<"/productos">) {
   await requireStaff();
@@ -50,11 +45,15 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
   );
   const sinCaja = catalogo.filter((p) => p.caja === null).length;
 
+  // Los rubros salen del catálogo y no de una lista fija: se cargan desde el
+  // alta, así que el que inventaron ayer tiene que tener su solapa hoy.
+  const categorias = [...new Set(todos.map((p) => p.categoria).filter((c) => c !== null))].sort(
+    (a, b) => a.localeCompare(b, "es"),
+  );
+
   const rubros = [
     { valor: "todos", nombre: "Todos" },
-    { valor: "mensualidad", nombre: "Mensualidades" },
-    { valor: "consumible", nombre: "Consumibles" },
-    { valor: "suplemento", nombre: "Suplementos" },
+    ...categorias.map((c) => ({ valor: c, nombre: c })),
     { valor: "sin", nombre: "Sin categoría" },
   ].map((r) => ({ ...r, cuantos: todos.filter((p) => esDe(p, r.valor)).length }));
 
@@ -85,7 +84,7 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
             >
               Mostrador
             </Button>
-            <ProductoModal />
+            <ProductoModal categorias={categorias} />
           </div>
         </div>
 
@@ -94,7 +93,7 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
           <TabsUrl
             param="cat"
             valor={rubro}
-            vistas={rubros.map((r) => ({ valor: r.valor, nombre: r.nombre, cuantos: r.cuantos }))}
+            vistas={rubros.map((r) => ({ ...r, nombre: capitalizar(r.nombre) }))}
           />
         </div>
 
@@ -151,7 +150,7 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
                         {p.categoria === null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          NOMBRE_RUBRO[p.categoria]
+                          <span className="capitalize">{p.categoria}</span>
                         )}
                       </TableCell>
                       {/* Sin caja lo tienen los 60 productos viejos: un badge por
@@ -190,7 +189,7 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
                       </TableCell>
                       <TableCell numeric>{pesos(p.precio)}</TableCell>
                       <TableCell className="text-center">
-                        <ProductoModal producto={p} />
+                        <ProductoModal producto={p} categorias={categorias} />
                       </TableCell>
                     </TableRow>
                   ))}

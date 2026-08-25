@@ -18,17 +18,11 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { fechaCorta } from "@/lib/utils";
+import { capitalizar, fechaCorta } from "@/lib/utils";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 const vacio = <span className="text-[var(--ds-gray-900)]">—</span>;
-
-const RUBROS = {
-  mensualidad: "Mensualidades",
-  consumible: "Consumibles",
-  suplemento: "Suplementos",
-} as const;
 
 const fecha = (iso: string) =>
   new Date(iso).toLocaleDateString("es-AR", {
@@ -89,7 +83,7 @@ interface Ficha {
 interface Compra {
   id: string;
   producto: string;
-  categoria: keyof typeof RUBROS | null;
+  categoria: string | null;
   cantidad: number;
   total: number;
   pagado: number;
@@ -147,9 +141,15 @@ export default async function FichaAlumnoPage({ params, searchParams }: PageProp
   const rubroDe = (c: Compra) => c.categoria ?? "sin";
   const visibles = todas.filter((c) => solapa === "todos" || rubroDe(c) === solapa);
 
+  // Los rubros son los de las compras del alumno: la lista del catálogo se
+  // arma desde Productos y crece, así que acá no puede estar clavada.
+  const categorias = [...new Set(todas.map((c) => c.categoria).filter((c) => c !== null))].sort(
+    (a, b) => a.localeCompare(b, "es"),
+  );
+
   const rubros = [
     { valor: "todos", nombre: "Todas" },
-    ...Object.entries(RUBROS).map(([valor, nombre]) => ({ valor, nombre })),
+    ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
     { valor: "sin", nombre: "Sin categoría" },
   ]
     .map((r) => ({

@@ -20,6 +20,7 @@
     "test:filtros": "node --experimental-strip-types scripts/filtros.test.mjs",
     "test:caja": "node --experimental-strip-types scripts/caja.test.mjs",
     "test:horas": "node --experimental-strip-types scripts/horas.test.mjs",
+    "test:credito": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/saldo_a_favor.sql",
     "smoke:auth": "node --env-file=.env.local scripts/smoke-auth.mjs",
     "mail": "xdg-open http://127.0.0.1:55324"
   },

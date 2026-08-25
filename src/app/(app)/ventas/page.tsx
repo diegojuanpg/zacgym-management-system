@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { borrarVenta, borrarMovimiento, borrarPago } from "@/lib/ventas";
 import { rangoDe, comparador } from "@/lib/filtros";
 import { traerTodo } from "@/lib/traer-todo";
+import { capitalizar } from "@/lib/utils";
 import { MostrarMas, recortar } from "@/components/mostrar-mas";
 import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
@@ -23,7 +24,6 @@ import {
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
-const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Períodos del encabezado de Fecha. El corte se calcula acá y se manda a la
@@ -39,12 +39,6 @@ const PERIODOS = [
   { valor: "90d", label: "Últimos 90 días", dias: 90 },
   { valor: "365d", label: "Último año", dias: 365 },
 ] as const;
-
-const RUBROS = {
-  mensualidad: "Mensualidades",
-  consumible: "Consumibles",
-  suplemento: "Suplementos",
-} as const;
 
 /** Corte del período. Fuera del render: Date.now() no es puro. */
 function corteDe(dias: number | null) {
@@ -63,12 +57,14 @@ const horaDe = (iso: string) =>
     hourCycle: "h23",
   });
 
-function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
+function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0, aFavor = 0) {
   // Sin cargo: lo que se lleva el dueño. No entra plata y no queda deuda.
   if (noPaga > 0) return "No paga";
   if (efectivo > 0 && transferencia > 0) return "Mixto";
   if (efectivo > 0) return "Efectivo";
   if (transferencia > 0) return "Transferencia";
+  // Nada entró hoy: la pagó con lo que ya tenía a favor.
+  if (aFavor > 0) return "A favor";
   return "—";
 }
 
@@ -76,12 +72,13 @@ interface VentaFila {
   id: string;
   alumno: string;
   producto: string;
-  categoria: keyof typeof RUBROS | null;
+  categoria: string | null;
   cantidad: number;
   total: number;
   efectivo: number;
   transferencia: number;
   no_paga: number;
+  a_favor: number;
   saldo: number;
   creado_en: string;
   anulada_en: string | null;
@@ -92,7 +89,7 @@ interface PagoFila {
   venta_id: string;
   alumno: string;
   monto: number;
-  metodo: "efectivo" | "transferencia" | "no_paga";
+  metodo: "efectivo" | "transferencia" | "no_paga" | "a_favor";
   creado_en: string;
   anulada_en: string | null;
 }
@@ -150,7 +147,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   let qVentas = supabase
     .from("ventas_saldo")
     .select(
-      "id, alumno, producto, categoria, cantidad, total, efectivo, transferencia, no_paga, saldo, creado_en, anulada_en",
+      "id, alumno, producto, categoria, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, creado_en, anulada_en",
     );
   let qPagos = supabase
     .from("pagos_detalle")
@@ -183,8 +180,9 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   const cobros = new Map<string, CobroFila>();
   for (const p of pagos.filter((p) => !p.anulada_en)) {
     if (diaDeVenta.get(p.venta_id) === p.creado_en.slice(0, 10)) continue;
-    // Sin cargo no es plata que entró: no arma un cobro de deuda.
-    if (p.metodo === "no_paga") continue;
+    // Sin cargo no es plata que entró, y una imputación de saldo a favor
+    // tampoco: son las dos caras de una plata que ya se cobró antes.
+    if (p.metodo === "no_paga" || p.metodo === "a_favor") continue;
 
     const clave = `${p.alumno}|${p.creado_en}`;
     const fila = cobros.get(clave) ?? {
@@ -222,7 +220,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     r.clase === "movimiento"
       ? capitalizar(r.metodo)
       : r.clase === "venta"
-        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
+        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga, r.a_favor)
         : nombreMetodo(r.efectivo, r.transferencia);
   const entraDe = (r: Registro) =>
     r.clase === "venta"
@@ -233,9 +231,15 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
           ? r.monto
           : -r.monto;
 
+  // Los rubros son los que tiene el catálogo, que se cargan desde Productos: una
+  // lista fija acá dejaba sin solapa a todo lo que se clasificara después.
+  const categorias = [...new Set(ventas.map((v) => v.categoria).filter((c) => c !== null))].sort(
+    (a, b) => a.localeCompare(b, "es"),
+  );
+
   const solapas = [
     { valor: "todos", nombre: "Todos" },
-    ...Object.entries(RUBROS).map(([valor, nombre]) => ({ valor, nombre })),
+    ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
     { valor: "sin", nombre: "Sin categoría" },
     { valor: "cobro", nombre: "Cobros" },
     { valor: "caja", nombre: "Caja" },

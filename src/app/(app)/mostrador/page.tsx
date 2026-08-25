@@ -45,12 +45,14 @@ const horaCorta = (iso: string) =>
     hour12: false,
   });
 
-function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0) {
+function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0, aFavor = 0) {
   // Sin cargo: lo que se lleva el dueño. No entra plata y no queda deuda.
   if (noPaga > 0) return "No paga";
   if (efectivo > 0 && transferencia > 0) return "Mixto";
   if (efectivo > 0) return "Efectivo";
   if (transferencia > 0) return "Transferencia";
+  // Nada entró hoy: la pagó con lo que ya tenía a favor.
+  if (aFavor > 0) return "A favor";
   return "—";
 }
 
@@ -76,6 +78,7 @@ interface VentaFila {
   efectivo: number;
   transferencia: number;
   no_paga: number;
+  a_favor: number;
   saldo: number;
   turno_id: string;
   creado_en: string;
@@ -88,7 +91,7 @@ interface PagoFila {
   alumno: string;
   producto: string;
   monto: number;
-  metodo: "efectivo" | "transferencia" | "no_paga";
+  metodo: "efectivo" | "transferencia" | "no_paga" | "a_favor";
   caja: "grande" | "chica";
   turno_id: string;
   creado_en: string;
@@ -197,7 +200,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
     porDia<VentaFila>(
       "ventas_saldo",
-      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, saldo, turno_id, creado_en, anulada_en",
+      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en",
     ),
     porDia<PagoFila>(
       "pagos_detalle",
@@ -289,6 +292,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { efectivo: number; transferencia: number; no_paga: number }
   >();
   for (const p of pagos ?? []) {
+    // La imputación de saldo a favor no es plata cobrada hoy: la fila de la
+    // venta la muestra aparte, con la columna `a_favor` de la vista.
+    if (p.metodo === "a_favor") continue;
     const acumulado =
       pagosDeVenta.get(p.venta_id) ?? { efectivo: 0, transferencia: 0, no_paga: 0 };
     acumulado[p.metodo] += p.monto;
@@ -300,8 +306,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const idsDeHoy = new Set((ventas ?? []).map((v) => v.id));
   const cobros = new Map<string, CobroFila>();
   for (const p of (pagos ?? []).filter((p) => !idsDeHoy.has(p.venta_id) && !p.anulada_en)) {
-    // Sin cargo no es plata que entró: no arma un cobro de deuda.
-    if (p.metodo === "no_paga") continue;
+    // Sin cargo no es plata que entró, y una imputación de saldo a favor
+    // tampoco: son las dos caras de una plata que ya se cobró antes.
+    if (p.metodo === "no_paga" || p.metodo === "a_favor") continue;
     const clave = `${p.alumno}|${p.creado_en}`;
     const fila: CobroFila = cobros.get(clave) ?? {
       ids: [],
@@ -384,7 +391,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     r.clase === "movimiento"
       ? capitalizar(r.metodo)
       : r.clase === "venta"
-        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
+        ? nombreMetodo(r.efectivo, r.transferencia, r.no_paga, r.a_favor)
         : nombreMetodo(r.efectivo, r.transferencia);
   const detalleDe = (r: Registro) =>
     r.clase === "venta" ? r.producto : r.clase === "cobro" ? "Cobro de deuda" : r.motivo;
@@ -645,7 +652,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                               {anulado ? (
                                 <Badge variant="red-subtle">anulada</Badge>
                               ) : (
-                                nombreMetodo(r.efectivo, r.transferencia, r.no_paga)
+                                nombreMetodo(r.efectivo, r.transferencia, r.no_paga, r.a_favor)
                               )}
                             </TableCell>
                             <TableCell>
