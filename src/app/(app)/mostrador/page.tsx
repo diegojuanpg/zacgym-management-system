@@ -360,6 +360,9 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           <div className="flex flex-wrap items-center gap-2">
             {/* render: el botón del sistema se dibuja como link, sin anidar <a><button>.
                 nativeButton en false para que Base UI no espere un <button> real. */}
+            <Button variant="secondary" nativeButton={false} render={<Link href="/alumnos/promos" />}>
+              Promos
+            </Button>
             <Button variant="secondary" nativeButton={false} render={<Link href="/productos" />}>
               Productos
             </Button>
