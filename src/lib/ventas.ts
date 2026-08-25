@@ -82,3 +82,109 @@ export async function borrarPago(id: string): Promise<{ error?: string }> {
   refrescar();
   return {};
 }
+
+export async function editarMovimiento(
+  id: string,
+  datos: {
+    metodo?: "efectivo" | "transferencia";
+    monto?: number;
+  },
+): Promise<{ error?: string }> {
+  if (datos.monto !== undefined && (isNaN(datos.monto) || datos.monto <= 0)) {
+    return { error: "El monto debe ser mayor a 0." };
+  }
+
+  const supabase = await createClient();
+  const actualizacion: { metodo?: "efectivo" | "transferencia"; monto?: number } = {};
+  if (datos.metodo !== undefined) actualizacion.metodo = datos.metodo;
+  if (datos.monto !== undefined) actualizacion.monto = Math.round(datos.monto);
+
+  const { data, error } = await supabase
+    .from("movimientos_caja")
+    .update(actualizacion)
+    .eq("id", id)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if ((data ?? []).length === 0) return { error: "No se pudo editar el movimiento." };
+
+  refrescar();
+  return {};
+}
+
+export async function editarVenta(
+  id: string,
+  datos: {
+    metodo?: "efectivo" | "transferencia";
+    monto?: number;
+  },
+): Promise<{ error?: string }> {
+  if (datos.monto !== undefined && (isNaN(datos.monto) || datos.monto < 0)) {
+    return { error: "El monto debe ser mayor o igual a 0." };
+  }
+
+  const supabase = await createClient();
+
+  if (datos.metodo !== undefined) {
+    const { error: errorPago } = await supabase
+      .from("pagos")
+      .update({ metodo: datos.metodo })
+      .eq("venta_id", id);
+    if (errorPago) return { error: errorPago.message };
+  }
+
+  if (datos.monto !== undefined) {
+    const entero = Math.round(datos.monto);
+    const [{ error: errorVenta }, { error: errorPago }] = await Promise.all([
+      supabase.from("ventas").update({ total: entero, precio_unitario: entero }).eq("id", id),
+      supabase.from("pagos").update({ monto: entero }).eq("venta_id", id),
+    ]);
+    if (errorVenta) return { error: errorVenta.message };
+    if (errorPago) return { error: errorPago.message };
+  }
+
+  refrescar();
+  return {};
+}
+
+export async function editarCobro(
+  pagoIds: string[],
+  datos: {
+    metodo?: "efectivo" | "transferencia";
+    monto?: number;
+  },
+): Promise<{ error?: string }> {
+  if (datos.monto !== undefined && (isNaN(datos.monto) || datos.monto < 0)) {
+    return { error: "El monto debe ser mayor o igual a 0." };
+  }
+
+  const supabase = await createClient();
+
+  if (datos.metodo !== undefined) {
+    const { error } = await supabase
+      .from("pagos")
+      .update({ metodo: datos.metodo })
+      .in("id", pagoIds);
+    if (error) return { error: error.message };
+  }
+
+  if (datos.monto !== undefined) {
+    const entero = Math.round(datos.monto);
+    if (pagoIds.length === 1) {
+      const { error } = await supabase
+        .from("pagos")
+        .update({ monto: entero })
+        .eq("id", pagoIds[0]);
+      if (error) return { error: error.message };
+    } else {
+      const { error } = await supabase
+        .from("pagos")
+        .update({ monto: entero })
+        .eq("id", pagoIds[0]);
+      if (error) return { error: error.message };
+    }
+  }
+
+  refrescar();
+  return {};
+}

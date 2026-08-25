@@ -26,7 +26,9 @@ const hora = (iso: string) =>
 /**
  * Check-in. Guarda tres horas y cada una responde algo distinto:
  *
- * - Llegaste: el momento del botón. No se elige y no se corrige.
+ * - La llegada: el momento del botón. No se pregunta ni se muestra al fichar
+ *   —es un dato de la base, no una decisión— pero queda guardada y sale en el
+ *   historial cuando no coincide con el inicio declarado.
  * - Inicia y Termina: el turno declarado. Se eligen, y después se corrigen.
  *
  * El inicio puede ser anterior a la llegada: el que llega 7:05 para un turno
@@ -56,9 +58,6 @@ export function CheckInModal({
   const [editando, setEditando] = React.useState<Asistencia | null>(null);
   const [editaInicia, setEditaInicia] = React.useState("");
   const [editaTermina, setEditaTermina] = React.useState("");
-  // La hora que se muestra como llegada. Se congela al abrir: llamar a Date en
-  // el render no es puro, y de todas formas la que vale es la que pone la base.
-  const [llegada, setLlegada] = React.useState("");
 
   function abrirModal() {
     const ahora = new Date();
@@ -69,14 +68,6 @@ export function CheckInModal({
     setNuevo("");
     setSumando(false);
     setEditando(null);
-    setLlegada(
-      ahora.toLocaleTimeString("es-AR", {
-        timeZone: ZONA,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-    );
     setError(null);
     setAbierto(true);
   }
@@ -167,14 +158,7 @@ export function CheckInModal({
           <section className="flex flex-col gap-2">
             {/* Grid y no flex: Input se dibuja dentro de un div w-full, asi que
                 en una fila flex se come todo el ancho y empuja al combo afuera. */}
-            <div className="grid grid-cols-[5rem_7rem_7rem_1fr] items-end gap-2">
-              {/* La llegada no se edita: es la hora en la que se apretó. */}
-              <div>
-                <Label>Llegaste</Label>
-                <div className="flex h-10 items-center rounded-lg px-3 text-base tabular-nums text-[var(--ds-gray-1000)] shadow-[0_0_0_1px_var(--ds-gray-alpha-400)]">
-                  {llegada}
-                </div>
-              </div>
+            <div className="grid grid-cols-[7rem_7rem_1fr] items-end gap-2">
               <div>
                 <Input
                   label="Inicia"

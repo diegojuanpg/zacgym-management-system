@@ -6,6 +6,8 @@ import { useParametros } from "@/hooks/use-navegacion";
 import { horaCorta } from "@/lib/utils";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { TurnoSeparador, type TurnoDelDia } from "@/components/mostrador/turno-separador";
+import { MetodoPagoSelect } from "@/components/mostrador/metodo-pago-select";
+import { MontoEditable } from "@/components/mostrador/monto-editable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -285,19 +287,26 @@ export function TablaMostrador({
                               {anulado ? (
                                 <Badge variant="red-subtle">anulada</Badge>
                               ) : (
-                                nombreMetodo(r.efectivo, r.transferencia, r.no_paga, r.a_favor)
+                                <MetodoPagoSelect registro={r} anulado={false} />
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                {pesos(r.efectivo + r.transferencia)}
-                                {r.saldo > 0 && (
-                                  <Badge variant="amber-subtle">Debe {pesos(r.saldo)}</Badge>
-                                )}
-                                {r.saldo < 0 && (
-                                  <Badge variant="blue-subtle">A favor {pesos(-r.saldo)}</Badge>
-                                )}
-                              </div>
+                              <MontoEditable
+                                registro={r}
+                                monto={r.efectivo + r.transferencia}
+                                tipo="venta"
+                                anulado={Boolean(anulado)}
+                                extra={
+                                  <>
+                                    {r.saldo > 0 && (
+                                      <Badge variant="amber-subtle">Debe {pesos(r.saldo)}</Badge>
+                                    )}
+                                    {r.saldo < 0 && (
+                                      <Badge variant="blue-subtle">A favor {pesos(-r.saldo)}</Badge>
+                                    )}
+                                  </>
+                                }
+                              />
                             </TableCell>
                             <TableCell numeric>
                               <span className={anulado ? "line-through" : undefined}>
@@ -310,8 +319,17 @@ export function TablaMostrador({
                             <TableCell>{r.alumno}</TableCell>
                             <TableCell>Cobro de deuda</TableCell>
                             <TableCell>—</TableCell>
-                            <TableCell>{nombreMetodo(r.efectivo, r.transferencia)}</TableCell>
-                            <TableCell>{pesos(r.efectivo + r.transferencia)}</TableCell>
+                            <TableCell>
+                              <MetodoPagoSelect registro={r} anulado={false} />
+                            </TableCell>
+                            <TableCell>
+                              <MontoEditable
+                                registro={r}
+                                monto={r.efectivo + r.transferencia}
+                                tipo="cobro"
+                                anulado={false}
+                              />
+                            </TableCell>
                             <TableCell numeric>—</TableCell>
                           </>
                         ) : (
@@ -325,22 +343,16 @@ export function TablaMostrador({
                               {anulado ? (
                                 <Badge variant="red-subtle">anulado</Badge>
                               ) : (
-                                <span className="capitalize">{r.metodo}</span>
+                                <MetodoPagoSelect registro={r} anulado={false} />
                               )}
                             </TableCell>
                             <TableCell>
-                              <span
-                                className={
-                                  anulado
-                                    ? "line-through"
-                                    : r.tipo === "ingreso"
-                                      ? "text-[var(--ds-green-900)]"
-                                      : "text-[var(--ds-amber-900)]"
-                                }
-                              >
-                                {r.tipo === "ingreso" ? "+" : "−"}
-                                {pesos(r.monto)}
-                              </span>
+                              <MontoEditable
+                                registro={r}
+                                monto={r.monto}
+                                tipo={r.tipo}
+                                anulado={Boolean(anulado)}
+                              />
                             </TableCell>
                             <TableCell numeric>—</TableCell>
                           </>
