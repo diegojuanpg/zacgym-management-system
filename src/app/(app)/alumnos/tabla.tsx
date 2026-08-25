@@ -231,6 +231,9 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="secondary" nativeButton={false} render={<Link href="/alumnos/promos" />}>
+            Promos
+          </Button>
           <Buscador inicial={busqueda} placeholder="Buscar por nombre, mail o teléfono..." />
         </div>
       </div>

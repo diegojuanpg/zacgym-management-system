@@ -6,7 +6,6 @@ import {
   type OpcionAlumno,
   type OpcionProducto,
 } from "@/components/alumnos/promo-modal";
-import { cupoDe } from "@/lib/promo-cupo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -112,34 +111,23 @@ export default async function PromosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody striped>
-                {lista.map((p) => {
-                  const cupo = cupoDe(p.producto);
-                  const desajuste = cupo !== null && p.cuantos !== cupo;
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-[var(--ds-gray-1000)]">{p.nombre}</TableCell>
-                      <TableCell>{p.producto}</TableCell>
-                      <TableCell>{pesos(p.precio)}</TableCell>
-                      <TableCell className="whitespace-normal">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[var(--ds-gray-1000)]">
-                            {p.integrantes.join(" · ")}
-                          </span>
-                          {/* El nombre del producto dice para cuántos es. */}
-                          {desajuste && (
-                            <span className="text-copy-13 text-[var(--ds-amber-900)]">
-                              Son {p.cuantos} y la promo es para {cupo}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {p.activa ? (
-                          <Badge variant="blue">Activa</Badge>
-                        ) : (
-                          <Badge variant="gray-subtle">Pausada</Badge>
-                        )}
-                      </TableCell>
+                {lista.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="text-[var(--ds-gray-1000)]">{p.nombre}</TableCell>
+                    <TableCell>{p.producto}</TableCell>
+                    <TableCell>{pesos(p.precio)}</TableCell>
+                    <TableCell className="whitespace-normal">
+                      <span className="text-[var(--ds-gray-1000)]">
+                        {p.integrantes.join(" · ")}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {p.activa ? (
+                        <Badge variant="blue">Activa</Badge>
+                      ) : (
+                        <Badge variant="gray-subtle">Pausada</Badge>
+                      )}
+                    </TableCell>
                       <TableCell className="text-center">
                         <PromoModal
                           promo={{
@@ -154,8 +142,7 @@ export default async function PromosPage() {
                         />
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
           </TableRoot>

@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Select } from "@/components/ui/select";
-import { cupoDe } from "@/lib/promo-cupo";
 import { PlusIcon, XIcon } from "@/components/icons";
 
 export interface OpcionAlumno {
@@ -72,8 +71,6 @@ export function PromoModal({
     alumnos.find((a) => a.id === id)?.nombre_completo ?? "—";
 
   const producto = productos.find((p) => p.id === productoId) ?? null;
-  const cupo = producto ? cupoDe(producto.nombre) : null;
-  const desajuste = cupo !== null && integrantes.length !== cupo;
 
   const datos = (): DatosPromo => ({ nombre, producto_id: productoId, integrantes, activa });
 
@@ -228,16 +225,6 @@ export function PromoModal({
               </div>
             )}
           </div>
-
-          {/* Se avisa, no se corrige solo: cambiar el precio de todos a mitad de
-              mes porque alguien se dio de baja sorprende más de lo que ayuda. */}
-          {desajuste && (
-            <Note type="warning" fill>
-              El grupo tiene {integrantes.length}{" "}
-              {integrantes.length === 1 ? "integrante" : "integrantes"} y {producto?.nombre} es
-              para {cupo}. Podés guardarlo igual, pero revisá si no corresponde otra promo.
-            </Note>
-          )}
 
           {promo && (
             <div>
