@@ -117,9 +117,15 @@ export default async function PromosPage() {
                     <TableCell>{p.producto}</TableCell>
                     <TableCell>{pesos(p.precio)}</TableCell>
                     <TableCell className="whitespace-normal">
-                      <span className="text-[var(--ds-gray-1000)]">
-                        {p.integrantes.join(" · ")}
-                      </span>
+                      {(p.integrantes ?? []).length === 0 ? (
+                        <span className="text-[var(--ds-gray-900)]">—</span>
+                      ) : (
+                        <div className="flex flex-col gap-0.5 text-copy-13 text-[var(--ds-gray-1000)]">
+                          {(p.integrantes as string[]).map((nombre, i) => (
+                            <span key={i}>{String(nombre)}</span>
+                          ))}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {p.activa ? (
