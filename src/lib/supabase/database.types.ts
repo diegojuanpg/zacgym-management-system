@@ -89,8 +89,10 @@ export type Database = {
           estado: string | null
           gmail: string | null
           id: string
+          nacimiento: string | null
           nombre: string | null
           numero: string | null
+          sexo: string | null
           sheet_id: string | null
           ultima_rutina_semana: string | null
           ultimo_checkin: string | null
@@ -103,8 +105,10 @@ export type Database = {
           estado?: string | null
           gmail?: string | null
           id: string
+          nacimiento?: string | null
           nombre?: string | null
           numero?: string | null
+          sexo?: string | null
           sheet_id?: string | null
           ultima_rutina_semana?: string | null
           ultimo_checkin?: string | null
@@ -117,8 +121,10 @@ export type Database = {
           estado?: string | null
           gmail?: string | null
           id?: string
+          nacimiento?: string | null
           nombre?: string | null
           numero?: string | null
+          sexo?: string | null
           sheet_id?: string | null
           ultima_rutina_semana?: string | null
           ultimo_checkin?: string | null
