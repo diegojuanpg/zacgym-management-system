@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Tabs } from "@/components/ui/tabs";
-import { useNavegacion } from "@/hooks/use-navegacion";
+import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 export interface VistaTab {
   valor: string;
@@ -27,7 +26,7 @@ export function TabsUrl({
   valor: string;
   vistas: VistaTab[];
 }) {
-  const searchParams = useSearchParams();
+  const searchParams = useParametros();
   const { irA, cargando } = useNavegacion();
 
   return (

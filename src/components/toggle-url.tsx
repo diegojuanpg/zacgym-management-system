@@ -1,8 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useNavegacion } from "@/hooks/use-navegacion";
+import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 /**
  * Interruptor atado a un parámetro de la URL, como las solapas y el buscador: el
@@ -29,7 +28,7 @@ export function ToggleUrl({
   /** En qué estado arranca sin parámetro en la URL. */
   predeterminado?: boolean;
 }) {
-  const searchParams = useSearchParams();
+  const searchParams = useParametros();
   const { irA, cargando } = useNavegacion();
 
   function alternar() {
