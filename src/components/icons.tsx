@@ -228,21 +228,6 @@ export function StoreIcon({ className, ...props }: { className?: string } & Reac
   )
 }
 
-export function ChevronDoubleLeftIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="undefined"
-      className={className}
-      aria-hidden="true"
-      {...props}
-    >
-      <path fillRule="evenodd" clipRule="evenodd" d="M3.14606 7.293C2.95859 7.48053 2.85327 7.73484 2.85327 8C2.85327 8.26517 2.95859 8.51947 3.14606 8.707L6.97006 12.53L7.50006 13.06L8.56006 12L8.03006 11.47L4.56006 8L8.03006 4.53L8.56006 4L7.50006 2.94L6.97006 3.47L3.14606 7.293ZM8.14606 7.293C7.95859 7.48053 7.85327 7.73484 7.85327 8C7.85327 8.26517 7.95859 8.51947 8.14606 8.707L11.9701 12.53L12.5001 13.06L13.5601 12L13.0301 11.47L9.56006 8L13.0301 4.53L13.5601 4L12.5001 2.94L11.9701 3.47L8.14606 7.293Z" fill="currentColor"/>
-    </svg>
-  )
-}
-
 export function PencilIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
@@ -306,21 +291,6 @@ export function MoonIcon({ className, ...props }: { className?: string } & React
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true" {...props}>
       <path d="M14 9.32A6.25 6.25 0 116.68 2a6.25 6.25 0 007.32 7.32z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-export function ChevronDoubleRightIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="undefined"
-      className={className}
-      aria-hidden="true"
-      {...props}
-    >
-      <path fillRule="evenodd" clipRule="evenodd" d="M12.8539 8.707C13.0414 8.51947 13.1467 8.26517 13.1467 8C13.1467 7.73484 13.0414 7.48053 12.8539 7.293L9.02994 3.47L8.49994 2.94L7.43994 4L7.96994 4.53L11.4399 8L7.96994 11.47L7.43994 12L8.49994 13.06L9.02994 12.53L12.8539 8.707ZM7.85394 8.707C8.04141 8.51947 8.14673 8.26517 8.14673 8C8.14673 7.73484 8.04141 7.48053 7.85394 7.293L4.02994 3.47L3.49994 2.94L2.43994 4L2.96994 4.53L6.43994 8L2.96994 11.47L2.43994 12L3.49994 13.06L4.02994 12.53L7.85394 8.707Z" fill="currentColor"/>
     </svg>
   )
 }
