@@ -63,6 +63,19 @@ function haceCuanto(iso: string | null) {
   return `Hace ${Math.floor(dias / 30)} meses`;
 }
 
+/**
+ * El lunes de la semana pasada. Con la semana de lunes a domingo, es el piso de
+ * "está viniendo": entra el que hizo check-in esta semana o la anterior.
+ *
+ * Mediodía UTC para hacer la cuenta: la fecha ya viene resuelta en hora
+ * Argentina y a esa hora ningún cambio de huso la corre de día.
+ */
+function lunesPasado(hoy: string) {
+  const d = new Date(`${hoy}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Dormido: no movió plata en 30 días. Es el que hay que salir a buscar. */
 function estaDormido(ultima: string | null) {
   return ultima === null || Date.now() - new Date(ultima).getTime() > 30 * 86400000;
@@ -104,13 +117,24 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const lista_ = (nombre: string) => parametros.getAll(nombre);
 
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
+  const desdeLunes = lunesPasado(hoy);
+  const viene = (a: FilaAlumno) =>
+    a.ultima_actividad !== null && diaDe(a.ultima_actividad) >= desdeLunes;
+  const alDia = (a: FilaAlumno) => a.vence !== null && a.vence >= hoy;
   const vencido = (a: FilaAlumno) => a.vence !== null && a.vence < hoy;
   const dormido = (a: FilaAlumno) => estaDormido(a.ultima_actividad);
-  // Tres estados y no dos: "Activo" a secas junto a un vencimiento en rojo se
-  // lee como una contradiccion. Inactivo es no estar en el padron; vencido es
-  // estar pero deber la renovacion, que es a quien hay que ir a buscar.
+  // Activo es el que sigue siendo alumno: vino a entrenar esta semana o la
+  // pasada, o tiene la cuota al dia aunque no haya venido. El que entrena
+  // debiendo la renovacion cuenta como activo —vino—, y la deuda la canta la
+  // columna Vencimiento al lado. Vencido queda para el que ademas dejo de venir.
   const estadoDe = (a: FilaAlumno) =>
-    !a.activo ? "Inactivo" : vencido(a) ? "Vencido" : "Activo";
+    !a.activo
+      ? "Inactivo"
+      : viene(a) || alDia(a)
+        ? "Activo"
+        : vencido(a)
+          ? "Vencido"
+          : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
 
   const vistas = [
