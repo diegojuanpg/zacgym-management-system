@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
 import { SearchInput } from "@/components/ui/search-input";
-import { useNavegacion } from "@/hooks/use-navegacion";
+import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 /**
- * Busca mientras escribís. Va a la URL igual que el resto de los filtros, pero
- * con un respiro: sin la espera, cada tecla dispara una consulta al server.
+ * Busca mientras escribís. Va a la URL igual que el resto de los filtros.
+ *
+ * Con los filtros en el server hay un respiro de 250 ms, porque cada tecla es
+ * una consulta. Adentro de `FiltrosLocales` no hay nada que esperar: filtra en
+ * el mismo frame en que soltás la tecla.
  */
 export function Buscador({
   inicial,
@@ -18,8 +20,8 @@ export function Buscador({
   placeholder: string;
   param?: string;
 }) {
-  const searchParams = useSearchParams();
-  const { irA, cargando } = useNavegacion();
+  const searchParams = useParametros();
+  const { irA, cargando, local } = useNavegacion();
   const [texto, setTexto] = React.useState(inicial);
 
   React.useEffect(() => {
@@ -31,9 +33,10 @@ export function Buscador({
       if (texto.trim() === "") nuevos.delete(param);
       else nuevos.set(param, texto.trim());
       irA(nuevos, { reemplazar: true });
-    }, 250);
+      // Sin espera cuando filtra el navegador: no hay consulta que ahorrar.
+    }, local ? 0 : 250);
     return () => clearTimeout(id);
-  }, [texto, param, searchParams, irA]);
+  }, [texto, param, searchParams, irA, local]);
 
   return (
     <div className="w-72">

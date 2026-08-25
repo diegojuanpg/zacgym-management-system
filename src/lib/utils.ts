@@ -49,3 +49,14 @@ export function rangoDelDia(dia: string) {
   const manana = siguiente.toISOString().slice(0, 10);
   return { desde: `${dia}T00:00:00-03:00`, hasta: `${manana}T00:00:00-03:00` };
 }
+
+const ZONA = "America/Argentina/Buenos_Aires";
+
+/** La hora de un instante en HH:MM de Buenos Aires. */
+export const horaCorta = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-AR", {
+    timeZone: ZONA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });

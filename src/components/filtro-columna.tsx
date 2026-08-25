@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +11,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Spinner } from "@/components/ui/spinner";
 import { ChevronDownIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { useNavegacion } from "@/hooks/use-navegacion";
+import { useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 const ANCHO = 260;
 // El panel se ensancha cuando trae campos: los del rango piden un renglon
@@ -78,7 +77,7 @@ export function FiltroColumna({
   monto?: { param: string };
 }) {
   const { irA: navegar, cargando } = useNavegacion();
-  const searchParams = useSearchParams();
+  const searchParams = useParametros();
 
   const elegidas = React.useMemo(
     () => (param ? searchParams.getAll(param) : []),
