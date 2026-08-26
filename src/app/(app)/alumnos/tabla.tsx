@@ -25,7 +25,7 @@ import {
   TableCol,
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
-import { rangoDe, comparador, lunesPasado } from "@/lib/filtros";
+import { rangoDe, comparador, lunes } from "@/lib/filtros";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 
 const ZONA = "America/Argentina/Buenos_Aires";
@@ -105,7 +105,8 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
 
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: ZONA });
   const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
-  const desdeLunes = lunesPasado(hoy);
+  const lunesActual = lunes(hoy);
+  const desdeLunes = lunes(hoy, 1);
   const viene = (a: FilaAlumno) =>
     a.ultima_actividad !== null && diaDe(a.ultima_actividad) >= desdeLunes;
   const alDia = (a: FilaAlumno) => a.vence !== null && a.vence >= hoy;
@@ -124,16 +125,20 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
           ? "Vencido"
           : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
-  // El que entrena sin haber renovado. El mismo lunes que abre la ventana de
-  // "esta viniendo" la cierra para el vencimiento: si vencio la semana pasada
-  // todavia no se le reclama, y si vencio antes ya son dos semanas entrenando
-  // de prestado. Es a quien hay que pararle en el mostrador.
+  // Semana corriente: al que se le termina el lunes ya hay que cobrarle, y al
+  // que se le termina el domingo tambien. Se avisa una vez, la semana entera.
+  const venceEstaSemana = (a: FilaAlumno) =>
+    a.vence !== null && a.vence >= lunesActual && a.vence < lunes(hoy, -1);
+  // El que entrena sin haber renovado. Cualquier vencimiento anterior a esta
+  // semana cuenta, sea de hace una semana o de hace seis meses; lo que lo mete
+  // en la lista es que igual esta viniendo. Es a quien pararle en el mostrador.
   const adeudando = (a: FilaAlumno) =>
-    viene(a) && a.vence !== null && a.vence < desdeLunes;
+    viene(a) && a.vence !== null && a.vence < lunesActual;
 
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
     { valor: "activos", nombre: "Activos", filtro: (a: FilaAlumno) => estadoDe(a) === "Activo" },
+    { valor: "vence", nombre: "Vence esta semana", filtro: venceEstaSemana },
     { valor: "adeudando", nombre: "Adeudando", filtro: adeudando },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
