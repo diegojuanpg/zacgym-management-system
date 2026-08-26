@@ -25,7 +25,7 @@ import {
   TableCol,
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
-import { rangoDe, comparador, lunes } from "@/lib/filtros";
+import { rangoDe, comparador, lunes, masDias } from "@/lib/filtros";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 
 const ZONA = "America/Argentina/Buenos_Aires";
@@ -129,11 +129,19 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   // que se le termina el domingo tambien. Se avisa una vez, la semana entera.
   const venceEstaSemana = (a: FilaAlumno) =>
     a.vence !== null && a.vence >= lunesActual && a.vence < lunes(hoy, -1);
+  // Al que se le vencio el sabado o el domingo se le da hasta el miercoles: el
+  // fin de semana no tuvo mostrador donde renovar y lo normal es que lo arregle
+  // cuando vuelve. Reclamarselo el lunes es reclamarle algo que no pudo hacer.
+  const enGracia = (a: FilaAlumno) =>
+    hoy < masDias(lunesActual, 2) &&
+    a.vence !== null &&
+    a.vence >= masDias(lunesActual, -2) &&
+    a.vence < lunesActual;
   // El que entrena sin haber renovado. Cualquier vencimiento anterior a esta
   // semana cuenta, sea de hace una semana o de hace seis meses; lo que lo mete
   // en la lista es que igual esta viniendo. Es a quien pararle en el mostrador.
   const adeudando = (a: FilaAlumno) =>
-    viene(a) && a.vence !== null && a.vence < lunesActual;
+    viene(a) && a.vence !== null && a.vence < lunesActual && !enGracia(a);
 
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },

@@ -29,18 +29,26 @@ export function comparador(v: string | string[] | undefined) {
 }
 
 /**
- * El lunes de la semana de `hoy`, en "YYYY-MM-DD". Con `semanasAtras` corre la
- * cuenta hacia atrás, y con -1 devuelve el lunes que viene.
+ * Suma días a una fecha "YYYY-MM-DD" y devuelve otra igual.
  *
- * Es el mojón de todas las ventanas del listado de Alumnos —está viniendo,
- * vence esta semana, adeuda— y por eso la cuenta vive en un solo lado. La
- * semana va de lunes a domingo.
+ * La cuenta se hace a mediodía UTC: la fecha ya viene resuelta en hora
+ * Argentina y a esa hora ningún cambio de huso la corre de día.
+ */
+export function masDias(fecha: string, dias: number) {
+  const d = new Date(`${fecha}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * El lunes de la semana de `hoy`. Con `semanasAtras` corre la cuenta hacia
+ * atrás, y con -1 devuelve el lunes que viene.
  *
- * Se calcula a mediodía UTC: la fecha ya viene resuelta en hora Argentina y a
- * esa hora ningún cambio de huso la corre de día.
+ * Es el mojón de las ventanas del listado de Alumnos —está viniendo, vence esta
+ * semana, adeuda— y por eso la cuenta vive en un solo lado. La semana va de
+ * lunes a domingo.
  */
 export function lunes(hoy: string, semanasAtras = 0) {
-  const d = new Date(`${hoy}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7 * semanasAtras);
-  return d.toISOString().slice(0, 10);
+  const diaDeLaSemana = (new Date(`${hoy}T12:00:00Z`).getUTCDay() + 6) % 7;
+  return masDias(hoy, -diaDeLaSemana - 7 * semanasAtras);
 }
