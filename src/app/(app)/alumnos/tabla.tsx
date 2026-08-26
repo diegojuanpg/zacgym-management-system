@@ -26,7 +26,7 @@ import {
   TableCol,
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
-import { rangoDe, comparador, lunes, masDias } from "@/lib/filtros";
+import { rangoDe, comparador, lunes } from "@/lib/filtros";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 
 const ZONA = "America/Argentina/Buenos_Aires";
@@ -107,9 +107,24 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const diaDe = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: ZONA });
   const lunesActual = lunes(hoy);
   const desdeLunes = lunes(hoy, 1);
+  // Vino esta semana o la pasada. Dos semanas y no una: el pipeline sincroniza
+  // los check-ins a las 3am, así que "vino esta semana" un lunes a la mañana no
+  // es nadie —lo del lunes entra el martes— y las listas quedarían vacías todos
+  // los lunes, que es el día de más gente.
   const viene = (a: FilaAlumno) =>
     a.ultima_actividad !== null && diaDe(a.ultima_actividad) >= desdeLunes;
   const alDia = (a: FilaAlumno) => a.vence !== null && a.vence >= hoy;
+  /**
+   * Sigue entrenando después de que se le venció.
+   *
+   * No alcanza con que haya venido hace poco: si la cuota se le venció el
+   * jueves y entrenó el lunes, ese entrenamiento estaba pago y no prueba nada.
+   * Se comparan las dos fechas, que las tenemos, en vez de aproximarlo con
+   * semanas. Sin fecha de vencimiento no hay contra qué comparar, así que
+   * alcanza con haber venido.
+   */
+  const entrenaVencido = (a: FilaAlumno) =>
+    viene(a) && (a.vence === null || diaDe(a.ultima_actividad!) > a.vence);
   const vencido = (a: FilaAlumno) => a.vence !== null && a.vence < hoy;
   const dormido = (a: FilaAlumno) => estaDormido(a.ultima_actividad);
   // Estado contesta una sola pregunta: ¿este sigue siendo alumno? Activo es el
@@ -122,79 +137,54 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   // ademas deba la renovacion lo canta la columna Vencimiento, en rojo y con la
   // fecha; decirlo dos veces no agregaba nada.
   const estadoDe = (a: FilaAlumno) =>
-    a.activo && (viene(a) || alDia(a)) ? "Activo" : "Inactivo";
+    a.activo && (alDia(a) || entrenaVencido(a)) ? "Activo" : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
-  // Semana corriente: al que se le termina el lunes ya hay que cobrarle, y al
-  // que se le termina el domingo tambien. Se avisa una vez, la semana entera.
-  const venceEstaSemana = (a: FilaAlumno) =>
-    a.vence !== null && a.vence >= lunesActual && a.vence < lunes(hoy, -1);
-  // Al que se le vencio el sabado o el domingo se le da hasta el miercoles: el
-  // fin de semana no tuvo mostrador donde renovar y lo normal es que lo arregle
-  // cuando vuelve. Reclamarselo el lunes es reclamarle algo que no pudo hacer.
-  const enGracia = (a: FilaAlumno) =>
-    hoy < masDias(lunesActual, 2) &&
-    a.vence !== null &&
-    a.vence >= masDias(lunesActual, -2) &&
-    a.vence < lunesActual;
-  // El que entrena sin haber renovado. Cualquier vencimiento anterior a esta
-  // semana cuenta, sea de hace una semana o de hace seis meses; lo que lo mete
-  // en la lista es que igual esta viniendo. Es a quien pararle en el mostrador.
-  const adeudando = (a: FilaAlumno) =>
-    viene(a) && a.vence !== null && a.vence < lunesActual && !enGracia(a);
-
-  // Los de Adeudando que ya llevan mas de una semana asi. Pararlos en el
-  // mostrador no alcanzo —siguen viniendo y sin renovar—, a estos hay que
-  // escribirles. Es un subconjunto de Adeudando, no una lista aparte.
-  const notificar = (a: FilaAlumno) =>
-    viene(a) && a.vence !== null && a.vence < desdeLunes;
-
-  // La torta parte a los activos por vencimiento, en ventanas que no se pisan:
-  // cada alumno cae en una sola. Va del celeste al rojo oscuro porque es una
-  // escala de gravedad, no cuatro categorias sueltas.
-  //
-  // A proposito ignora la gracia del fin de semana: la solapa Adeudando dice a
-  // quien reclamarle hoy, la torta dice como estan las cuotas. El que vencio el
-  // sabado ya no esta al dia, aunque todavia no se le reclame.
-  const activos = todos.filter((a) => estadoDe(a) === "Activo");
-  const entre = (a: FilaAlumno, desde: string | null, hasta: string | null) =>
+  // Las cuatro ventanas de vencimiento, todas adentro de Activos y sin pisarse:
+  // cada alumno que entrena cae en una sola. Las semanas son calendario porque
+  // la cuota vence un día puntual, no en una ventana rodante.
+  const esActivo = (a: FilaAlumno) => estadoDe(a) === "Activo";
+  const vence = (a: FilaAlumno, desde: string | null, hasta: string | null) =>
     a.vence !== null && (desde === null || a.vence >= desde) && (hasta === null || a.vence < hasta);
+
+  const venceDespues = (a: FilaAlumno) => esActivo(a) && vence(a, lunes(hoy, -1), null);
+  const venceEstaSemana = (a: FilaAlumno) => esActivo(a) && vence(a, lunesActual, lunes(hoy, -1));
+  const vencioLaPasada = (a: FilaAlumno) => esActivo(a) && vence(a, desdeLunes, lunesActual);
+  // Adeudando es el que entrena y ya lleva más de una semana sin renovar.
+  const adeudando = (a: FilaAlumno) => esActivo(a) && vence(a, null, desdeLunes);
+
   const porciones = [
-    {
-      nombre: "Al día",
-      cuantos: activos.filter((a) => entre(a, lunes(hoy, -1), null)).length,
-      color: "var(--ds-blue-700)",
-    },
+    { nombre: "Al día", cuantos: todos.filter(venceDespues).length, color: "var(--ds-blue-700)" },
     {
       nombre: "Vence esta semana",
-      cuantos: activos.filter((a) => entre(a, lunesActual, lunes(hoy, -1))).length,
+      cuantos: todos.filter(venceEstaSemana).length,
       color: "var(--ds-amber-800)",
     },
     {
       nombre: "Venció la semana pasada",
-      cuantos: activos.filter((a) => entre(a, desdeLunes, lunesActual)).length,
+      cuantos: todos.filter(vencioLaPasada).length,
       color: "var(--ds-red-800)",
     },
     {
-      nombre: "Venció antes",
-      cuantos: activos.filter((a) => entre(a, null, desdeLunes)).length,
+      nombre: "Adeudando",
+      cuantos: todos.filter(adeudando).length,
       color: "var(--ds-red-900)",
       trama: true,
     },
     {
-      // Sin fecha no se puede decir en que semana vencio. Hoy no hay ninguno,
-      // y la porcion no se dibuja mientras siga asi.
+      // Sin fecha no se puede decir en qué semana vence. Hoy no hay ninguno, y
+      // la porción no se dibuja mientras siga así.
       nombre: "Sin vencimiento",
-      cuantos: activos.filter((a) => a.vence === null).length,
+      cuantos: todos.filter((a) => esActivo(a) && a.vence === null).length,
       color: "var(--ds-gray-600)",
     },
   ];
 
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
-    { valor: "activos", nombre: "Activos", filtro: (a: FilaAlumno) => estadoDe(a) === "Activo" },
+    { valor: "activos", nombre: "Activos", filtro: esActivo },
     { valor: "vence", nombre: "Vence esta semana", filtro: venceEstaSemana },
+    { valor: "vencio", nombre: "Venció la semana pasada", filtro: vencioLaPasada },
     { valor: "adeudando", nombre: "Adeudando", filtro: adeudando },
-    { valor: "notificar", nombre: "Notificar", filtro: notificar },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
 
