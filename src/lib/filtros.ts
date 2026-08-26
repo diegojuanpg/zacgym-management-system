@@ -29,17 +29,18 @@ export function comparador(v: string | string[] | undefined) {
 }
 
 /**
- * El lunes de la semana pasada, en "YYYY-MM-DD", a partir de la fecha de hoy.
+ * El lunes de la semana de `hoy`, en "YYYY-MM-DD". Con `semanasAtras` corre la
+ * cuenta hacia atrás, y con -1 devuelve el lunes que viene.
  *
- * Es el mojón de las dos ventanas del listado de Alumnos, y por eso vive en un
- * solo lado: de ahí para acá el alumno "está viniendo", y de ahí para atrás su
- * vencimiento ya lleva dos semanas. La semana va de lunes a domingo.
+ * Es el mojón de todas las ventanas del listado de Alumnos —está viniendo,
+ * vence esta semana, adeuda— y por eso la cuenta vive en un solo lado. La
+ * semana va de lunes a domingo.
  *
- * La cuenta se hace a mediodía UTC: la fecha ya viene resuelta en hora
- * Argentina y a esa hora ningún cambio de huso la corre de día.
+ * Se calcula a mediodía UTC: la fecha ya viene resuelta en hora Argentina y a
+ * esa hora ningún cambio de huso la corre de día.
  */
-export function lunesPasado(hoy: string) {
+export function lunes(hoy: string, semanasAtras = 0) {
   const d = new Date(`${hoy}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7 * semanasAtras);
   return d.toISOString().slice(0, 10);
 }
