@@ -32,7 +32,6 @@ const ZONA = "America/Argentina/Buenos_Aires";
 
 const ESTADO_COLOR = {
   Activo: "blue",
-  Vencido: "amber",
   Inactivo: "red",
 } as const;
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
@@ -112,18 +111,17 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const alDia = (a: FilaAlumno) => a.vence !== null && a.vence >= hoy;
   const vencido = (a: FilaAlumno) => a.vence !== null && a.vence < hoy;
   const dormido = (a: FilaAlumno) => estaDormido(a.ultima_actividad);
-  // Activo es el que sigue siendo alumno: vino a entrenar esta semana o la
-  // pasada, o tiene la cuota al dia aunque no haya venido. El que entrena
-  // debiendo la renovacion cuenta como activo —vino—, y la deuda la canta la
-  // columna Vencimiento al lado. Vencido queda para el que ademas dejo de venir.
+  // Estado contesta una sola pregunta: ¿este sigue siendo alumno? Activo es el
+  // que vino a entrenar esta semana o la pasada, o tiene la cuota al dia aunque
+  // no haya venido. Inactivo es todo lo demas: se le vencio y no aparece, o
+  // nunca estuvo en el padron.
+  //
+  // No hay un estado "Vencido" aparte porque no le quedaba nadie: el que vencio
+  // o esta viniendo —y entonces es Activo— o no, y entonces es Inactivo. Que
+  // ademas deba la renovacion lo canta la columna Vencimiento, en rojo y con la
+  // fecha; decirlo dos veces no agregaba nada.
   const estadoDe = (a: FilaAlumno) =>
-    !a.activo
-      ? "Inactivo"
-      : viene(a) || alDia(a)
-        ? "Activo"
-        : vencido(a)
-          ? "Vencido"
-          : "Inactivo";
+    a.activo && (viene(a) || alDia(a)) ? "Activo" : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
   // Semana corriente: al que se le termina el lunes ya hay que cobrarle, y al
   // que se le termina el domingo tambien. Se avisa una vez, la semana entera.
