@@ -291,7 +291,7 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="material-base rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
           <h2 className="mb-3 text-label-14 text-muted-foreground">Vencimientos de los activos</h2>
-          <Torta porciones={porciones} titulo="Vencimientos de los activos" etiquetaTotal="activos" />
+          <Torta porciones={porciones} etiquetaTotal="activos" />
         </div>
       </div>
 
