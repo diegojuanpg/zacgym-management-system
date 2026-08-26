@@ -295,7 +295,7 @@ export function TablaAlumnos({
           vacio. */}
       <div className="flex flex-wrap gap-4">
         <div className="material-base flex w-fit flex-col rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
-          <h2 className="mb-3 text-label-14 text-muted-foreground">Vencimientos de los activos</h2>
+          <h2 className="mb-3 text-heading-16">Alumnos activos</h2>
           <div className="min-h-0 flex-1">
             <Torta porciones={porciones} etiquetaTotal="activos" />
           </div>
@@ -304,7 +304,6 @@ export function TablaAlumnos({
         {/* El de barras se estira con lo que sobra: es el que gana con el ancho,
             porque son siete u ocho barras al lado de otras. */}
         <div className="material-base min-w-80 flex-1 rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
-          <h2 className="mb-3 text-label-14 text-muted-foreground">Cuánta gente entrenó</h2>
           <BarrasCheckins dias={dias} semanas={semanas} hoy={hoy} />
         </div>
       </div>

@@ -84,13 +84,14 @@ export function BarrasCheckins({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      {/* El control de arriba a la derecha cambia con el modo —flechas para
+          moverse de semana, desplegable para elegir cuántas— y vive acá y no
+          pegado al gráfico, para no meterse entre el título y las barras. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs value={modo} onValueChange={setModo}>
-          <TabsList>
-            <TabsTrigger value="dia">Por día</TabsTrigger>
-            <TabsTrigger value="semana">Por semana</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <h2 className="text-heading-16">
+          Alumnos activos<span className="text-[var(--ds-gray-900)]">/</span>
+          {modo === "dia" ? "Día" : "Semana"}
+        </h2>
 
         {modo === "dia" ? (
           <div className="flex items-center gap-1">
@@ -119,6 +120,7 @@ export function BarrasCheckins({
         ) : (
           <Select
             aria-label="Cuántas semanas"
+            size="small"
             value={cuantas}
             onChange={(e) => setCuantas(e.target.value)}
           >
@@ -129,6 +131,13 @@ export function BarrasCheckins({
           </Select>
         )}
       </div>
+
+      <Tabs value={modo} onValueChange={setModo}>
+        <TabsList>
+          <TabsTrigger value="dia">Por día</TabsTrigger>
+          <TabsTrigger value="semana">Por semana</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <ChartContainer config={config} className="aspect-auto h-36 w-full min-w-64">
         <BarChart data={datos} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
@@ -148,11 +157,16 @@ export function BarrasCheckins({
         </BarChart>
       </ChartContainer>
 
-      <p className="text-copy-13 text-muted-foreground">
-        {modo === "dia"
-          ? `${personasDeLaSemana} alumnos distintos esa semana`
-          : `Alumnos distintos por semana, últimas ${datos.length}`}
-      </p>
+      {/* Solo en el modo por día: el total de la semana que eligieron las
+          flechas, que las barras diarias no dan —el que fue tres días está en
+          tres barras y es una sola persona—. Grande y en blanco porque es el
+          dato. En el modo por semana no va nada: cada barra ya es su número. */}
+      {modo === "dia" && (
+        <p className="flex items-baseline gap-2">
+          <span className="text-heading-24 tabular-nums">{personasDeLaSemana}</span>
+          <span className="text-copy-14 text-muted-foreground">activos esa semana</span>
+        </p>
+      )}
     </div>
   );
 }
