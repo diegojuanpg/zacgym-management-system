@@ -157,8 +157,10 @@ export function CheckInModal({
         <div className="flex flex-col gap-5">
           <section className="flex flex-col gap-2">
             {/* Grid y no flex: Input se dibuja dentro de un div w-full, asi que
-                en una fila flex se come todo el ancho y empuja al combo afuera. */}
-            <div className="grid grid-cols-[7rem_7rem_1fr] items-end gap-2">
+                en una fila flex se come todo el ancho y empuja al combo afuera.
+                10rem por columna: con el reloj de 12 horas el navegador dibuja
+                "01:01 PM" mas el iconito del selector, y en 7rem se cortaba. */}
+            <div className="grid grid-cols-[10rem_10rem_1fr] items-end gap-2">
               <div>
                 <Input
                   label="Inicia"
@@ -250,12 +252,6 @@ export function CheckInModal({
           <section className="flex flex-col gap-2">
             <div className="flex items-baseline gap-3">
               <h3 className="text-heading-16">Historial</h3>
-              <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                {asistencias.length === 0
-                  ? "Hoy no hizo check-in nadie"
-                  : `${asistencias.length} ${asistencias.length === 1 ? "turno" : "turnos"} hoy`}
-                {trabajando.length > 0 && ` · ${trabajando.length} trabajando`}
-              </span>
             </div>
             {asistencias.length === 0 ? (
               <p className="text-copy-13 text-[var(--ds-gray-900)]">
