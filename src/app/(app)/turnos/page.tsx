@@ -9,6 +9,7 @@ import {
   type TurnoCerrado,
   type TurnoAbierto,
   type DiferenciaStock,
+  type ConteoStock,
 } from "./tabla";
 
 /**
@@ -56,11 +57,28 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
       .overrideTypes<DiferenciaStock[]>(),
   ]);
 
+  // Todo lo que se contó en esos turnos, no solo lo que no cuadró: el detalle
+  // muestra cada producto de la apertura al cierre, incluso el que dio bien.
+  // Son ocho filas por turno, asi que entra sin recortar.
+  const { data: conteos } = await supabase
+    .from("turno_stock")
+    .select("turno_id, momento, contado, esperado, productos(nombre)")
+    .in(
+      "turno_id",
+      turnos.map((t) => t.id),
+    )
+    .overrideTypes<ConteoStock[]>();
+
   const query = comoQuery(params);
 
   return (
     <FiltrosLocales key={query} inicial={query} servidor={["fecha"]}>
-      <TablaTurnos cerrados={turnos} enCurso={enCurso ?? null} diferencias={diferencias ?? []} />
+      <TablaTurnos
+        cerrados={turnos}
+        enCurso={enCurso ?? null}
+        diferencias={diferencias ?? []}
+        conteos={conteos ?? []}
+      />
     </FiltrosLocales>
   );
 }

@@ -6,7 +6,11 @@ import { recortar } from "@/lib/recorte";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClockIcon } from "@/components/icons";
-import { DetalleTurno, type DesgloseCaja } from "@/components/turnos/detalle-turno";
+import {
+  DetalleTurno,
+  type DesgloseCaja,
+  type ProductoContado,
+} from "@/components/turnos/detalle-turno";
 import { saltosEntreTurnos, type PorCaja } from "@/lib/caja";
 import { rangoDe, comparador } from "@/lib/filtros";
 import {
@@ -97,6 +101,15 @@ export interface DiferenciaStock {
   cerrado_en: string | null;
 }
 
+/** Una fila de `turno_stock`: lo que se conto de un producto en un momento. */
+export interface ConteoStock {
+  turno_id: string;
+  momento: string;
+  contado: number;
+  esperado: number;
+  productos: { nombre: string } | null;
+}
+
 /** Un turno para la tabla, este abierto o cerrado. */
 export interface Fila {
   id: string;
@@ -118,10 +131,12 @@ export function TablaTurnos({
   cerrados,
   enCurso,
   diferencias,
+  conteos,
 }: {
   cerrados: TurnoCerrado[];
   enCurso: TurnoAbierto | null;
   diferencias: DiferenciaStock[];
+  conteos: ConteoStock[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
@@ -133,6 +148,22 @@ export function TablaTurnos({
   const rangoFecha = rangoDe(parametros.get("fecha") ?? undefined);
 
   const difs = diferencias;
+
+  // Lo contado de cada producto, de la apertura al cierre. El que dio bien
+  // entra igual: el detalle muestra el recorrido del stock, no solo lo que
+  // fallo.
+  const conteosPorTurno = new Map<string, ProductoContado[]>();
+  for (const c of conteos) {
+    const nombre = c.productos?.nombre ?? "—";
+    const suyos = conteosPorTurno.get(c.turno_id) ?? [];
+    const item = suyos.find((p) => p.producto === nombre) ?? { producto: nombre };
+    if (c.momento === "apertura") item.apertura = { contado: c.contado, esperado: c.esperado };
+    else item.cierre = { contado: c.contado, esperado: c.esperado };
+    conteosPorTurno.set(c.turno_id, [...suyos.filter((p) => p.producto !== nombre), item]);
+  }
+  for (const [id, items] of conteosPorTurno) {
+    conteosPorTurno.set(id, [...items].sort((a, b) => a.producto.localeCompare(b.producto, "es")));
+  }
 
   const stockPorTurno = new Map<string, DiferenciaStock[]>();
   for (const d of difs) {
@@ -435,7 +466,7 @@ export function TablaTurnos({
                             abierto={t.cerrado_en === null}
                             grande={t.desglose.grande}
                             chica={t.desglose.chica}
-                            stock={stock}
+                            stock={conteosPorTurno.get(t.id) ?? []}
                             nota={t.nota_cierre}
                             responsables={
                               <Responsables
