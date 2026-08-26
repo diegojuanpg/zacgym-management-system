@@ -149,8 +149,9 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const venceDespues = (a: FilaAlumno) => esActivo(a) && vence(a, lunes(hoy, -1), null);
   const venceEstaSemana = (a: FilaAlumno) => esActivo(a) && vence(a, lunesActual, lunes(hoy, -1));
   const vencioLaPasada = (a: FilaAlumno) => esActivo(a) && vence(a, desdeLunes, lunesActual);
-  // Adeudando es el que entrena y ya lleva más de una semana sin renovar.
-  const adeudando = (a: FilaAlumno) => esActivo(a) && vence(a, null, desdeLunes);
+  // El que entrena y ya lleva más de una semana sin renovar: pararlo en el
+  // mostrador no alcanzó, hay que escribirle.
+  const notificar = (a: FilaAlumno) => esActivo(a) && vence(a, null, desdeLunes);
 
   const porciones = [
     { nombre: "Al día", cuantos: todos.filter(venceDespues).length, color: "var(--ds-blue-700)" },
@@ -165,8 +166,8 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
       color: "var(--ds-red-800)",
     },
     {
-      nombre: "Adeudando",
-      cuantos: todos.filter(adeudando).length,
+      nombre: "Notificar",
+      cuantos: todos.filter(notificar).length,
       color: "var(--ds-red-900)",
       trama: true,
     },
@@ -184,7 +185,7 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
     { valor: "activos", nombre: "Activos", filtro: esActivo },
     { valor: "vence", nombre: "Vence esta semana", filtro: venceEstaSemana },
     { valor: "vencio", nombre: "Venció la semana pasada", filtro: vencioLaPasada },
-    { valor: "adeudando", nombre: "Adeudando", filtro: adeudando },
+    { valor: "notificar", nombre: "Notificar", filtro: notificar },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
 
