@@ -166,24 +166,27 @@ export function TablaMostrador({
   // La lista que se dibuja: cada turno con su cabecera y abajo sus movimientos.
   // Los turnos van del mas nuevo al mas viejo, y adentro de cada uno los
   // movimientos siguen el orden que pida la columna Hora.
-  type Fila = { clase: "turno"; turno: TurnoDelDia } | { clase: "fila"; registro: Registro };
+  type Fila =
+    | { clase: "turno"; turno: TurnoDelDia }
+    | { clase: "fila"; registro: Registro }
+    | { clase: "vacio"; id: string };
   const saltos = saltosEntreTurnos(turnosDelDia);
-  const filas: Fila[] = turnosDelDia.flatMap((t) => {
+  const filas: Fila[] = turnosDelDia.flatMap((t): Fila[] => {
     const suyos = registros
       .filter((r) => r.turno_id === t.id)
       .map((registro) => ({ clase: "fila" as const, registro }));
     // El turno abierto no lleva cabecera: va arriba de todo y el encabezado de
     // la pagina ya dice desde cuando viene y quien esta a cargo.
     if (t.cerrado_en === null) return suyos;
-    // Uno cerrado sin movimientos tampoco: no hay bloque que encabezar.
-    if (suyos.length === 0) return [];
-    return [
-      {
-        clase: "turno" as const,
-        turno: { ...t, cerrado_en: t.cerrado_en, salto: saltos.get(t.id) ?? null },
-      },
-      ...suyos,
-    ];
+    const cabecera = {
+      clase: "turno" as const,
+      turno: { ...t, cerrado_en: t.cerrado_en, salto: saltos.get(t.id) ?? null },
+    };
+    // Un turno cerrado sin nada cargado igual va: la cabecera dice quién estuvo,
+    // cuánto contó y si le faltó stock, que es informacion propia del turno y no
+    // de las ventas. Antes se descartaba y el turno desaparecia de la pantalla.
+    if (suyos.length === 0) return [cabecera, { clase: "vacio" as const, id: t.id }];
+    return [cabecera, ...suyos];
   });
 
 
@@ -197,7 +200,11 @@ export function TablaMostrador({
             title="No hay ningún turno abierto"
             description="Para cargar ventas, cobros o movimientos de caja tenés que iniciar el turno contando la caja y el stock."
           />
-        ) : registros.length === 0 ? (
+        ) : filas.length === 0 ? (
+          // La pantalla vacía se decide por lo que se va a dibujar y no por las
+          // ventas: un día donde el único turno no vendió nada igual tiene algo
+          // que mostrar —quién estuvo y cuánto contó—, y antes desaparecía.
+
           <EmptyState
             icon={<CartIcon />}
             title={
@@ -257,6 +264,15 @@ export function TablaMostrador({
                         <TableRow key={`turno-${f.turno.id}`} className="!bg-transparent">
                           <TableCell colSpan={8} className="whitespace-normal !p-0">
                             <TurnoSeparador turno={f.turno} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    if (f.clase === "vacio") {
+                      return (
+                        <TableRow key={`vacio-${f.id}`}>
+                          <TableCell colSpan={8} className="text-muted-foreground">
+                            Sin ventas ni movimientos en este turno
                           </TableCell>
                         </TableRow>
                       );
