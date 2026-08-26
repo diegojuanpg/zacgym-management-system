@@ -79,8 +79,6 @@ export function BarrasCheckins({
   }, [semanas, cuantas]);
 
   const datos = modo === "dia" ? datosDia : datosSemana;
-  // El total de la semana también sale contado de la base, por lo mismo.
-  const personasDeLaSemana = semanas.find((s) => s.lunes === semana)?.personas ?? 0;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -156,17 +154,6 @@ export function BarrasCheckins({
           />
         </BarChart>
       </ChartContainer>
-
-      {/* Solo en el modo por día: el total de la semana que eligieron las
-          flechas, que las barras diarias no dan —el que fue tres días está en
-          tres barras y es una sola persona—. Grande y en blanco porque es el
-          dato. En el modo por semana no va nada: cada barra ya es su número. */}
-      {modo === "dia" && (
-        <p className="flex items-baseline gap-2">
-          <span className="text-heading-24 tabular-nums">{personasDeLaSemana}</span>
-          <span className="text-copy-14 text-muted-foreground">activos esa semana</span>
-        </p>
-      )}
     </div>
   );
 }
