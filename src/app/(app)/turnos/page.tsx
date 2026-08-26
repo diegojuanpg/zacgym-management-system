@@ -69,6 +69,20 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
     )
     .overrideTypes<ConteoStock[]>();
 
+  // Para cargar una venta olvidada hace falta elegir alumno y producto. Van
+  // solo el nombre y el precio: es un selector, no un listado.
+  const [alumnos, { data: productos }] = await Promise.all([
+    traerTodo<{ id: string; nombre_completo: string }>(
+      supabase.from("alumnos").select("id, nombre_completo").order("nombre_completo"),
+    ),
+    supabase
+      .from("productos")
+      .select("id, nombre, precio")
+      .eq("activo", true)
+      .order("nombre")
+      .overrideTypes<{ id: string; nombre: string; precio: number }[]>(),
+  ]);
+
   const query = comoQuery(params);
 
   return (
@@ -78,6 +92,8 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
         enCurso={enCurso ?? null}
         diferencias={diferencias ?? []}
         conteos={conteos ?? []}
+        alumnos={alumnos}
+        productos={productos ?? []}
       />
     </FiltrosLocales>
   );

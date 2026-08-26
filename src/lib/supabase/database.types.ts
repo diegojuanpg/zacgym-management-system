@@ -1161,6 +1161,7 @@ export type Database = {
           caja_grande_inicial: number | null
           cerrado_en: string | null
           contados: number | null
+          corregido_en: string | null
           dif_chica: number | null
           dif_grande: number | null
           id: string | null
@@ -1260,6 +1261,18 @@ export type Database = {
         }
         Returns: string
       }
+      agregar_venta_olvidada: {
+        Args: {
+          p_alumno_id: string
+          p_cantidad?: number
+          p_creado_en: string
+          p_efectivo?: number
+          p_producto_id: string
+          p_transferencia?: number
+          p_turno_id: string
+        }
+        Returns: string
+      }
       anular_movimiento: {
         Args: { p_movimiento_id: string }
         Returns: undefined
@@ -1320,6 +1333,7 @@ export type Database = {
         Args: { p_empleado: string; p_inicia: string; p_termina: string }
         Returns: string
       }
+      recalcular_turno: { Args: { p_turno_id: string }; Returns: undefined }
       registrar_cobro: {
         Args: {
           p_alumno_id: string
