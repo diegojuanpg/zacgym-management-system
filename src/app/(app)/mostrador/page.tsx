@@ -126,10 +126,23 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     ),
   ]);
 
-  // Los turnos que tocaron el dia: los que dejaron movimientos, mas el abierto
-  // si estamos parados en hoy (puede no haber vendido nada todavia).
+  // Los turnos abiertos ese dia. Antes la lista salia solo de la actividad
+  // —ventas, pagos, movimientos— y un turno que abrio, conto la caja y no
+  // vendio nada no aparecia en ninguna parte, aunque hubiera cerrado con
+  // diferencias. Un turno existe porque alguien lo abrio, no porque haya
+  // vendido.
+  const { data: abiertosEseDia } = await supabase
+    .from("turnos")
+    .select("id")
+    .gte("abierto_en", desde)
+    .lt("abierto_en", hasta)
+    .overrideTypes<{ id: string }[]>();
+
+  // Y ademas los que dejaron actividad ese dia aunque hayan abierto el dia
+  // anterior: un turno de noche cruza la medianoche.
   const idsTurno = [
     ...new Set([
+      ...(abiertosEseDia ?? []).map((t) => t.id),
       ...(ventas ?? []).map((v) => v.turno_id),
       ...(pagos ?? []).map((p) => p.turno_id),
       ...(movimientos ?? []).map((m) => m.turno_id),
