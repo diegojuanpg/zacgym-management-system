@@ -52,8 +52,11 @@ export function Torta({
   );
 
   return (
-    <div className="flex items-center gap-5">
-      <ChartContainer config={config} className="aspect-square size-36 shrink-0">
+    // Centrado y con el anillo a tamaño fijo. Atarlo a la altura de la fila
+    // sonaba mejor, pero un cuadrado que saca su ancho de la altura le come el
+    // lugar a la referencia y le corta los nombres: acá el ancho manda.
+    <div className="flex h-full items-center justify-center gap-5">
+      <ChartContainer config={config} className="aspect-square size-52 shrink-0">
         <PieChart>
           <defs>
             <pattern
@@ -77,8 +80,10 @@ export function Torta({
             data={datos}
             dataKey="cuantos"
             nameKey="nombre"
-            innerRadius={44}
-            outerRadius={68}
+            // En porcentaje y no en píxeles: el anillo se dibuja proporcional
+            // al tamaño que le toque, que ahora depende de la altura de la fila.
+            innerRadius="62%"
+            outerRadius="96%"
             strokeWidth={2}
             // Sin animación de entrada: el anillo se redibuja cada vez que
             // cambia un filtro de la tabla, y verlo crecer de cero en cada
@@ -110,7 +115,9 @@ export function Torta({
 
       {/* La referencia lleva el número al lado del nombre: el color solo dice
           cuál es cuál, nunca cuántos son. */}
-      <ul className="flex min-w-0 flex-col gap-1.5">
+      {/* Sin truncado: los nombres son la mitad del gráfico. Si no entran, que
+          crezca la tarjeta —mide lo que necesita— y no que se coman las letras. */}
+      <ul className="flex shrink-0 flex-col gap-1.5">
         {visibles.map((p) => (
           <li key={p.nombre} className="flex items-center gap-2 text-copy-13">
             <span
@@ -119,7 +126,7 @@ export function Torta({
               style={{ backgroundColor: p.color }}
             />
             <span className="tabular-nums">{p.cuantos}</span>
-            <span className="truncate text-muted-foreground">{p.nombre}</span>
+            <span className="whitespace-nowrap text-muted-foreground">{p.nombre}</span>
           </li>
         ))}
       </ul>
