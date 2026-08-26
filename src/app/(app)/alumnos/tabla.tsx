@@ -278,17 +278,7 @@ export function TablaAlumnos({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* Los números que estaban en tres tarjetas ya los dicen las solapas de
-          abajo. Acá queda solo lo que no repiten: cuántos hay y cuánto se debe. */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-heading-20">Alumnos</h1>
-        <p className="text-copy-14 text-[var(--ds-gray-900)]">
-          {/* El título ya dice "Alumnos": repetirlo acá no agrega nada. */}
-          {lista.length === todos.length
-            ? `${todos.length} en total`
-            : `${lista.length} de ${todos.length}`}
-        </p>
-      </div>
+      <h1 className="text-heading-20">Alumnos</h1>
 
       {/* Las tarjetas ocupan lo que miden y se acomodan una al lado de la otra:
           estirarlas a media pagina dejaba el anillo nadando en un rectangulo
@@ -311,23 +301,24 @@ export function TablaAlumnos({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         {/* Vistas guardadas, como cualquier CRM: cada una es una URL. El filtro
             se queda en el server: una función no cruza al cliente. */}
-        {/* Contacto va pegado a las vistas y con la misma píldora: las dos cosas
-            cambian qué muestra la tabla, aunque una elija filas y la otra columnas. */}
         <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <TabsUrl
             param="ver"
             valor={vistaActual.valor}
             vistas={vistas.map(({ valor, nombre, cuantos }) => ({ valor, nombre, cuantos }))}
           />
+        </div>
+
+        {/* Contacto va de este lado y no con las solapas: las solapas eligen qué
+            filas ves, y esto —como el buscador— cambia cómo mirás las mismas.
+            Entre las pastillas era un interruptor suelto en una fila de botones. */}
+        <div className="flex items-center gap-3">
           <ToggleUrl
             param="contacto"
             etiqueta="Contacto"
             encendido={verContacto}
             predeterminado={false}
           />
-        </div>
-
-        <div className="flex items-center gap-2">
           <Button variant="secondary" nativeButton={false} render={<Link href="/alumnos/promos" />}>
             Promos
           </Button>
