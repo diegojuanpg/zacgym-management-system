@@ -31,7 +31,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
   let qTurnos = supabase
     .from("turnos_cerrados")
     .select(
-      "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, dif_grande, dif_chica, responsables_detalle, contados",
+      "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, dif_grande, dif_chica, responsables_detalle, contados, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, nota_cierre",
     );
   if (desdeISO) qTurnos = qTurnos.gte("abierto_en", desdeISO);
   if (hastaISO) qTurnos = qTurnos.lte("abierto_en", hastaISO);
@@ -43,7 +43,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
     supabase
       .from("turno_actual")
       .select(
-        "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, responsables_detalle",
+        "id, abierto_en, caja_grande_inicial, caja_chica_inicial, caja_grande_esperada, caja_chica_esperada, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, responsables_detalle",
       )
       .maybeSingle()
       .overrideTypes<TurnoAbierto>(),

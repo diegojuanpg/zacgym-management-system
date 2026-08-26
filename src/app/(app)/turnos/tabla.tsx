@@ -6,6 +6,7 @@ import { recortar } from "@/lib/recorte";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClockIcon } from "@/components/icons";
+import { DetalleTurno, type DesgloseCaja } from "@/components/turnos/detalle-turno";
 import { saltosEntreTurnos, type PorCaja } from "@/lib/caja";
 import { rangoDe, comparador } from "@/lib/filtros";
 import {
@@ -56,10 +57,17 @@ export interface TurnoCerrado {
   caja_chica_inicial: number;
   caja_grande_final: number | null;
   caja_chica_final: number | null;
+  caja_grande_esperada: number;
+  caja_chica_esperada: number;
   dif_grande: number | null;
   dif_chica: number | null;
   responsables_detalle: Tramo[];
   contados: number;
+  ventas_grande: number;
+  ventas_chica: number;
+  movimientos_grande: number;
+  movimientos_chica: number;
+  nota_cierre: string | null;
 }
 
 export interface TurnoAbierto {
@@ -69,6 +77,10 @@ export interface TurnoAbierto {
   caja_chica_inicial: number;
   caja_grande_esperada: number;
   caja_chica_esperada: number;
+  ventas_grande: number;
+  ventas_chica: number;
+  movimientos_grande: number;
+  movimientos_chica: number;
   responsables_detalle: Tramo[];
 }
 
@@ -96,6 +108,9 @@ export interface Fila {
   dif_chica: number | null;
   responsables_detalle: Tramo[];
   contados: number;
+  /** De dónde sale lo que tenía que haber en cada cajón, para el detalle. */
+  desglose: { grande: DesgloseCaja; chica: DesgloseCaja };
+  nota_cierre: string | null;
 }
 
 /** La tabla de turnos: el abierto arriba, los cerrados abajo, con sus filtros. */
@@ -140,6 +155,23 @@ export function TablaTurnos({
             dif_chica: null,
             responsables_detalle: enCurso.responsables_detalle,
             contados: 0,
+            desglose: {
+              grande: {
+                inicial: enCurso.caja_grande_inicial,
+                ventas: enCurso.ventas_grande,
+                movimientos: enCurso.movimientos_grande,
+                esperado: enCurso.caja_grande_esperada,
+                contado: null,
+              },
+              chica: {
+                inicial: enCurso.caja_chica_inicial,
+                ventas: enCurso.ventas_chica,
+                movimientos: enCurso.movimientos_chica,
+                esperado: enCurso.caja_chica_esperada,
+                contado: null,
+              },
+            },
+            nota_cierre: null,
           },
         ]
       : []),
@@ -154,6 +186,23 @@ export function TablaTurnos({
         dif_chica: t.dif_chica,
         responsables_detalle: t.responsables_detalle,
         contados: t.contados,
+        desglose: {
+          grande: {
+            inicial: t.caja_grande_inicial,
+            ventas: t.ventas_grande,
+            movimientos: t.movimientos_grande,
+            esperado: t.caja_grande_esperada,
+            contado: t.caja_grande_final,
+          },
+          chica: {
+            inicial: t.caja_chica_inicial,
+            ventas: t.ventas_chica,
+            movimientos: t.movimientos_chica,
+            esperado: t.caja_chica_esperada,
+            contado: t.caja_chica_final,
+          },
+        },
+        nota_cierre: t.nota_cierre,
       }),
     ),
   ];
@@ -302,6 +351,7 @@ export function TablaTurnos({
                         opciones={opcionesProducto}
                       />
                     </TableHead>
+                    <TableHead className="text-center" />
                   </TableRow>
                 </TableHeader>
                 <TableBody striped>
@@ -379,6 +429,23 @@ export function TablaTurnos({
                             <span className="text-[var(--ds-amber-900)]">No se contó</span>
                           ) : null}
                         </TableCell>
+                        <TableCell className="text-center">
+                          <DetalleTurno
+                            cuando={`${cuando(t.abierto_en)}${t.cerrado_en ? ` → ${hora(t.cerrado_en)}` : ""}`}
+                            abierto={t.cerrado_en === null}
+                            grande={t.desglose.grande}
+                            chica={t.desglose.chica}
+                            stock={stock}
+                            nota={t.nota_cierre}
+                            responsables={
+                              <Responsables
+                                tramos={t.responsables_detalle}
+                                abierto={t.abierto_en}
+                                cerrado={t.cerrado_en}
+                              />
+                            }
+                          />
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -388,7 +455,7 @@ export function TablaTurnos({
                     tope={tope}
                     enPagina={visibles.length}
                     total={lista.length}
-                    columnas={6}
+                    columnas={7}
                   />
                 </TableBody>
               </Table>
