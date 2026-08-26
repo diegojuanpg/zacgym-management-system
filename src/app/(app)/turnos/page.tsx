@@ -65,7 +65,9 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
     .select("turno_id, momento, contado, esperado, producto_id, productos(nombre)")
     .in(
       "turno_id",
-      turnos.map((t) => t.id),
+      // El abierto tambien: viene por otro lado y sin esto el detalle del turno
+      // en curso se quedaba sin stock que mostrar ni que corregir.
+      [...turnos.map((t) => t.id), ...(enCurso ? [enCurso.id] : [])],
     )
     .overrideTypes<ConteoStock[]>();
 
