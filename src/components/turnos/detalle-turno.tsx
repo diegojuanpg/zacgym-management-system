@@ -1,10 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Note } from "@/components/ui/note";
 import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
+import { corregirTurno } from "@/lib/turnos";
 
 /** Lo que hay que contar de un cajón en un turno. */
 export interface DesgloseCaja {
@@ -18,6 +22,7 @@ export interface DesgloseCaja {
 
 /** Un producto contado en el turno: cuánto había al abrir y cuánto al cerrar. */
 export interface ProductoContado {
+  id: string;
   producto: string;
   apertura?: { contado: number; esperado: number };
   cierre?: { contado: number; esperado: number };
@@ -35,14 +40,17 @@ export interface ProductoContado {
  * que cambia es que acá el recorte es un turno y allá el día entero.
  */
 export function DetalleTurno({
+  id,
   cuando,
   abierto,
   grande,
   chica,
   stock,
   nota,
+  corregido,
   responsables,
 }: {
+  id: string;
   /** El encabezado del modal: "25/8, 14:18 → 19:19". */
   cuando: string;
   abierto: boolean;
@@ -50,9 +58,59 @@ export function DetalleTurno({
   chica: DesgloseCaja;
   stock: ProductoContado[];
   nota: string | null;
+  corregido: string | null;
   responsables: React.ReactNode;
 }) {
+  const router = useRouter();
   const [verlo, setVerlo] = React.useState(false);
+  const [corrigiendo, setCorrigiendo] = React.useState(false);
+  const [guardando, setGuardando] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Los campos arrancan con lo que hay declarado. Vacío es "dejalo como está",
+  // asi que borrar un campo no pone cero.
+  const [campos, setCampos] = React.useState<Record<string, string>>({});
+  const escribir = (clave: string, valor: string) =>
+    setCampos((previos) => ({ ...previos, [clave]: valor.replace(/\D/g, "") }));
+  const leer = (clave: string, actual: number | null) =>
+    campos[clave] ?? (actual === null ? "" : String(actual));
+  const numero = (clave: string, actual: number | null) => {
+    const escrito = campos[clave];
+    if (escrito === undefined || escrito === "") return null;
+    const n = Number(escrito);
+    return n === actual ? null : n;
+  };
+
+  function empezarCorreccion() {
+    setCampos({});
+    setError(null);
+    setCorrigiendo(true);
+  }
+
+  async function guardar() {
+    setGuardando(true);
+    setError(null);
+    const { error: fallo } = await corregirTurno(id, {
+      grandeInicial: numero("grande-inicial", grande.inicial),
+      chicaInicial: numero("chica-inicial", chica.inicial),
+      grandeFinal: numero("grande-final", grande.contado),
+      chicaFinal: numero("chica-final", chica.contado),
+      stock: stock.flatMap((p) =>
+        (["apertura", "cierre"] as const).flatMap((momento) => {
+          const actual = p[momento]?.contado ?? null;
+          const nuevo = numero(`${p.id}-${momento}`, actual);
+          return nuevo === null ? [] : [{ producto_id: p.id, momento, contado: nuevo }];
+        }),
+      ),
+    });
+    setGuardando(false);
+    if (fallo) {
+      setError(fallo);
+      return;
+    }
+    setCorrigiendo(false);
+    router.refresh();
+  }
 
   const comoCaja = (d: DesgloseCaja): EstadoCaja =>
     abierto
@@ -79,12 +137,108 @@ export function DetalleTurno({
         description={abierto ? "En curso: lo que tendría que haber ahora." : undefined}
         className="w-[min(46rem,94vw)]"
         footer={
-          <Button variant="secondary" onClick={() => setVerlo(false)}>
-            Cerrar
-          </Button>
+          corrigiendo ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setCorrigiendo(false)} disabled={guardando}>
+                Cancelar
+              </Button>
+              <Button onClick={guardar} loading={guardando}>
+                Guardar corrección
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setVerlo(false)}>
+                Cerrar
+              </Button>
+              <Button variant="secondary" onClick={empezarCorreccion}>
+                Hacer corrección
+              </Button>
+            </div>
+          )
         }
       >
         <div className="flex flex-col gap-5">
+          {corrigiendo ? (
+            <>
+              {/* Se corrige lo declarado —lo que alguien tipeó— y nada más. Lo
+                  que el sistema esperaba se recalcula solo, y el stock de hoy y
+                  el turno siguiente no se tocan. */}
+              <Note type="warning" fill>
+                Estás corrigiendo lo que se declaró en este turno. Lo que el sistema esperaba se
+                recalcula solo. El stock de hoy y el turno siguiente no cambian.
+              </Note>
+
+              <section className="grid gap-3 sm:grid-cols-2">
+                {([
+                  ["Caja grande", "grande", grande],
+                  ["Caja chica", "chica", chica],
+                ] as const).map(([etiqueta, clave, caja]) => (
+                  <div key={clave} className="flex flex-col gap-2">
+                    <h3 className="text-label-14 text-muted-foreground">{etiqueta}</h3>
+                    <Input
+                      label="Arrancó con"
+                      inputMode="numeric"
+                      prefix="$"
+                      value={leer(`${clave}-inicial`, caja.inicial)}
+                      onChange={(e) => escribir(`${clave}-inicial`, e.target.value)}
+                    />
+                    {!abierto && (
+                      <Input
+                        label="Contaron al cerrar"
+                        inputMode="numeric"
+                        prefix="$"
+                        value={leer(`${clave}-final`, caja.contado)}
+                        onChange={(e) => escribir(`${clave}-final`, e.target.value)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </section>
+
+              {stock.length > 0 && (
+                <section className="flex flex-col gap-2">
+                  <h3 className="text-label-14 text-muted-foreground">Stock contado</h3>
+                  {/* Las etiquetas van una vez arriba y no en cada renglón: son
+                      las mismas dos columnas para todos los productos. */}
+                  <div className="grid grid-cols-[1fr_6rem_6rem] gap-3 text-copy-13 text-muted-foreground">
+                    <span />
+                    <span>Al abrir</span>
+                    <span>Al cerrar</span>
+                  </div>
+                  <ul className="flex flex-col gap-2">
+                    {stock.map((p) => (
+                      <li key={p.id} className="grid grid-cols-[1fr_6rem_6rem] items-center gap-3">
+                        <span className="text-copy-14">{p.producto}</span>
+                        <Input
+                          size="small"
+                          inputMode="numeric"
+                          aria-label={`${p.producto} al abrir`}
+                          value={leer(`${p.id}-apertura`, p.apertura?.contado ?? null)}
+                          onChange={(e) => escribir(`${p.id}-apertura`, e.target.value)}
+                        />
+                        <Input
+                          size="small"
+                          inputMode="numeric"
+                          aria-label={`${p.producto} al cerrar`}
+                          value={leer(`${p.id}-cierre`, p.cierre?.contado ?? null)}
+                          onChange={(e) => escribir(`${p.id}-cierre`, e.target.value)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {error && <Note type="error" fill>{error}</Note>}
+            </>
+          ) : (
+          <>
+          {corregido && (
+            <p className="text-copy-13 text-[var(--ds-amber-900)]">
+              Este turno fue corregido a mano.
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <CajaCard etiqueta="Caja grande" caja={comoCaja(grande)} />
             <CajaCard etiqueta="Caja chica" caja={comoCaja(chica)} />
@@ -145,6 +299,8 @@ export function DetalleTurno({
               <h3 className="text-label-14 text-muted-foreground">Nota del cierre</h3>
               <p className="text-copy-14 whitespace-pre-wrap">{nota}</p>
             </section>
+          )}
+          </>
           )}
         </div>
       </Modal>

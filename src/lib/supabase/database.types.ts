@@ -171,6 +171,63 @@ export type Database = {
           },
         ]
       }
+      check_ins: {
+        Row: {
+          activity_type: string | null
+          branch_id: string | null
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          id: string
+          membership_duration_days: number | null
+          membership_id: string | null
+          raw: Json | null
+          service_id: string | null
+          status: string | null
+          synced_at: string | null
+          updated_at: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          activity_type?: string | null
+          branch_id?: string | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id: string
+          membership_duration_days?: number | null
+          membership_id?: string | null
+          raw?: Json | null
+          service_id?: string | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          activity_type?: string | null
+          branch_id?: string | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          membership_duration_days?: number | null
+          membership_id?: string | null
+          raw?: Json | null
+          service_id?: string | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       empleados: {
         Row: {
           activo: boolean
@@ -610,6 +667,8 @@ export type Database = {
           caja_grande_inicial: number
           cerrado_en: string | null
           cerrado_por: string | null
+          corregido_en: string | null
+          corregido_por: string | null
           id: string
           nota_cierre: string | null
         }
@@ -624,6 +683,8 @@ export type Database = {
           caja_grande_inicial: number
           cerrado_en?: string | null
           cerrado_por?: string | null
+          corregido_en?: string | null
+          corregido_por?: string | null
           id?: string
           nota_cierre?: string | null
         }
@@ -638,6 +699,8 @@ export type Database = {
           caja_grande_inicial?: number
           cerrado_en?: string | null
           cerrado_por?: string | null
+          corregido_en?: string | null
+          corregido_por?: string | null
           id?: string
           nota_cierre?: string | null
         }
@@ -811,6 +874,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      checkins_por_dia: {
+        Row: {
+          dia: string | null
+          personas: number | null
+        }
+        Relationships: []
+      }
+      checkins_por_semana: {
+        Row: {
+          lunes: string | null
+          personas: number | null
+        }
+        Relationships: []
       }
       dias_con_ventas: {
         Row: {
@@ -1087,9 +1164,13 @@ export type Database = {
           dif_chica: number | null
           dif_grande: number | null
           id: string | null
+          movimientos_chica: number | null
+          movimientos_grande: number | null
           nota_cierre: string | null
           responsables: string[] | null
           responsables_detalle: Json | null
+          ventas_chica: number | null
+          ventas_grande: number | null
         }
         Relationships: []
       }
@@ -1202,6 +1283,17 @@ export type Database = {
           p_cerrado_en?: string
           p_nota?: string
           p_stock?: Json
+        }
+        Returns: undefined
+      }
+      corregir_turno: {
+        Args: {
+          p_chica_final?: number
+          p_chica_inicial?: number
+          p_grande_final?: number
+          p_grande_inicial?: number
+          p_stock?: Json
+          p_turno_id: string
         }
         Returns: undefined
       }

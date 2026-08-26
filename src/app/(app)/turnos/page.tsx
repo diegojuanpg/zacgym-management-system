@@ -32,7 +32,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
   let qTurnos = supabase
     .from("turnos_cerrados")
     .select(
-      "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, dif_grande, dif_chica, responsables_detalle, contados, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, nota_cierre",
+      "id, abierto_en, cerrado_en, caja_grande_inicial, caja_chica_inicial, caja_grande_final, caja_chica_final, caja_grande_esperada, caja_chica_esperada, dif_grande, dif_chica, responsables_detalle, contados, ventas_grande, ventas_chica, movimientos_grande, movimientos_chica, nota_cierre, corregido_en",
     );
   if (desdeISO) qTurnos = qTurnos.gte("abierto_en", desdeISO);
   if (hastaISO) qTurnos = qTurnos.lte("abierto_en", hastaISO);
@@ -62,7 +62,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
   // Son ocho filas por turno, asi que entra sin recortar.
   const { data: conteos } = await supabase
     .from("turno_stock")
-    .select("turno_id, momento, contado, esperado, productos(nombre)")
+    .select("turno_id, momento, contado, esperado, producto_id, productos(nombre)")
     .in(
       "turno_id",
       turnos.map((t) => t.id),
