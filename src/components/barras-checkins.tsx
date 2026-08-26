@@ -20,6 +20,12 @@ export interface DiaConCheckins {
   personas: number;
 }
 
+export interface SemanaConCheckins {
+  /** El lunes de la semana, "YYYY-MM-DD". */
+  lunes: string;
+  personas: number;
+}
+
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const config = { personas: { label: "Personas", color: "var(--ds-blue-700)" } } satisfies ChartConfig;
 
@@ -38,7 +44,15 @@ const corta = (dia: string) => `${Number(dia.slice(8))}/${Number(dia.slice(5, 7)
  * con gente, una semana con un feriado quedaría de seis barras y parecería
  * normal.
  */
-export function BarrasCheckins({ dias, hoy }: { dias: DiaConCheckins[]; hoy: string }) {
+export function BarrasCheckins({
+  dias,
+  semanas,
+  hoy,
+}: {
+  dias: DiaConCheckins[];
+  semanas: SemanaConCheckins[];
+  hoy: string;
+}) {
   const [modo, setModo] = React.useState("dia");
   const [semana, setSemana] = React.useState(() => lunes(hoy));
   const [cuantas, setCuantas] = React.useState("12");
@@ -56,19 +70,17 @@ export function BarrasCheckins({ dias, hoy }: { dias: DiaConCheckins[]; hoy: str
     return { etiqueta: nombre, dia, personas: porDia.get(dia) ?? 0 };
   });
 
+  // Las semanas llegan contadas de la base y no se suman los días: el que va
+  // cuatro días es una persona, no cuatro.
   const datosSemana = React.useMemo(() => {
-    const totales = new Map<string, number>();
-    for (const d of dias) {
-      const l = lunes(d.dia);
-      totales.set(l, (totales.get(l) ?? 0) + d.personas);
-    }
-    const todas = [...totales.entries()].sort(([a], [b]) => a.localeCompare(b));
-    const recorte = cuantas === "todas" ? todas : todas.slice(-Number(cuantas));
-    return recorte.map(([l, personas]) => ({ etiqueta: corta(l), dia: l, personas }));
-  }, [dias, cuantas]);
+    const ordenadas = [...semanas].sort((a, b) => a.lunes.localeCompare(b.lunes));
+    const recorte = cuantas === "todas" ? ordenadas : ordenadas.slice(-Number(cuantas));
+    return recorte.map((s) => ({ etiqueta: corta(s.lunes), dia: s.lunes, personas: s.personas }));
+  }, [semanas, cuantas]);
 
   const datos = modo === "dia" ? datosDia : datosSemana;
-  const total = datos.reduce((suma, d) => suma + d.personas, 0);
+  // El total de la semana también sale contado de la base, por lo mismo.
+  const personasDeLaSemana = semanas.find((s) => s.lunes === semana)?.personas ?? 0;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -138,8 +150,8 @@ export function BarrasCheckins({ dias, hoy }: { dias: DiaConCheckins[]; hoy: str
 
       <p className="text-copy-13 text-muted-foreground">
         {modo === "dia"
-          ? `${total} entrenamientos esa semana`
-          : `${total} en ${datos.length} semanas`}
+          ? `${personasDeLaSemana} alumnos distintos esa semana`
+          : `Alumnos distintos por semana, últimas ${datos.length}`}
       </p>
     </div>
   );
