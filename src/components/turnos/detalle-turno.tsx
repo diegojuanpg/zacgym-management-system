@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Note } from "@/components/ui/note";
 import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
-import { corregirTurno } from "@/lib/turnos";
+import { Combobox } from "@/components/ui/combobox";
+import { Select } from "@/components/ui/select";
+import { corregirTurno, agregarVentaOlvidada } from "@/lib/turnos";
 
 /** Lo que hay que contar de un cajón en un turno. */
 export interface DesgloseCaja {
@@ -41,6 +43,9 @@ export interface ProductoContado {
  */
 export function DetalleTurno({
   id,
+  dia,
+  alumnos,
+  productos,
   cuando,
   abierto,
   grande,
@@ -51,6 +56,10 @@ export function DetalleTurno({
   responsables,
 }: {
   id: string;
+  /** El día del turno, "YYYY-MM-DD": la hora que se tipea cuelga de acá. */
+  dia: string;
+  alumnos: { id: string; nombre_completo: string }[];
+  productos: { id: string; nombre: string; precio: number }[];
   /** El encabezado del modal: "25/8, 14:18 → 19:19". */
   cuando: string;
   abierto: boolean;
@@ -80,6 +89,44 @@ export function DetalleTurno({
     const n = Number(escrito);
     return n === actual ? null : n;
   };
+
+  // --- venta que nadie anotó ---
+  const [alumnoId, setAlumnoId] = React.useState("");
+  const [productoId, setProductoId] = React.useState("");
+  const [metodo, setMetodo] = React.useState("efectivo");
+  const [hora, setHora] = React.useState("");
+  const [cargando, setCargando] = React.useState(false);
+
+  async function cargarVenta() {
+    const producto = productos.find((p) => p.id === productoId);
+    if (!alumnoId || !producto) {
+      setError("Elegí el alumno y el producto.");
+      return;
+    }
+    if (hora === "") {
+      setError("Poné a qué hora fue la venta.");
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    // La hora se escribe sola; el día sale del turno, que es al que se le carga.
+    const { error: fallo } = await agregarVentaOlvidada(id, {
+      alumnoId,
+      productoId,
+      creadoEn: `${dia}T${hora}:00-03:00`,
+      efectivo: metodo === "efectivo" ? producto.precio : 0,
+      transferencia: metodo === "transferencia" ? producto.precio : 0,
+    });
+    setCargando(false);
+    if (fallo) {
+      setError(fallo);
+      return;
+    }
+    setAlumnoId("");
+    setProductoId("");
+    setHora("");
+    router.refresh();
+  }
 
   function empezarCorreccion() {
     setCampos({});
@@ -229,6 +276,62 @@ export function DetalleTurno({
                   </ul>
                 </section>
               )}
+
+              <section className="flex flex-col gap-2 border-t border-border pt-4">
+                <h3 className="text-label-14 text-muted-foreground">Venta que nadie anotó</h3>
+                {/* Si falta un agua y sobran $1.000 no hay faltante: hay una
+                    venta sin cargar. Cargarla acá cierra las dos diferencias de
+                    una, porque la caja pasa a esperar esos $1.000 y el cierre
+                    pasa a esperar un agua menos. */}
+                {/* 10rem para la hora: el navegador dibuja "01:01 PM" mas el
+                    iconito del selector y en menos se corta. */}
+                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_8rem_10rem]">
+                  <div>
+                    <span className="text-copy-13 text-muted-foreground">Alumno</span>
+                    <Combobox
+                      options={alumnos.map((a) => ({
+                        value: a.id,
+                        label: a.nombre_completo.replace(",", ""),
+                      }))}
+                      value={alumnoId}
+                      onValueChange={setAlumnoId}
+                      placeholder="Buscar alumno..."
+                      emptyMessage="No hay alumnos"
+                      width="100%"
+                      clearable
+                    />
+                  </div>
+                  <div>
+                    <span className="text-copy-13 text-muted-foreground">Producto</span>
+                    <Select value={productoId} onChange={(e) => setProductoId(e.target.value)}>
+                      <option value="">Elegí uno</option>
+                      {productos.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} · ${p.precio.toLocaleString("es-AR")}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <span className="text-copy-13 text-muted-foreground">Método</span>
+                    <Select value={metodo} onChange={(e) => setMetodo(e.target.value)}>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transfer.</option>
+                    </Select>
+                  </div>
+                  <Input
+                    label="Hora"
+                    type="time"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Button variant="secondary" onClick={cargarVenta} loading={cargando}>
+                    Cargar venta
+                  </Button>
+                </div>
+              </section>
 
               {error && <Note type="error" fill>{error}</Note>}
             </>

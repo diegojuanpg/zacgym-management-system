@@ -135,11 +135,15 @@ export function TablaTurnos({
   enCurso,
   diferencias,
   conteos,
+  alumnos,
+  productos,
 }: {
   cerrados: TurnoCerrado[];
   enCurso: TurnoAbierto | null;
   diferencias: DiferenciaStock[];
   conteos: ConteoStock[];
+  alumnos: { id: string; nombre_completo: string }[];
+  productos: { id: string; nombre: string; precio: number }[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
@@ -471,6 +475,11 @@ export function TablaTurnos({
                         <TableCell className="text-center">
                           <DetalleTurno
                             id={t.id}
+                            dia={new Date(t.abierto_en).toLocaleDateString("en-CA", {
+                              timeZone: ZONA,
+                            })}
+                            alumnos={alumnos}
+                            productos={productos}
                             corregido={t.corregido_en}
                             cuando={`${cuando(t.abierto_en)}${t.cerrado_en ? ` → ${hora(t.cerrado_en)}` : ""}`}
                             abierto={t.cerrado_en === null}
