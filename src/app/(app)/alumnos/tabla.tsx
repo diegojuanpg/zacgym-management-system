@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Buscador } from "@/components/buscador";
+import { Torta } from "@/components/torta";
 import { TabsUrl } from "@/components/tabs-url";
 import { ToggleUrl } from "@/components/toggle-url";
 import { FiltroColumna } from "@/components/filtro-columna";
@@ -147,6 +148,47 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const notificar = (a: FilaAlumno) =>
     viene(a) && a.vence !== null && a.vence < desdeLunes;
 
+  // La torta parte a los activos por vencimiento, en ventanas que no se pisan:
+  // cada alumno cae en una sola. Va del celeste al rojo oscuro porque es una
+  // escala de gravedad, no cuatro categorias sueltas.
+  //
+  // A proposito ignora la gracia del fin de semana: la solapa Adeudando dice a
+  // quien reclamarle hoy, la torta dice como estan las cuotas. El que vencio el
+  // sabado ya no esta al dia, aunque todavia no se le reclame.
+  const activos = todos.filter((a) => estadoDe(a) === "Activo");
+  const entre = (a: FilaAlumno, desde: string | null, hasta: string | null) =>
+    a.vence !== null && (desde === null || a.vence >= desde) && (hasta === null || a.vence < hasta);
+  const porciones = [
+    {
+      nombre: "Al día",
+      cuantos: activos.filter((a) => entre(a, lunes(hoy, -1), null)).length,
+      color: "var(--ds-blue-700)",
+    },
+    {
+      nombre: "Vence esta semana",
+      cuantos: activos.filter((a) => entre(a, lunesActual, lunes(hoy, -1))).length,
+      color: "var(--ds-amber-800)",
+    },
+    {
+      nombre: "Venció la semana pasada",
+      cuantos: activos.filter((a) => entre(a, desdeLunes, lunesActual)).length,
+      color: "var(--ds-red-800)",
+    },
+    {
+      nombre: "Venció antes",
+      cuantos: activos.filter((a) => entre(a, null, desdeLunes)).length,
+      color: "var(--ds-red-900)",
+      trama: true,
+    },
+    {
+      // Sin fecha no se puede decir en que semana vencio. Hoy no hay ninguno,
+      // y la porcion no se dibuja mientras siga asi.
+      nombre: "Sin vencimiento",
+      cuantos: activos.filter((a) => a.vence === null).length,
+      color: "var(--ds-gray-600)",
+    },
+  ];
+
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
     { valor: "activos", nombre: "Activos", filtro: (a: FilaAlumno) => estadoDe(a) === "Activo" },
@@ -242,6 +284,15 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
             ? `${todos.length} en total`
             : `${lista.length} de ${todos.length}`}
         </p>
+      </div>
+
+      {/* Dos columnas: a la izquierda como estan las cuotas de los que entrenan.
+          La otra mitad queda para el segundo grafico. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="material-base rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
+          <h2 className="mb-3 text-label-14 text-muted-foreground">Vencimientos de los activos</h2>
+          <Torta porciones={porciones} titulo="Vencimientos de los activos" etiquetaTotal="activos" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
