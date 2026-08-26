@@ -1,6 +1,6 @@
 // node --experimental-strip-types scripts/filtros.test.mjs
 import assert from "node:assert/strict";
-import { rangoDe, comparador, lunes } from "../src/lib/filtros.ts";
+import { rangoDe, comparador, lunes, masDias } from "../src/lib/filtros.ts";
 
 assert.deepEqual(rangoDe("2026-08-01..2026-08-19"), { desde: "2026-08-01", hasta: "2026-08-19" });
 assert.deepEqual(rangoDe("..12:00"), { desde: "", hasta: "12:00" });
@@ -42,3 +42,8 @@ assert.equal(lunes("2026-08-25", 1), "2026-08-17"); // la pasada
 assert.equal(lunes("2026-08-25", -1), "2026-08-31"); // el que viene, tope de "vence esta semana"
 assert.equal(lunes("2026-03-01", 1), "2026-02-16"); // cruzando fin de mes
 assert.equal(lunes("2027-01-01", 1), "2026-12-21"); // cruzando fin de año
+
+assert.equal(masDias("2026-08-24", -2), "2026-08-22"); // el sabado anterior
+assert.equal(masDias("2026-08-24", 2), "2026-08-26"); // el miercoles, cuando se corta la gracia
+assert.equal(masDias("2026-02-28", 1), "2026-03-01"); // cruzando fin de mes
+assert.equal(masDias("2026-12-31", 1), "2027-01-01"); // cruzando fin de año
