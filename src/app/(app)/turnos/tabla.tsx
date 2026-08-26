@@ -72,6 +72,7 @@ export interface TurnoCerrado {
   movimientos_grande: number;
   movimientos_chica: number;
   nota_cierre: string | null;
+  corregido_en: string | null;
 }
 
 export interface TurnoAbierto {
@@ -107,6 +108,7 @@ export interface ConteoStock {
   momento: string;
   contado: number;
   esperado: number;
+  producto_id: string;
   productos: { nombre: string } | null;
 }
 
@@ -124,6 +126,7 @@ export interface Fila {
   /** De dónde sale lo que tenía que haber en cada cajón, para el detalle. */
   desglose: { grande: DesgloseCaja; chica: DesgloseCaja };
   nota_cierre: string | null;
+  corregido_en: string | null;
 }
 
 /** La tabla de turnos: el abierto arriba, los cerrados abajo, con sus filtros. */
@@ -156,7 +159,10 @@ export function TablaTurnos({
   for (const c of conteos) {
     const nombre = c.productos?.nombre ?? "—";
     const suyos = conteosPorTurno.get(c.turno_id) ?? [];
-    const item = suyos.find((p) => p.producto === nombre) ?? { producto: nombre };
+    const item = suyos.find((p) => p.producto === nombre) ?? {
+      id: c.producto_id,
+      producto: nombre,
+    };
     if (c.momento === "apertura") item.apertura = { contado: c.contado, esperado: c.esperado };
     else item.cierre = { contado: c.contado, esperado: c.esperado };
     conteosPorTurno.set(c.turno_id, [...suyos.filter((p) => p.producto !== nombre), item]);
@@ -203,6 +209,7 @@ export function TablaTurnos({
               },
             },
             nota_cierre: null,
+            corregido_en: null,
           },
         ]
       : []),
@@ -234,6 +241,7 @@ export function TablaTurnos({
           },
         },
         nota_cierre: t.nota_cierre,
+        corregido_en: t.corregido_en,
       }),
     ),
   ];
@@ -462,6 +470,8 @@ export function TablaTurnos({
                         </TableCell>
                         <TableCell className="text-center">
                           <DetalleTurno
+                            id={t.id}
+                            corregido={t.corregido_en}
                             cuando={`${cuando(t.abierto_en)}${t.cerrado_en ? ` → ${hora(t.cerrado_en)}` : ""}`}
                             abierto={t.cerrado_en === null}
                             grande={t.desglose.grande}

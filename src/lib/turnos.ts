@@ -76,3 +76,39 @@ export async function cerrarTurno(datos: {
   refrescar();
   return {};
 }
+
+/**
+ * Corrige lo declarado en un turno: con cuánto arrancó cada caja, con cuánto la
+ * cerraron y cuánto se contó de cada producto.
+ *
+ * Lo que va en `null` se deja como está. Corregir un conteo de apertura
+ * recalcula lo que el cierre esperaba de ese producto, así el turno no queda
+ * arreglado de un lado y marcando diferencias del otro.
+ *
+ * No toca el stock de hoy ni el turno siguiente: arregla el registro de ese
+ * turno y nada más. Queda anotado quién corrigió y cuándo.
+ */
+export async function corregirTurno(
+  turnoId: string,
+  datos: {
+    grandeInicial?: number | null;
+    chicaInicial?: number | null;
+    grandeFinal?: number | null;
+    chicaFinal?: number | null;
+    stock?: { producto_id: string; momento: "apertura" | "cierre"; contado: number }[];
+  },
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("corregir_turno", {
+    p_turno_id: turnoId,
+    p_grande_inicial: datos.grandeInicial ?? null,
+    p_chica_inicial: datos.chicaInicial ?? null,
+    p_grande_final: datos.grandeFinal ?? null,
+    p_chica_final: datos.chicaFinal ?? null,
+    p_stock: datos.stock ?? [],
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/turnos");
+  revalidatePath("/mostrador");
+  return {};
+}
