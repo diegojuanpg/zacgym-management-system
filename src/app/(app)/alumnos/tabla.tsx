@@ -141,11 +141,18 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
   const adeudando = (a: FilaAlumno) =>
     viene(a) && a.vence !== null && a.vence < lunesActual && !enGracia(a);
 
+  // Los de Adeudando que ya llevan mas de una semana asi. Pararlos en el
+  // mostrador no alcanzo —siguen viniendo y sin renovar—, a estos hay que
+  // escribirles. Es un subconjunto de Adeudando, no una lista aparte.
+  const notificar = (a: FilaAlumno) =>
+    viene(a) && a.vence !== null && a.vence < desdeLunes;
+
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
     { valor: "activos", nombre: "Activos", filtro: (a: FilaAlumno) => estadoDe(a) === "Activo" },
     { valor: "vence", nombre: "Vence esta semana", filtro: venceEstaSemana },
     { valor: "adeudando", nombre: "Adeudando", filtro: adeudando },
+    { valor: "notificar", nombre: "Notificar", filtro: notificar },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
 
