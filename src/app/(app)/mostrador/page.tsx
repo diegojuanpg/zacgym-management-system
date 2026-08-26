@@ -314,6 +314,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   // dia entero queda para despues, con los separadores de siempre.
   const delTurno = esHoy && turno ? todos.filter((r) => r.turno_id === turno.id) : todos;
 
+  // Y la lista de turnos se recorta igual. Si no, los turnos anteriores del dia
+  // aparecen como bloques sin nada abajo —sus ventas estan ocultas, no es que no
+  // hayan vendido— y estorban justo cuando estas atendiendo. Cerrado el ultimo
+  // turno, el dia se ve entero.
+  const turnosVisibles = esHoy && turno ? turnosDelDia.filter((t) => t.id === turno.id) : turnosDelDia;
+
   const query = comoQuery(await searchParams);
 
   // Los dias elegibles. Hoy entra siempre: si todavia no se cargo nada, el
@@ -404,7 +410,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         <FiltrosLocales key={query} inicial={query}>
           <TablaMostrador
             registros={delTurno}
-            turnos={turnosDelDia}
+            turnos={turnosVisibles}
             esHoy={esHoy}
             hayTurno={turno !== null}
           />
