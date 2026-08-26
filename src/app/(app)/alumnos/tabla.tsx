@@ -286,10 +286,11 @@ export function TablaAlumnos({ alumnos: todos }: { alumnos: FilaAlumno[] }) {
         </p>
       </div>
 
-      {/* Dos columnas: a la izquierda como estan las cuotas de los que entrenan.
-          La otra mitad queda para el segundo grafico. */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="material-base rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
+      {/* Las tarjetas ocupan lo que miden y se acomodan una al lado de la otra:
+          estirarlas a media pagina dejaba el anillo nadando en un rectangulo
+          vacio. */}
+      <div className="flex flex-wrap gap-4">
+        <div className="material-base w-fit rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
           <h2 className="mb-3 text-label-14 text-muted-foreground">Vencimientos de los activos</h2>
           <Torta porciones={porciones} etiquetaTotal="activos" />
         </div>
