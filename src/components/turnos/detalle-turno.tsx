@@ -16,16 +16,12 @@ export interface DesgloseCaja {
   contado: number | null;
 }
 
-export interface DiferenciaDeStock {
+/** Un producto contado en el turno: cuánto había al abrir y cuánto al cerrar. */
+export interface ProductoContado {
   producto: string;
-  momento: string;
-  contado: number;
-  esperado: number;
-  diferencia: number;
-  valor: number;
+  apertura?: { contado: number; esperado: number };
+  cierre?: { contado: number; esperado: number };
 }
-
-const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 
 /**
  * El detalle de un turno: de dónde sale lo que tenía que haber en cada cajón.
@@ -52,7 +48,7 @@ export function DetalleTurno({
   abierto: boolean;
   grande: DesgloseCaja;
   chica: DesgloseCaja;
-  stock: DiferenciaDeStock[];
+  stock: ProductoContado[];
   nota: string | null;
   responsables: React.ReactNode;
 }) {
@@ -102,23 +98,44 @@ export function DetalleTurno({
           {stock.length > 0 && (
             <section className="flex flex-col gap-2">
               <h3 className="text-label-14 text-muted-foreground">Stock</h3>
+              {/* Todos los productos, no solo los que no cuadraron: ver "30 → 25
+                  OK" al lado del que falló es lo que te dice si el problema es
+                  de un producto o del conteo entero. */}
               <ul className="flex flex-col gap-1.5">
-                {stock.map((d) => (
-                  <li
-                    key={`${d.producto}-${d.momento}`}
-                    className="flex flex-wrap items-center gap-2 text-copy-14"
-                  >
-                    <Badge variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}>
-                      {d.diferencia > 0 ? "+" : ""}
-                      {d.diferencia} {d.producto}
-                    </Badge>
-                    <span className="text-muted-foreground">
-                      contaron {d.contado} y tenían que ser {d.esperado}
-                      {d.momento === "apertura" && " (al abrir)"}
-                      {d.valor !== 0 && ` · ${pesos(d.valor)}`}
-                    </span>
-                  </li>
-                ))}
+                {stock.map((p) => {
+                  const difs = [
+                    p.apertura && p.apertura.contado - p.apertura.esperado,
+                    p.cierre && p.cierre.contado - p.cierre.esperado,
+                  ];
+                  const cuadro = difs.every((d) => !d);
+                  return (
+                    <li
+                      key={p.producto}
+                      className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-copy-14"
+                    >
+                      <span>{p.producto}</span>
+                      <span className="tabular-nums whitespace-nowrap text-muted-foreground">
+                        {p.apertura ? p.apertura.contado : "—"}
+                        <span className="px-1.5">→</span>
+                        {p.cierre ? p.cierre.contado : "—"}
+                      </span>
+                      {cuadro ? (
+                        <Badge variant="green-subtle">OK</Badge>
+                      ) : (
+                        <span className="flex gap-1">
+                          {difs.map((d, i) =>
+                            d ? (
+                              <Badge key={i} variant={d < 0 ? "red-subtle" : "amber-subtle"}>
+                                {d > 0 ? "+" : ""}
+                                {d} {i === 0 ? "al abrir" : "al cerrar"}
+                              </Badge>
+                            ) : null,
+                          )}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
