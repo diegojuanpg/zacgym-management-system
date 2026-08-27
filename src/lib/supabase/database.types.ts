@@ -722,6 +722,8 @@ export type Database = {
           anulada_en: string | null
           anulada_por: string | null
           cantidad: number
+          cargada_app_en: string | null
+          cargada_sheet_en: string | null
           creado_en: string
           creado_por: string
           id: string
@@ -735,6 +737,8 @@ export type Database = {
           anulada_en?: string | null
           anulada_por?: string | null
           cantidad?: number
+          cargada_app_en?: string | null
+          cargada_sheet_en?: string | null
           creado_en?: string
           creado_por: string
           id?: string
@@ -748,6 +752,8 @@ export type Database = {
           anulada_en?: string | null
           anulada_por?: string | null
           cantidad?: number
+          cargada_app_en?: string | null
+          cargada_sheet_en?: string | null
           creado_en?: string
           creado_por?: string
           id?: string
@@ -1209,6 +1215,8 @@ export type Database = {
           alumno_id: string | null
           anulada_en: string | null
           cantidad: number | null
+          cargada_app_en: string | null
+          cargada_sheet_en: string | null
           categoria: string | null
           creado_en: string | null
           creado_por: string | null

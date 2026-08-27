@@ -22,10 +22,18 @@ import {
 } from "@/components/ui/table";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 import { BotonBorrar } from "@/components/mostrador/boton-borrar";
+import { TildeCarga } from "@/components/ventas/tilde-carga";
+import {
+  MENSUALIDADES,
+  esMensualidadNueva as esNueva,
+  hayQueDarDeBaja as hayQueBajar,
+  pendienteDeCarga as faltaCargar,
+} from "@/lib/mensualidades";
 import { BarrasIngresos } from "@/components/barras-ingresos";
 import type { DiaDeIngresos } from "@/lib/ingresos";
 
 const ZONA = "America/Argentina/Buenos_Aires";
+
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
 /** 2026-08-01 se lee 01/08: el año se sobreentiende. */
@@ -68,6 +76,10 @@ export interface VentaFila {
   saldo: number;
   creado_en: string;
   anulada_en: string | null;
+  /** Momento en que se cargó en la planilla; null mientras siga pendiente. */
+  cargada_sheet_en: string | null;
+  /** Idem, en la app con la que se manejan los pagos. */
+  cargada_app_en: string | null;
 }
 
 export interface PagoFila {
@@ -144,6 +156,12 @@ export function TablaVentas({
         ? "caja"
         : (r.categoria ?? "sin");
 
+  // Los cobros y los movimientos de caja no se replican afuera: la cuenta es
+  // solo sobre ventas, y el resto ni siquiera tiene las columnas.
+  const esMensualidadNueva = (r: Registro) => r.clase === "venta" && esNueva(r);
+  const hayQueDarDeBaja = (r: Registro) => r.clase === "venta" && hayQueBajar(r);
+  const pendienteDeCarga = (r: Registro) => r.clase === "venta" && faltaCargar(r);
+
   const alumnoDe = (r: Registro) =>
     r.clase === "movimiento" ? "Movimiento de caja" : r.alumno;
   const detalleDe = (r: Registro) =>
@@ -176,8 +194,16 @@ export function TablaVentas({
   // "Todos" queda primera porque es la vista entera, no un rubro. El resto va de
   // mayor a menor: la solapa que más movimientos tiene es la que más se abre, y
   // a la izquierda es donde primero se la busca.
+  // "Mensualidades pendientes" no es un rubro sino una condición, así que no
+  // sale de `rubroDe`. Va segunda: es una cola de trabajo, no un archivo, y se
+  // mira todos los días.
   const solapas = [
     { valor: "todos", nombre: "Todos", cuantos: todos.length },
+    {
+      valor: "pendientes",
+      nombre: "Mensualidades pendientes",
+      cuantos: todos.filter(pendienteDeCarga).length,
+    },
     ...[
       ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
       { valor: "sin", nombre: "Sin categoría" },
@@ -205,7 +231,8 @@ export function TablaVentas({
   const registros = todos
     .filter(
       (r) =>
-        (solapa === "todos" || rubroDe(r) === solapa) &&
+        (solapa === "todos" ||
+          (solapa === "pendientes" ? pendienteDeCarga(r) : rubroDe(r) === solapa)) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(alumnoDe(r))) &&
         (filtroDetalle.length === 0 || filtroDetalle.includes(detalleDe(r))) &&
         (filtroMetodo.length === 0 || filtroMetodo.includes(metodoDe(r))) &&
@@ -222,6 +249,11 @@ export function TablaVentas({
         ? a.creado_en.localeCompare(b.creado_en)
         : b.creado_en.localeCompare(a.creado_en),
     );
+
+  // Los tildes solo tienen sentido sobre mensualidades: en las otras solapas
+  // serían dos columnas vacías. En la de Mensualidades aparecen igual que en la
+  // cola, para poder ver el estado de una que ya se cargó.
+  const muestraCarga = solapa === "pendientes" || solapa === MENSUALIDADES;
 
   // La tabla se dibuja de a tandas. Con el período en "Todo" el filtro deja más
   // de cinco mil filas, y pintarlas todas de una es medio segundo de puro HTML
@@ -312,6 +344,12 @@ export function TablaVentas({
                   <TableHead>
                     <FiltroColumna etiqueta="Total" monto={{ param: "total" }} />
                   </TableHead>
+                  {muestraCarga && (
+                    <>
+                      <TableHead className="text-center">Sheet</TableHead>
+                      <TableHead className="text-center">App</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-center" />
                 </TableRow>
               </TableHeader>
@@ -342,7 +380,14 @@ export function TablaVentas({
                         })}
                       </TableCell>
                       <TableCell>{alumnoDe(r)}</TableCell>
-                      <TableCell>{detalleDe(r)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {detalleDe(r)}
+                          {hayQueDarDeBaja(r) && (
+                            <Badge variant="red-subtle">Dar de baja afuera</Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{r.clase === "venta" ? r.cantidad : "—"}</TableCell>
                       <TableCell>
                         {anulado ? (
@@ -383,6 +428,34 @@ export function TablaVentas({
                           "—"
                         )}
                       </TableCell>
+                      {muestraCarga &&
+                        (esMensualidadNueva(r) && r.clase === "venta" ? (
+                          <>
+                            <TableCell className="text-center">
+                              <TildeCarga
+                                ventaId={r.id}
+                                donde="sheet"
+                                cargadaEn={r.cargada_sheet_en}
+                                etiqueta={`Cargada en el sheet: ${r.producto} de ${r.alumno}`}
+                              />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <TildeCarga
+                                ventaId={r.id}
+                                donde="app"
+                                cargadaEn={r.cargada_app_en}
+                                etiqueta={`Cargada en la app: ${r.producto} de ${r.alumno}`}
+                              />
+                            </TableCell>
+                          </>
+                        ) : (
+                          // Una mensualidad anterior al corte: no se lleva la
+                          // cuenta, y un tilde vacío diría que está pendiente.
+                          <>
+                            <TableCell className="text-center text-muted-foreground">—</TableCell>
+                            <TableCell className="text-center text-muted-foreground">—</TableCell>
+                          </>
+                        ))}
                       <TableCell className="text-center">
                         <BotonBorrar
                           registro={
@@ -433,7 +506,7 @@ export function TablaVentas({
                   tope={tope}
                   enPagina={visibles.length}
                   total={registros.length}
-                  columnas={10}
+                  columnas={muestraCarga ? 11 : 9}
                 />
               </TableBody>
             </Table>
