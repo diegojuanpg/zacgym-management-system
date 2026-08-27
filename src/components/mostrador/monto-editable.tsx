@@ -30,9 +30,13 @@ export function MontoEditable({
   const [guardando, empezar] = React.useTransition();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    setValorTexto(String(monto));
-  }, [monto]);
+  // El borrador se siembra al abrir el editor, no con un effect atado a `monto`:
+  // ese effect corria en cada `router.refresh()` y le pisaba al usuario lo que
+  // estaba tipeando.
+  function abrir() {
+    setValorTexto(String(actualMonto));
+    setEditando(true);
+  }
 
   React.useEffect(() => {
     if (editando && inputRef.current) {
@@ -115,11 +119,11 @@ export function MontoEditable({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setEditando(true)}
+        onClick={abrir}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setEditando(true);
+            abrir();
           }
         }}
         className={cn(

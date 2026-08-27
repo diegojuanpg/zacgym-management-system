@@ -27,9 +27,13 @@ export function DetalleTareaEditable({
   const [guardando, empezar] = React.useTransition();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  React.useEffect(() => {
-    setTexto(detalle);
-  }, [detalle]);
+  // El borrador se siembra al abrir el editor, no con un effect atado a `detalle`:
+  // ese effect corria en cada `router.refresh()` y le pisaba al usuario lo que
+  // estaba tipeando.
+  function abrir() {
+    setTexto(optimisticDetalle);
+    setEditando(true);
+  }
 
   React.useEffect(() => {
     if (editando && textareaRef.current) {
@@ -103,11 +107,11 @@ export function DetalleTareaEditable({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => setEditando(true)}
+      onClick={abrir}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          setEditando(true);
+          abrir();
         }
       }}
       className={cn(
