@@ -1,40 +1,21 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  PromoModal,
-  type OpcionAlumno,
-  type OpcionProducto,
-} from "@/components/alumnos/promo-modal";
-import { Badge } from "@/components/ui/badge";
+import { comoQuery } from "@/lib/query";
+import { FiltrosLocales } from "@/hooks/use-navegacion";
+import type { OpcionAlumno, OpcionProducto } from "@/components/alumnos/promo-modal";
+import { PromoModal } from "@/components/alumnos/promo-modal";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ArrowLeftIcon, UsersIcon } from "@/components/icons";
-import {
-  TableRoot,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { ArrowLeftIcon } from "@/components/icons";
+import { TablaPromos, type PromoFila } from "./tabla";
 
-const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
-
-interface PromoFila {
-  id: string;
-  nombre: string;
-  activa: boolean;
-  producto_id: string;
-  producto: string;
-  precio: number;
-  cuantos: number;
-  integrantes: string[];
-}
-
-export default async function PromosPage() {
+/**
+ * La página trae los grupos y nada más: buscador y filtros de encabezado
+ * trabajan sobre esa lista, en el navegador.
+ */
+export default async function PromosPage({ searchParams }: PageProps<"/alumnos/promos">) {
   await requireStaff();
+  const params = await searchParams;
 
   const supabase = await createClient();
   const [{ data: promos }, { data: alumnos }, { data: productos }, { data: enPromo }] =
@@ -60,11 +41,14 @@ export default async function PromosPage() {
       supabase.from("promo_integrantes").select("promo_id, alumno_id"),
     ]);
 
-  const lista = promos ?? [];
-  const integrantesDe = (id: string) =>
-    (enPromo ?? []).filter((i) => i.promo_id === id).map((i) => i.alumno_id);
+  // Los ids de cada grupo, agrupados de una sola pasada: la tabla los necesita
+  // por promo para abrir el modal de edición.
+  const integrantesDe: Record<string, string[]> = {};
+  for (const i of enPromo ?? []) {
+    (integrantesDe[i.promo_id] ??= []).push(i.alumno_id);
+  }
 
-  const alcanzados = new Set((enPromo ?? []).map((i) => i.alumno_id)).size;
+  const query = comoQuery(params);
 
   return (
     <main className="flex flex-1 flex-col gap-4">
@@ -79,81 +63,21 @@ export default async function PromosPage() {
           <ArrowLeftIcon className="size-4" />
         </Button>
         <h1 className="text-heading-20">Promos</h1>
-        <p className="text-copy-14 text-[var(--ds-gray-900)]">
-          {lista.length === 0
-            ? "Ninguna todavía"
-            : `${lista.length} ${lista.length === 1 ? "grupo" : "grupos"} · ${alcanzados} ${alcanzados === 1 ? "alumno" : "alumnos"}`}
-        </p>
 
         <div className="ml-auto">
           <PromoModal alumnos={alumnos ?? []} productos={productos ?? []} />
         </div>
       </div>
 
-      {lista.length === 0 ? (
-        <EmptyState
-          icon={<UsersIcon />}
-          title="Todavía no hay promos"
-          description="Una promo agrupa alumnos que pagan un precio distinto: la familia que viene junta, los amigos del turno noche. Al cobrarles, el mostrador propone el producto del grupo."
+      <FiltrosLocales key={query} inicial={query}>
+        {/* integrantes es un array jsonb: overrideTypes lo deja a medio tipar. */}
+        <TablaPromos
+          promos={(promos ?? []) as PromoFila[]}
+          alumnos={alumnos ?? []}
+          productos={productos ?? []}
+          integrantesDe={integrantesDe}
         />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--ds-gray-alpha-400)] bg-[var(--ds-background-100)] px-3 py-2">
-          <TableRoot className="md:max-h-[calc(100vh-15rem)]">
-            <Table aria-label="Promos">
-              <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
-                <TableRow>
-                  <TableHead>Grupo</TableHead>
-                  <TableHead>Promo</TableHead>
-                  <TableHead>Por persona</TableHead>
-                  <TableHead>Integrantes</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-center" />
-                </TableRow>
-              </TableHeader>
-              <TableBody striped>
-                {lista.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-[var(--ds-gray-1000)]">{p.nombre}</TableCell>
-                    <TableCell>{p.producto}</TableCell>
-                    <TableCell>{pesos(p.precio)}</TableCell>
-                    <TableCell className="whitespace-normal">
-                      {(p.integrantes ?? []).length === 0 ? (
-                        <span className="text-[var(--ds-gray-900)]">—</span>
-                      ) : (
-                        <div className="flex flex-col gap-0.5 text-copy-13 text-[var(--ds-gray-1000)]">
-                          {(p.integrantes as string[]).map((nombre, i) => (
-                            <span key={i}>{String(nombre)}</span>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.activa ? (
-                        <Badge variant="blue">Activa</Badge>
-                      ) : (
-                        <Badge variant="gray-subtle">Pausada</Badge>
-                      )}
-                    </TableCell>
-                      <TableCell className="text-center">
-                        <PromoModal
-                          promo={{
-                            id: p.id,
-                            nombre: p.nombre,
-                            producto_id: p.producto_id,
-                            activa: p.activa,
-                            integrantes: integrantesDe(p.id),
-                          }}
-                          alumnos={alumnos ?? []}
-                          productos={productos ?? []}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableRoot>
-        </div>
-      )}
+      </FiltrosLocales>
     </main>
   );
 }
