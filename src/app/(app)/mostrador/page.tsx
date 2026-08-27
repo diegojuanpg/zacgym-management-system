@@ -114,11 +114,11 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const [{ data: ventas }, { data: pagos }, { data: movimientos }] = await Promise.all([
     porDia<VentaFila>(
       "ventas_saldo",
-      "id, alumno, producto, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en",
+      "id, alumno, alumno_id, producto, producto_id, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en",
     ),
     porDia<PagoFila>(
       "pagos_detalle",
-      "id, venta_id, alumno, producto, monto, metodo, caja, turno_id, creado_en, anulada_en",
+      "id, venta_id, alumno, alumno_id, producto, monto, metodo, caja, turno_id, creado_en, anulada_en",
     ),
     porDia<MovimientoFila>(
       "movimientos_caja_detalle",
@@ -240,6 +240,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     const fila: CobroFila = cobros.get(clave) ?? {
       ids: [],
       alumno: p.alumno,
+      alumno_id: p.alumno_id,
       efectivo: 0,
       transferencia: 0,
       turno_id: p.turno_id,

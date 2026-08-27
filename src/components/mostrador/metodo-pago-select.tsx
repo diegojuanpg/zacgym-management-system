@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { editarMovimiento, editarVenta, editarCobro } from "@/lib/ventas";
+import { toast } from "@/components/ui/toast";
 import { ChevronDownIcon, PencilIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { Registro } from "@/app/(app)/mostrador/tabla";
@@ -80,18 +81,36 @@ export function MetodoPagoSelect({
     return <span className="text-muted-foreground">{actualLabel}</span>;
   }
 
+  async function guardar(metodo: "efectivo" | "transferencia") {
+    if (r.clase === "movimiento") return editarMovimiento(r.id, { metodo });
+    if (r.clase === "venta") return editarVenta(r.id, { metodo });
+    return editarCobro(r.ids, { metodo });
+  }
+
   function cambiar(nuevoMetodo: "efectivo" | "transferencia") {
     setEditando(false);
+    // El anterior, para poder volver: una vez guardado, la pantalla ya no sabe
+    // de dónde venía.
+    const previo = actualMetodo;
     empezar(async () => {
       setActualMetodo(nuevoMetodo);
       setActualLabel(capitalizar(nuevoMetodo));
 
-      if (r.clase === "movimiento") {
-        await editarMovimiento(r.id, { metodo: nuevoMetodo });
-      } else if (r.clase === "venta") {
-        await editarVenta(r.id, { metodo: nuevoMetodo });
-      } else if (r.clase === "cobro") {
-        await editarCobro(r.ids, { metodo: nuevoMetodo });
+      const { error } = await guardar(nuevoMetodo);
+      if (error) {
+        toast.error(error);
+      } else if (previo !== nuevoMetodo) {
+        toast(`Ahora es ${capitalizar(nuevoMetodo).toLowerCase()}`, {
+          duration: 8000,
+          action: {
+            label: "Deshacer",
+            onClick: async () => {
+              const { error: fallo } = await guardar(previo as "efectivo" | "transferencia");
+              if (fallo) toast.error(`No se pudo deshacer: ${fallo}`);
+              router.refresh();
+            },
+          },
+        });
       }
       router.refresh();
     });

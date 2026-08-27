@@ -9,6 +9,7 @@ import {
   type ItemCobro,
 } from "@/lib/ventas";
 import { enterAvanza, enfocarPrimero } from "@/lib/foco";
+import { toast } from "@/components/ui/toast";
 import { BotonBloqueado } from "@/components/mostrador/boton-bloqueado";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -424,6 +425,10 @@ export function NuevaVentaModal({
       setError(error);
       return;
     }
+    const cuantas = ventas.length + movimientos.length + cobros.length;
+    toast.success(
+      cuantas === 1 ? "Se cargó 1 línea" : `Se cargaron ${cuantas} líneas`,
+    );
     setFilas([]);
     setAbierto(false);
     router.refresh();
