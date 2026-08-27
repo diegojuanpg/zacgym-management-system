@@ -536,7 +536,7 @@ export function NuevaVentaModal({
           <TabsList>
             <TabsTrigger value="venta">Ventas</TabsTrigger>
             <TabsTrigger value="caja">Extracciones y depósitos</TabsTrigger>
-            <TabsTrigger value="cobro">Cobro de deudas</TabsTrigger>
+            <TabsTrigger value="cobro">Cobrar deuda</TabsTrigger>
             <TabsTrigger value="devolucion">Devolver dinero</TabsTrigger>
           </TabsList>
         </Tabs>
