@@ -10,6 +10,8 @@ import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Note } from "@/components/ui/note";
+import { Button } from "@/components/ui/button";
 import { DollarIcon } from "@/components/icons";
 import {
   TableRoot,
@@ -20,7 +22,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
+import { comoObjeto, useNavegacion, useParametros } from "@/hooks/use-navegacion";
 import { BotonBorrar } from "@/components/mostrador/boton-borrar";
 import { TildeCarga } from "@/components/ventas/tilde-carga";
 import {
@@ -33,6 +35,10 @@ import { BarrasIngresos } from "@/components/barras-ingresos";
 import type { DiaDeIngresos } from "@/lib/ingresos";
 
 const ZONA = "America/Argentina/Buenos_Aires";
+
+/** Por qué una mensualidad vieja no tiene tilde ni pendiente. */
+const SIN_CUENTA =
+  "Anterior al 27/08/2026: ya estaba cargada cuando se empezó a llevar la cuenta.";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
@@ -137,6 +143,7 @@ export function TablaVentas({
   ingresos: DiaDeIngresos[];
 }) {
   const parametros = useParametros();
+  const { irA } = useNavegacion();
   const params = comoObjeto(parametros);
   const q = parametros.get("q") ?? "";
   const busqueda = q.trim().toLowerCase();
@@ -194,16 +201,8 @@ export function TablaVentas({
   // "Todos" queda primera porque es la vista entera, no un rubro. El resto va de
   // mayor a menor: la solapa que más movimientos tiene es la que más se abre, y
   // a la izquierda es donde primero se la busca.
-  // "Mensualidades pendientes" no es un rubro sino una condición, así que no
-  // sale de `rubroDe`. Va segunda: es una cola de trabajo, no un archivo, y se
-  // mira todos los días.
   const solapas = [
     { valor: "todos", nombre: "Todos", cuantos: todos.length },
-    {
-      valor: "pendientes",
-      nombre: "Mensualidades pendientes",
-      cuantos: todos.filter(pendienteDeCarga).length,
-    },
     ...[
       ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
       { valor: "sin", nombre: "Sin categoría" },
@@ -255,6 +254,18 @@ export function TablaVentas({
   // cola, para poder ver el estado de una que ya se cargó.
   const muestraCarga = solapa === "pendientes" || solapa === MENSUALIDADES;
 
+  // La cola no es una solapa más: es trabajo sin hacer y tiene que pedir que la
+  // miren. Va arriba de todo, en su propio renglón, y desaparece sola cuando no
+  // queda nada —una solapa en cero ocupa lugar todos los días para no decir nada—.
+  const cuantasPendientes = todos.filter(pendienteDeCarga).length;
+  const verPendientes = (encendido: boolean) => {
+    const nuevos = new URLSearchParams(parametros.toString());
+    nuevos.set("rubro", encendido ? "pendientes" : "todos");
+    // La paginación es de la vista anterior: arrancar de nuevo.
+    nuevos.delete("filas");
+    irA(nuevos);
+  };
+
   // La tabla se dibuja de a tandas. Con el período en "Todo" el filtro deja más
   // de cinco mil filas, y pintarlas todas de una es medio segundo de puro HTML
   // que nadie va a leer. El resumen de arriba y el total sí miran todo.
@@ -278,6 +289,28 @@ export function TablaVentas({
       <div className="material-base rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
         <BarrasIngresos ingresos={ingresos} />
       </div>
+
+      {(cuantasPendientes > 0 || solapa === "pendientes") && (
+        <Note
+          type={cuantasPendientes > 0 ? "error" : "success"}
+          fill
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => verPendientes(solapa !== "pendientes")}
+            >
+              {solapa === "pendientes" ? "Ver todo" : "Ver cuáles"}
+            </Button>
+          }
+        >
+          {cuantasPendientes === 0
+            ? "No queda ninguna mensualidad sin cargar."
+            : `${cuantasPendientes} ${
+                cuantasPendientes === 1 ? "mensualidad" : "mensualidades"
+              } sin cargar en el sheet y en la app.`}
+        </Note>
+      )}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -451,9 +484,21 @@ export function TablaVentas({
                         ) : (
                           // Una mensualidad anterior al corte: no se lleva la
                           // cuenta, y un tilde vacío diría que está pendiente.
+                          // El título explica el guion: hoy son casi todas, y
+                          // una columna llena de rayas sin motivo parece rota.
                           <>
-                            <TableCell className="text-center text-muted-foreground">—</TableCell>
-                            <TableCell className="text-center text-muted-foreground">—</TableCell>
+                            <TableCell
+                              className="text-center text-muted-foreground"
+                              title={SIN_CUENTA}
+                            >
+                              —
+                            </TableCell>
+                            <TableCell
+                              className="text-center text-muted-foreground"
+                              title={SIN_CUENTA}
+                            >
+                              —
+                            </TableCell>
                           </>
                         ))}
                       <TableCell className="text-center">
