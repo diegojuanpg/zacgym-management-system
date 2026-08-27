@@ -4,6 +4,7 @@ import {
   DESDE_CARGA,
   esMensualidadNueva,
   hayQueDarDeBaja,
+  pendienteDeCarga,
 } from "../src/lib/mensualidades.ts";
 
 const nueva = "2026-08-28T15:00:00+00:00"; // despues del corte
@@ -46,6 +47,24 @@ assert.equal(hayQueDarDeBaja(venta({ anulada_en: nueva, cargada_app_en: nueva })
 assert.equal(
   hayQueDarDeBaja(venta({ creado_en: vieja, anulada_en: vieja, cargada_sheet_en: vieja })),
   false,
+);
+
+// --- El numero rojo de la solapa: lo que todavia hay que hacer.
+assert.equal(pendienteDeCarga(venta({})), true); // sin ninguno de los dos
+assert.equal(pendienteDeCarga(venta({ cargada_sheet_en: nueva })), true); // a medias
+assert.equal(pendienteDeCarga(venta({ cargada_app_en: nueva })), true);
+assert.equal(
+  pendienteDeCarga(venta({ cargada_sheet_en: nueva, cargada_app_en: nueva })),
+  false, // los dos: listo
+);
+// Una vieja nunca entra, ni siquiera sin tildar.
+assert.equal(pendienteDeCarga(venta({ creado_en: vieja })), false);
+// Anulada sin cargar: no llego a salir de aca, no es trabajo.
+assert.equal(pendienteDeCarga(venta({ anulada_en: nueva })), false);
+// Anulada despues de cargarla: sigue contando, hay que ir a borrarla afuera.
+assert.equal(
+  pendienteDeCarga(venta({ anulada_en: nueva, cargada_sheet_en: nueva, cargada_app_en: nueva })),
+  true,
 );
 
 console.log("mensualidades ok");
