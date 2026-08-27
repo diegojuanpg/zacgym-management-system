@@ -51,10 +51,10 @@ const vacio = (
 
 const GENERO = { femenino: "Femenino", masculino: "Masculino", otro: "Otro" } as const;
 
-/** Apellido, nombre, género, edad, actividad, vencimiento, estado, balance [, número, mail], acciones. */
+/** Apellido, nombre, género, edad, entrenamiento, actividad, vencimiento, estado, balance [, número, mail], acciones. */
 const ANCHOS = {
-  conContacto: ["10%", "11%", "8%", "5%", "9%", "10%", "8%", "8%", "10%", "14%", "7%"],
-  sinContacto: ["13%", "15%", "11%", "7%", "12%", "13%", "10%", "12%", "7%"],
+  conContacto: ["9%", "10%", "7%", "5%", "9%", "8%", "9%", "7%", "8%", "9%", "12%", "7%"],
+  sinContacto: ["12%", "13%", "9%", "6%", "11%", "11%", "11%", "9%", "11%", "7%"],
 };
 
 /** Los días importan más que la fecha exacta: "hace 3 días" se lee de un vistazo. */
@@ -391,6 +391,10 @@ export function TablaAlumnos({
                       }}
                     />
                   </TableHead>
+                  {/* Todavía no muestra nada: la columna está reservada y se
+                      llena cuando se decida qué guarda. Va antes de Actividad
+                      para que se lean juntas, lo planeado contra lo que pasó. */}
+                  <TableHead>Entrenamiento</TableHead>
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Actividad"
@@ -469,6 +473,8 @@ export function TablaAlumnos({
 
                     <TableCell>{a.genero ? GENERO[a.genero] : vacio}</TableCell>
                     <TableCell>{a.edad ?? vacio}</TableCell>
+
+                    <TableCell>{vacio}</TableCell>
 
                     <TableCell>
                       {a.ultima_actividad ? (
@@ -562,7 +568,7 @@ export function TablaAlumnos({
                   tope={tope}
                   enPagina={visibles.length}
                   total={lista.length}
-                  columnas={verContacto ? 11 : 9}
+                  columnas={verContacto ? 12 : 10}
                 />
               </TableBody>
             </Table>
