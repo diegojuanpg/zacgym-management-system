@@ -194,7 +194,10 @@ export function DatosAlumno({
               </option>
               <option value="femenino">Femenino</option>
               <option value="masculino">Masculino</option>
-              <option value="otro">Otro</option>
+              {/* "Otro" ya no se ofrece en el alta. Acá aparece solo si la ficha
+                  vieja lo tenía: sacarlo de una dejaba el campo vacío y obligaba
+                  a cambiarle el género para poder guardar cualquier otra cosa. */}
+              {datos.genero === "otro" && <option value="otro">Otro</option>}
             </Select>
           ) : alumno.genero ? (
             GENERO[alumno.genero]

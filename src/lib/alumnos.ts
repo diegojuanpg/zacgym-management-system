@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { nombrePropio } from "@/lib/utils";
 
 export interface DatosAlumno {
   apellido: string;
@@ -28,6 +29,22 @@ const limpio = (v: string | null) => {
   return t ? t : null;
 };
 
+/**
+ * Los campos que se guardan igual en el alta y en la edición.
+ *
+ * Nombre y apellido pasan por `nombrePropio`: en el mostrador se carga apurado
+ * y "diego guerrero" entra en minúscula. Se corrige al guardar y no en el
+ * formulario para que valga también para lo que entre por otro lado.
+ */
+const comunes = (datos: DatosAlumno) => ({
+  apellido: nombrePropio(datos.apellido.trim()),
+  nombre: nombrePropio(datos.nombre.trim()),
+  nacimiento: limpio(datos.nacimiento),
+  genero: datos.genero,
+  celular: limpio(datos.celular),
+  email: limpio(datos.email),
+});
+
 function revisar(datos: DatosAlumno): string | null {
   if (datos.apellido.trim() === "" || datos.nombre.trim() === "") {
     return "El apellido y el nombre son obligatorios.";
@@ -47,14 +64,7 @@ export async function crearAlumno(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("alumnos")
-    .insert({
-      apellido: datos.apellido.trim(),
-      nombre: datos.nombre.trim(),
-      nacimiento: limpio(datos.nacimiento),
-      genero: datos.genero,
-      celular: limpio(datos.celular),
-      email: limpio(datos.email),
-    })
+    .insert(comunes(datos))
     .select("id, nombre_completo")
     .single();
 
@@ -80,16 +90,7 @@ export async function editarAlumno(
   const supabase = await createClient();
   const { error } = await supabase
     .from("alumnos")
-    .update({
-      apellido: datos.apellido.trim(),
-      nombre: datos.nombre.trim(),
-      nacimiento: limpio(datos.nacimiento),
-      genero: datos.genero,
-      celular: limpio(datos.celular),
-      email: limpio(datos.email),
-      vence: limpio(datos.vence),
-      activo: datos.activo,
-    })
+    .update({ ...comunes(datos), vence: limpio(datos.vence), activo: datos.activo })
     .eq("id", id);
 
   if (error) {
