@@ -5,12 +5,24 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  TableRoot,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Note } from "@/components/ui/note";
 import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
-import { Combobox } from "@/components/ui/combobox";
-import { Select } from "@/components/ui/select";
-import { corregirTurno, agregarVentaOlvidada } from "@/lib/turnos";
+import { corregirTurno } from "@/lib/turnos";
+import {
+  NuevaVentaModal,
+  type Alumno,
+  type Producto,
+} from "@/components/mostrador/nueva-venta-modal";
 
 /** Lo que hay que contar de un cajón en un turno. */
 export interface DesgloseCaja {
@@ -28,6 +40,8 @@ export interface ProductoContado {
   producto: string;
   apertura?: { contado: number; esperado: number };
   cierre?: { contado: number; esperado: number };
+  /** Lo que se vendió de ese producto en el turno. */
+  vendidas?: number;
 }
 
 /**
@@ -44,6 +58,8 @@ export interface ProductoContado {
 export function DetalleTurno({
   id,
   dia,
+  desde,
+  hasta,
   alumnos,
   productos,
   cuando,
@@ -56,10 +72,13 @@ export function DetalleTurno({
   responsables,
 }: {
   id: string;
-  /** El día del turno, "YYYY-MM-DD": la hora que se tipea cuelga de acá. */
+  /** El día del turno, "YYYY-MM-DD": la hora que se cargue cuelga de acá. */
   dia: string;
-  alumnos: { id: string; nombre_completo: string }[];
-  productos: { id: string; nombre: string; precio: number }[];
+  /** El rango en que estuvo abierto, "HH:MM", que acota lo que se puede cargar. */
+  desde: string;
+  hasta: string;
+  alumnos: Alumno[];
+  productos: Producto[];
   /** El encabezado del modal: "25/8, 14:18 → 19:19". */
   cuando: string;
   abierto: boolean;
@@ -74,6 +93,7 @@ export function DetalleTurno({
   const [verlo, setVerlo] = React.useState(false);
   const [corrigiendo, setCorrigiendo] = React.useState(false);
   const [guardando, setGuardando] = React.useState(false);
+  const [cargando, setCargando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   // Los campos arrancan con lo que hay declarado. Vacío es "dejalo como está",
@@ -89,44 +109,6 @@ export function DetalleTurno({
     const n = Number(escrito);
     return n === actual ? null : n;
   };
-
-  // --- venta que nadie anotó ---
-  const [alumnoId, setAlumnoId] = React.useState("");
-  const [productoId, setProductoId] = React.useState("");
-  const [metodo, setMetodo] = React.useState("efectivo");
-  const [hora, setHora] = React.useState("");
-  const [cargando, setCargando] = React.useState(false);
-
-  async function cargarVenta() {
-    const producto = productos.find((p) => p.id === productoId);
-    if (!alumnoId || !producto) {
-      setError("Elegí el alumno y el producto.");
-      return;
-    }
-    if (hora === "") {
-      setError("Poné a qué hora fue la venta.");
-      return;
-    }
-    setCargando(true);
-    setError(null);
-    // La hora se escribe sola; el día sale del turno, que es al que se le carga.
-    const { error: fallo } = await agregarVentaOlvidada(id, {
-      alumnoId,
-      productoId,
-      creadoEn: `${dia}T${hora}:00-03:00`,
-      efectivo: metodo === "efectivo" ? producto.precio : 0,
-      transferencia: metodo === "transferencia" ? producto.precio : 0,
-    });
-    setCargando(false);
-    if (fallo) {
-      setError(fallo);
-      return;
-    }
-    setAlumnoId("");
-    setProductoId("");
-    setHora("");
-    router.refresh();
-  }
 
   function empezarCorreccion() {
     setCampos({});
@@ -177,8 +159,24 @@ export function DetalleTurno({
         Ver
       </Button>
 
+      {/* El modal de carga es el mismo del mostrador. Mientras está abierto,
+          este se esconde en vez de apilarse: al confirmar vuelve solo, que es
+          donde la persona estaba trabajando. */}
+      <NuevaVentaModal
+        alumnos={alumnos}
+        productos={productos}
+        corrigiendo={{ turnoId: id, dia, desde, hasta }}
+        control={{
+          abierto: cargando,
+          cambiar: (abierto) => {
+            setCargando(abierto);
+            if (!abierto) router.refresh();
+          },
+        }}
+      />
+
       <Modal
-        open={verlo}
+        open={verlo && !cargando}
         onOpenChange={setVerlo}
         title={`Turno del ${cuando}`}
         description={abierto ? "En curso: lo que tendría que haber ahora." : undefined}
@@ -188,6 +186,9 @@ export function DetalleTurno({
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setCorrigiendo(false)} disabled={guardando}>
                 Cancelar
+              </Button>
+              <Button variant="secondary" onClick={() => setCargando(true)} disabled={guardando}>
+                Agregar venta
               </Button>
               <Button onClick={guardar} loading={guardando}>
                 Guardar corrección
@@ -277,62 +278,6 @@ export function DetalleTurno({
                 </section>
               )}
 
-              <section className="flex flex-col gap-2 border-t border-border pt-4">
-                <h3 className="text-label-14 text-muted-foreground">Venta que nadie anotó</h3>
-                {/* Si falta un agua y sobran $1.000 no hay faltante: hay una
-                    venta sin cargar. Cargarla acá cierra las dos diferencias de
-                    una, porque la caja pasa a esperar esos $1.000 y el cierre
-                    pasa a esperar un agua menos. */}
-                {/* 10rem para la hora: el navegador dibuja "01:01 PM" mas el
-                    iconito del selector y en menos se corta. */}
-                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_8rem_10rem]">
-                  <div>
-                    <span className="text-copy-13 text-muted-foreground">Alumno</span>
-                    <Combobox
-                      options={alumnos.map((a) => ({
-                        value: a.id,
-                        label: a.nombre_completo.replace(",", ""),
-                      }))}
-                      value={alumnoId}
-                      onValueChange={setAlumnoId}
-                      placeholder="Buscar alumno..."
-                      emptyMessage="No hay alumnos"
-                      width="100%"
-                      clearable
-                    />
-                  </div>
-                  <div>
-                    <span className="text-copy-13 text-muted-foreground">Producto</span>
-                    <Select value={productoId} onChange={(e) => setProductoId(e.target.value)}>
-                      <option value="">Elegí uno</option>
-                      {productos.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre} · ${p.precio.toLocaleString("es-AR")}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <span className="text-copy-13 text-muted-foreground">Método</span>
-                    <Select value={metodo} onChange={(e) => setMetodo(e.target.value)}>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transfer.</option>
-                    </Select>
-                  </div>
-                  <Input
-                    label="Hora"
-                    type="time"
-                    value={hora}
-                    onChange={(e) => setHora(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Button variant="secondary" onClick={cargarVenta} loading={cargando}>
-                    Cargar venta
-                  </Button>
-                </div>
-              </section>
-
               {error && <Note type="error" fill>{error}</Note>}
             </>
           ) : (
@@ -355,45 +300,61 @@ export function DetalleTurno({
           {stock.length > 0 && (
             <section className="flex flex-col gap-2">
               <h3 className="text-label-14 text-muted-foreground">Stock</h3>
-              {/* Todos los productos, no solo los que no cuadraron: ver "30 → 25
-                  OK" al lado del que falló es lo que te dice si el problema es
-                  de un producto o del conteo entero. */}
-              <ul className="flex flex-col gap-1.5">
-                {stock.map((p) => {
-                  const difs = [
-                    p.apertura && p.apertura.contado - p.apertura.esperado,
-                    p.cierre && p.cierre.contado - p.cierre.esperado,
-                  ];
-                  const cuadro = difs.every((d) => !d);
-                  return (
-                    <li
-                      key={p.producto}
-                      className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-copy-14"
-                    >
-                      <span>{p.producto}</span>
-                      <span className="tabular-nums whitespace-nowrap text-muted-foreground">
-                        {p.apertura ? p.apertura.contado : "—"}
-                        <span className="px-1.5">→</span>
-                        {p.cierre ? p.cierre.contado : "—"}
-                      </span>
-                      {cuadro ? (
-                        <Badge variant="green-subtle">OK</Badge>
-                      ) : (
-                        <span className="flex gap-1">
-                          {difs.map((d, i) =>
-                            d ? (
-                              <Badge key={i} variant={d < 0 ? "red-subtle" : "amber-subtle"}>
-                                {d > 0 ? "+" : ""}
-                                {d} {i === 0 ? "al abrir" : "al cerrar"}
-                              </Badge>
-                            ) : null,
-                          )}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+              {/* De donde a donde fue cada producto y por que. Con las ventas en
+                  el medio, un faltante se lee sin abrir el mostrador: 30 menos 5
+                  vendidas tiene que dar 25. */}
+              <TableRoot>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead>Inicio</TableHead>
+                      <TableHead>Ventas</TableHead>
+                      <TableHead>Cierre</TableHead>
+                      <TableHead>Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody striped>
+                    {stock.map((p) => {
+                      const difs = [
+                        p.apertura && p.apertura.contado - p.apertura.esperado,
+                        p.cierre && p.cierre.contado - p.cierre.esperado,
+                      ];
+                      const cuadro = difs.every((d) => !d);
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell>{p.producto}</TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.apertura ? p.apertura.contado : "—"}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.vendidas ? `−${p.vendidas}` : "—"}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.cierre ? p.cierre.contado : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {cuadro ? (
+                              <Badge variant="green-subtle">OK</Badge>
+                            ) : (
+                              <span className="flex flex-wrap gap-1">
+                                {difs.map((d, i) =>
+                                  d ? (
+                                    <Badge key={i} variant={d < 0 ? "red-subtle" : "amber-subtle"}>
+                                      {d > 0 ? "+" : ""}
+                                      {d} {i === 0 ? "al abrir" : "al cerrar"}
+                                    </Badge>
+                                  ) : null,
+                                )}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableRoot>
             </section>
           )}
 

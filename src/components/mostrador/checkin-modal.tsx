@@ -50,7 +50,6 @@ export function CheckInModal({
   const [guardando, setGuardando] = React.useState(false);
 
   const [elegido, setElegido] = React.useState("");
-  const [inicia, setInicia] = React.useState("");
   const [termina, setTermina] = React.useState("");
   const [nuevo, setNuevo] = React.useState("");
   const [sumando, setSumando] = React.useState(false);
@@ -60,10 +59,7 @@ export function CheckInModal({
   const [editaTermina, setEditaTermina] = React.useState("");
 
   function abrirModal() {
-    const ahora = new Date();
     setElegido("");
-    // El turno arranca ahora salvo que digan otra cosa, que es el caso de siempre.
-    setInicia(comoHora(ahora.toISOString()));
     setTermina("");
     setNuevo("");
     setSumando(false);
@@ -73,10 +69,12 @@ export function CheckInModal({
   }
 
   async function fichar(empleadoId: string) {
-    if (empleadoId === "" || inicia === "" || termina === "") return;
+    if (empleadoId === "" || termina === "") return;
     setGuardando(true);
     setError(null);
-    const desde = horaCercaDe(inicia, new Date());
+    // El inicio es este momento y no se pregunta: el que ficha esta llegando.
+    // Lo unico que hace falta saber es hasta cuando se queda.
+    const desde = new Date();
     const { error } = await ficharAsistencia(
       empleadoId,
       desde.toISOString(),
@@ -134,7 +132,7 @@ export function CheckInModal({
   // volver a entrar más tarde el mismo día.
   const trabajando = asistencias.filter((a) => a.trabajando);
   const terminadas = asistencias.filter((a) => !a.trabajando);
-  const puedeFichar = inicia !== "" && termina !== "" && !guardando;
+  const puedeFichar = termina !== "" && !guardando;
 
   return (
     <>
@@ -146,7 +144,7 @@ export function CheckInModal({
         open={abierto}
         onOpenChange={(v) => (v ? abrirModal() : setAbierto(false))}
         title="Check-in"
-        description="Indicá cuándo inicia y termina tu turno hoy."
+        description="El turno arranca ahora. Indicá hasta qué hora te quedás."
         className="w-[min(42rem,94vw)]"
         footer={
           <Button variant="secondary" onClick={() => setAbierto(false)} className="ml-auto">
@@ -160,19 +158,10 @@ export function CheckInModal({
                 en una fila flex se come todo el ancho y empuja al combo afuera.
                 10rem por columna: con el reloj de 12 horas el navegador dibuja
                 "01:01 PM" mas el iconito del selector, y en 7rem se cortaba. */}
-            <div className="grid grid-cols-[10rem_10rem_1fr] items-end gap-2">
+            <div className="grid grid-cols-[10rem_1fr] items-end gap-2">
               <div>
                 <Input
-                  label="Inicia"
-                  type="time"
-                  size="large"
-                  value={inicia}
-                  onChange={(e) => setInicia(e.target.value)}
-                />
-              </div>
-              <div>
-                <Input
-                  label="Termina"
+                  label="¿Hasta qué hora trabajás?"
                   type="time"
                   size="large"
                   value={termina}
@@ -197,11 +186,7 @@ export function CheckInModal({
 
             <div className="flex min-h-6 items-center justify-between gap-3">
               <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                {puedeFichar &&
-                  `Son ${duracion(
-                    horaCercaDe(inicia, new Date()),
-                    horaDespuesDe(termina, horaCercaDe(inicia, new Date())),
-                  )} de trabajo.`}
+                {puedeFichar && `Son ${duracion(new Date(), horaDespuesDe(termina, new Date()))} de trabajo.`}
               </span>
               {sumando ? null : (
                 <Button variant="link" size="xs" onClick={() => setSumando(true)}>

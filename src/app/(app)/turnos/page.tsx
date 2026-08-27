@@ -71,18 +71,29 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
     )
     .overrideTypes<ConteoStock[]>();
 
-  // Para cargar una venta olvidada hace falta elegir alumno y producto. Van
-  // solo el nombre y el precio: es un selector, no un listado.
+  // Lo vendido de cada producto en cada turno, para que el detalle pueda
+  // mostrar 30 - 5 = 25 y no dos numeros sueltos.
+  const { data: vendidas } = await supabase
+    .from("ventas")
+    .select("turno_id, producto_id, cantidad")
+    .is("anulada_en", null)
+    .in(
+      "turno_id",
+      [...turnos.map((t) => t.id), ...(enCurso ? [enCurso.id] : [])],
+    )
+    .overrideTypes<{ turno_id: string; producto_id: string; cantidad: number }[]>();
+
+  // El modal de carga es el del mostrador: necesita los mismos selectores.
   const [alumnos, { data: productos }] = await Promise.all([
-    traerTodo<{ id: string; nombre_completo: string }>(
-      supabase.from("alumnos").select("id, nombre_completo").order("nombre_completo"),
+    traerTodo<{ id: string; nombre_completo: string; saldo: number }>(
+      supabase.from("alumnos_cuenta").select("id, nombre_completo, saldo").order("nombre_completo"),
     ),
     supabase
       .from("productos")
-      .select("id, nombre, precio")
+      .select("id, nombre, precio, stock")
       .eq("activo", true)
       .order("nombre")
-      .overrideTypes<{ id: string; nombre: string; precio: number }[]>(),
+      .overrideTypes<{ id: string; nombre: string; precio: number; stock: number | null }[]>(),
   ]);
 
   const query = comoQuery(params);
@@ -94,6 +105,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
         enCurso={enCurso ?? null}
         diferencias={diferencias ?? []}
         conteos={conteos ?? []}
+        vendidas={vendidas ?? []}
         alumnos={alumnos}
         productos={productos ?? []}
       />

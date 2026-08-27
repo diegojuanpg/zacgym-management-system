@@ -6,6 +6,7 @@ import { recortar } from "@/lib/recorte";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClockIcon } from "@/components/icons";
+import type { Alumno, Producto } from "@/components/mostrador/nueva-venta-modal";
 import {
   DetalleTurno,
   type DesgloseCaja,
@@ -124,16 +125,6 @@ export interface Fila {
   desglose: { grande: DesgloseCaja; chica: DesgloseCaja };
   nota_cierre: string | null;
   corregido_en: string | null;
-  /**
-   * El horario del turno según lo declarado en los fichajes, que es el que la
-   * gente reconoce: si Clemente declara 6:30 a 7:30 y Diego 7:00 a 14:00, el
-   * turno fue de 6:30 a 14:00 aunque los botones se hayan apretado 6:33 y 14:05.
-   *
-   * `null` cuando no fichó nadie: ahí lo único que hay es cuándo se apretaron
-   * los botones.
-   */
-  inicio: string | null;
-  cierre: string | null;
 }
 
 /** La tabla de turnos: el abierto arriba, los cerrados abajo, con sus filtros. */
@@ -142,6 +133,7 @@ export function TablaTurnos({
   enCurso,
   diferencias,
   conteos,
+  vendidas,
   alumnos,
   productos,
 }: {
@@ -149,8 +141,9 @@ export function TablaTurnos({
   enCurso: TurnoAbierto | null;
   diferencias: DiferenciaStock[];
   conteos: ConteoStock[];
-  alumnos: { id: string; nombre_completo: string }[];
-  productos: { id: string; nombre: string; precio: number }[];
+  vendidas: { turno_id: string; producto_id: string; cantidad: number }[];
+  alumnos: Alumno[];
+  productos: Producto[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
@@ -166,6 +159,12 @@ export function TablaTurnos({
   // Lo contado de cada producto, de la apertura al cierre. El que dio bien
   // entra igual: el detalle muestra el recorrido del stock, no solo lo que
   // fallo.
+  const vendidasPorTurno = new Map<string, number>();
+  for (const v of vendidas) {
+    const clave = `${v.turno_id}|${v.producto_id}`;
+    vendidasPorTurno.set(clave, (vendidasPorTurno.get(clave) ?? 0) + v.cantidad);
+  }
+
   const conteosPorTurno = new Map<string, ProductoContado[]>();
   for (const c of conteos) {
     const nombre = c.productos?.nombre ?? "—";
@@ -173,6 +172,7 @@ export function TablaTurnos({
     const item = suyos.find((p) => p.producto === nombre) ?? {
       id: c.producto_id,
       producto: nombre,
+      vendidas: vendidasPorTurno.get(`${c.turno_id}|${c.producto_id}`) ?? 0,
     };
     if (c.momento === "apertura") item.apertura = { contado: c.contado, esperado: c.esperado };
     else item.cierre = { contado: c.contado, esperado: c.esperado };
@@ -221,8 +221,6 @@ export function TablaTurnos({
             },
             nota_cierre: null,
             corregido_en: null,
-            inicio: null,
-            cierre: null,
           },
         ]
       : []),
@@ -255,48 +253,14 @@ export function TablaTurnos({
         },
         nota_cierre: t.nota_cierre,
         corregido_en: t.corregido_en,
-        inicio: null,
-        cierre: null,
       }),
     ),
   ];
 
-  /**
-   * El horario declarado de cada turno, que es el que la gente reconoce: si
-   * Clemente declara 6:30 a 7:30 y Diego 7:00 a 14:00, el turno fue de 6:30 a
-   * 14:00 aunque los botones se hayan apretado 6:33 y 14:05.
-   *
-   * El cierre es el fichaje que termina más tarde de los que terminan antes de
-   * que se cerrara el turno. Ese filtro es el que importa: el que declaró hasta
-   * las 22:30 porque siguió trabajando en el turno siguiente no estira este.
-   *
-   * El inicio es el fichaje más temprano que empieza después de que cerró el
-   * turno anterior, por lo mismo al revés.
-   *
-   * Sin fichajes que cumplan, queda cuándo se apretaron los botones, que es lo
-   * único que hay.
-   */
-  const filas: Fila[] = (() => {
-    const enOrden = [...crudas].sort((a, b) => a.abierto_en.localeCompare(b.abierto_en));
-    // Con reduce y no con una variable que se pisa: cada vuelta necesita el
-    // cierre de la anterior, y React no quiere nada mutable adentro del render.
-    const { lista } = enOrden.reduce<{ lista: Fila[]; previo: string | null }>(
-      ({ lista, previo }, t) => {
-        const tramos = t.responsables_detalle ?? [];
-        const fines = tramos
-          .map((r) => r.hasta)
-          .filter((h): h is string => h !== null && (t.cerrado_en === null || h <= t.cerrado_en));
-        const cierre = fines.length > 0 ? fines.reduce((a, b) => (a > b ? a : b)) : null;
-
-        const arranques = tramos.map((r) => r.desde).filter((d) => previo === null || d >= previo);
-        const inicio = arranques.length > 0 ? arranques.reduce((a, b) => (a < b ? a : b)) : null;
-
-        return { lista: [...lista, { ...t, inicio, cierre }], previo: cierre ?? t.cerrado_en };
-      },
-      { lista: [], previo: null },
-    );
-    return lista.sort((a, b) => b.abierto_en.localeCompare(a.abierto_en));
-  })();
+  // El horario del turno es cuando se apretaron los botones. El check-in ya no
+  // pregunta a que hora arranca cada uno —lo toma del momento en que fichan—,
+  // asi que no hay un "declarado" que mostrar en su lugar.
+  const filas: Fila[] = crudas;
 
 
   // Lo que cada turno declaro al abrir de mas o de menos contra el cierre del
@@ -440,7 +404,7 @@ export function TablaTurnos({
                     </TableHead>
                     <TableHead>
                       <FiltroColumna
-                        etiqueta="Stock"
+                        etiqueta="Alertas"
                         param="producto"
                         opciones={opcionesProducto}
                       />
@@ -450,47 +414,26 @@ export function TablaTurnos({
                 </TableHeader>
                 <TableBody striped>
                   {visibles.map((t) => {
-                    const stock = stockPorTurno.get(t.id) ?? [];
                     return (
                       <TableRow key={t.id}>
                         <TableCell className="text-[var(--ds-gray-1000)]">
-                          {fecha(t.inicio ?? t.abierto_en)}
+                          {fecha(t.abierto_en)}
                         </TableCell>
-                        {/* El horario declarado, con el real en gris cuando no
-                            coinciden: el turno es el que la gente reconoce, pero
-                            a qué hora se apretaron los botones tambien importa
-                            cuando algo no cuadra. */}
                         <TableCell className="whitespace-nowrap text-[var(--ds-gray-1000)]">
-                          {hora(t.inicio ?? t.abierto_en)}
-                          {t.inicio && hora(t.inicio) !== hora(t.abierto_en) && (
-                            <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                              {" "}
-                              abrió {hora(t.abierto_en)}
-                            </span>
-                          )}
+                          {hora(t.abierto_en)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-[var(--ds-gray-1000)]">
                           {t.cerrado_en === null ? (
                             <span className="text-[var(--ds-gray-900)]">—</span>
                           ) : (
-                            <>
-                              {hora(t.cierre ?? t.cerrado_en)}
-                              {t.cierre && hora(t.cierre) !== hora(t.cerrado_en) && (
-                                <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                                  {" "}
-                                  cerró {hora(t.cerrado_en)}
-                                </span>
-                              )}
-                            </>
+                            hora(t.cerrado_en)
                           )}
                         </TableCell>
                         <TableCell>
-                          {/* Contra el horario declarado, no contra los botones:
-                              el que declaro 7:00 no "entro 7:05". */}
                           <Responsables
                             tramos={t.responsables_detalle}
-                            abierto={t.inicio ?? t.abierto_en}
-                            cerrado={t.cierre ?? t.cerrado_en}
+                            abierto={t.abierto_en}
+                            cerrado={t.cerrado_en}
                           />
                         </TableCell>
                         <TableCell>
@@ -505,14 +448,7 @@ export function TablaTurnos({
                             ) : (
                               <Badge variant="green-subtle">Cerró bien</Badge>
                             )}
-                            {alertasDe(t) > 0 && (
-                              <span
-                                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ds-red-200)] text-[11px] font-medium tabular-nums text-[var(--ds-red-900)]"
-                                aria-label={`${alertasDe(t)} ${alertasDe(t) === 1 ? "problema" : "problemas"} en este turno`}
-                              >
-                                {alertasDe(t)}
-                              </span>
-                            )}
+
                           </div>
                         </TableCell>
                         <TableCell>
@@ -531,26 +467,21 @@ export function TablaTurnos({
                             salto={saltos.get(t.id)?.chica ?? 0}
                           />
                         </TableCell>
+                        {/* Cuantas cosas no cuadran: las dos cajas, los saltos
+                            entre turnos y cada producto con diferencia. El
+                            detalle esta en Ver, que es donde se puede leer. */}
                         <TableCell>
-                          {stock.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {stock.map((d) => (
-                                <Badge
-                                  key={`${d.producto_id}-${d.momento}`}
-                                  variant={d.diferencia < 0 ? "red-subtle" : "amber-subtle"}
-                                >
-                                  {d.diferencia > 0 ? "+" : ""}
-                                  {d.diferencia} {d.producto}
-                                  {d.momento === "apertura" ? " (al abrir)" : ""}
-                                </Badge>
-                              ))}
-                            </div>
+                          {alertasDe(t) > 0 ? (
+                            <span className="flex size-6 items-center justify-center rounded-full bg-[var(--ds-red-200)] text-[13px] font-medium tabular-nums text-[var(--ds-red-900)]">
+                              {alertasDe(t)}
+                            </span>
                           ) : t.cerrado_en !== null && t.contados === 0 && !sinCerrar(t) ? (
                             // Cerraron sin contar nada. No es "dio bien": no
-                            // prueba nada, y por eso es lo unico que se avisa
-                            // cuando no hay diferencias.
+                            // prueba nada, y por eso se avisa igual.
                             <span className="text-[var(--ds-amber-900)]">No se contó</span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[var(--ds-gray-900)]">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <DetalleTurno
@@ -558,11 +489,13 @@ export function TablaTurnos({
                             dia={new Date(t.abierto_en).toLocaleDateString("en-CA", {
                               timeZone: ZONA,
                             })}
+                            desde={hora(t.abierto_en)}
+                            hasta={t.cerrado_en ? hora(t.cerrado_en) : "23:59"}
                             alumnos={alumnos}
                             productos={productos}
                             corregido={t.corregido_en}
-                            cuando={`${fecha(t.inicio ?? t.abierto_en)}, ${hora(t.inicio ?? t.abierto_en)}${
-                              t.cerrado_en ? ` → ${hora(t.cierre ?? t.cerrado_en)}` : ""
+                            cuando={`${fecha(t.abierto_en)}, ${hora(t.abierto_en)}${
+                              t.cerrado_en ? ` → ${hora(t.cerrado_en)}` : ""
                             }`}
                             abierto={t.cerrado_en === null}
                             grande={t.desglose.grande}
