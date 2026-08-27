@@ -5,6 +5,7 @@ import { traerTodo } from "@/lib/traer-todo";
 import { comoQuery } from "@/lib/query";
 import { FiltrosLocales } from "@/hooks/use-navegacion";
 import { PERIODOS } from "@/lib/periodos";
+import type { DiaDeIngresos } from "@/lib/ingresos";
 import {
   TablaVentas,
   type VentaFila,
@@ -67,10 +68,14 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     qMovs = qMovs.lte("creado_en", hasta);
   }
 
-  const [ventas, pagos, movimientos] = await Promise.all([
+  const [ventas, pagos, movimientos, { data: ingresos }] = await Promise.all([
     traerTodo<VentaFila>(qVentas.order("creado_en", { ascending: false })),
     traerTodo<PagoFila>(qPagos.order("creado_en", { ascending: false })),
     traerTodo<MovimientoFila>(qMovs.order("creado_en", { ascending: false })),
+    // El grafico tiene su propio periodo, asi que se trae el historico entero y
+    // no lo que pidio el encabezado de Fecha. Es una fila por dia y rubro: unos
+    // cientos al año, ya sumadas en la base.
+    supabase.from("ventas_por_dia").select("dia, rubro, monto").order("dia"),
   ]);
 
   // El pago hecho el mismo día que su venta ya está contado en la fila de esa
@@ -111,7 +116,11 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
 
   return (
     <FiltrosLocales key={query} inicial={query} servidor={["periodo", "fecha"]}>
-      <TablaVentas registros={todos} etiquetaPeriodo={elegido.label} />
+      <TablaVentas
+        registros={todos}
+        etiquetaPeriodo={elegido.label}
+        ingresos={(ingresos ?? []) as DiaDeIngresos[]}
+      />
     </FiltrosLocales>
   );
 }
