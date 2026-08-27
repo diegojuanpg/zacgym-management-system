@@ -430,11 +430,7 @@ export function TablaTurnos({
                           )}
                         </TableCell>
                         <TableCell>
-                          <Responsables
-                            tramos={t.responsables_detalle}
-                            abierto={t.abierto_en}
-                            cerrado={t.cerrado_en}
-                          />
+                          <Responsables tramos={t.responsables_detalle} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -503,11 +499,7 @@ export function TablaTurnos({
                             stock={conteosPorTurno.get(t.id) ?? []}
                             nota={t.nota_cierre}
                             responsables={
-                              <Responsables
-                                tramos={t.responsables_detalle}
-                                abierto={t.abierto_en}
-                                cerrado={t.cerrado_en}
-                              />
+                              <Responsables tramos={t.responsables_detalle} />
                             }
                           />
                         </TableCell>
@@ -533,47 +525,18 @@ export function TablaTurnos({
 }
 
 /**
- * Quién estuvo, y el horario solo del que no cubrió el turno entero.
- *
- * La jornada casi nunca coincide con el turno —se ficha una vez y adentro pasan
- * dos o tres turnos—, así que lo que se muestra es el pedazo que se solapa: de
- * cuándo a cuándo estuvo esa persona mientras el turno estaba abierto.
+ * Quiénes estuvieron en el turno. Solo los nombres: el horario de cada uno es
+ * de la persona, no del turno, y en una lista de diez filas convertía cada
+ * renglón en cuatro.
  */
-function Responsables({
-  tramos,
-  abierto,
-  cerrado,
-}: {
-  tramos: Tramo[];
-  abierto: string;
-  cerrado: string | null;
-}) {
+function Responsables({ tramos }: { tramos: Tramo[] }) {
   if (tramos.length === 0) {
     return <span className="text-[var(--ds-amber-900)]">Nadie fichó</span>;
   }
 
-  return (
-    <div className="flex flex-col leading-tight">
-      {tramos.map((r) => {
-        // El solapamiento, no la jornada entera: el que entró antes de que
-        // abriera el turno, adentro del turno estuvo desde que abrió.
-        const entro = r.desde > abierto ? r.desde : null;
-        const salio = cerrado !== null && r.hasta !== null && r.hasta < cerrado ? r.hasta : null;
-        return (
-          <span key={`${r.empleado_id}-${r.desde}`} className="whitespace-nowrap">
-            <span className="text-[var(--ds-gray-1000)]">{r.nombre}</span>
-            {(entro || salio) && (
-              <span className="text-copy-13 text-[var(--ds-gray-900)]">
-                {" "}
-                {entro ? hora(entro) : ""}
-                {salio ? ` → ${hora(salio)}` : ""}
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </div>
-  );
+  // Sin repetir: el que se fue y volvió el mismo turno es una sola persona.
+  const nombres = [...new Set(tramos.map((r) => r.nombre))];
+  return <span className="text-[var(--ds-gray-1000)]">{nombres.join(", ")}</span>;
 }
 
 /**
