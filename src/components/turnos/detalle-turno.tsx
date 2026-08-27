@@ -288,8 +288,8 @@ export function DetalleTurno({
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <CajaCard etiqueta="Caja grande" caja={comoCaja(grande)} />
-            <CajaCard etiqueta="Caja chica" caja={comoCaja(chica)} />
+            <CajaCard etiqueta="Caja grande" caja={comoCaja(grande)} alcance="turno" />
+            <CajaCard etiqueta="Caja chica" caja={comoCaja(chica)} alcance="turno" />
           </div>
 
           <section className="flex flex-col gap-2">
