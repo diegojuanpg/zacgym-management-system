@@ -31,20 +31,32 @@ export interface ItemCobro {
   transferencia: number;
 }
 
-/** Ventas, movimientos y cobros del mismo lote, en una sola transacción. */
+/**
+ * Ventas, movimientos y cobros del mismo lote, en una sola transacción.
+ *
+ * `en` apunta la carga a un turno viejo con la hora que corresponda, para
+ * arreglar lo que nadie anotó en su momento. Sin eso va al turno abierto y con
+ * la hora de ahora, que es el camino de todos los días.
+ */
 export async function registrarLote(
   ventas: ItemVenta[],
   movimientos: ItemMovimiento[],
   cobros: ItemCobro[] = [],
+  en?: { turnoId: string; creadoEn: string },
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("registrar_lote", {
     p_ventas: ventas,
     p_movimientos: movimientos,
     p_cobros: cobros,
+    p_turno_id: en?.turnoId ?? null,
+    p_creado_en: en?.creadoEn ?? null,
   });
   if (error) return { error: error.message };
   revalidatePath("/mostrador");
+  revalidatePath("/turnos");
+  revalidatePath("/ventas");
+  revalidatePath("/alumnos");
   return {};
 }
 

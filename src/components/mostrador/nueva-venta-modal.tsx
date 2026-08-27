@@ -116,6 +116,8 @@ export function NuevaVentaModal({
   promos = [],
   bloqueado = false,
   motivoBloqueo,
+  corrigiendo,
+  control,
 }: {
   alumnos: Alumno[];
   productos: Producto[];
@@ -124,9 +126,20 @@ export function NuevaVentaModal({
   /** Sin turno abierto, o mirando un día pasado: el botón queda muerto. */
   bloqueado?: boolean;
   motivoBloqueo?: string;
+  /**
+   * Cargando en un turno viejo: todo entra en ese turno, con la hora que se
+   * elija adentro del rango en que estuvo abierto. Sin esto la carga va al turno
+   * abierto y con la hora de ahora, que es el camino de todos los días.
+   */
+  corrigiendo?: { turnoId: string; dia: string; desde: string; hasta: string };
+  /** Abierto desde afuera, cuando el disparador vive en otra pantalla. */
+  control?: { abierto: boolean; cambiar: (abierto: boolean) => void };
 }) {
   const router = useRouter();
-  const [abierto, setAbierto] = React.useState(false);
+  const [propio, setPropio] = React.useState(false);
+  const abierto = control ? control.abierto : propio;
+  const setAbierto = control ? control.cambiar : setPropio;
+  const [hora, setHora] = React.useState("");
   const [filas, setFilas] = React.useState<Fila[]>([]);
   const [pestania, setPestania] = React.useState("venta");
   const [error, setError] = React.useState<string | null>(null);
@@ -376,6 +389,10 @@ export function NuevaVentaModal({
   }
 
   async function confirmar() {
+    if (corrigiendo && hora === "") {
+      setError("Poné a qué hora fue, adentro del turno.");
+      return;
+    }
     setGuardando(true);
     setError(null);
     const { error } = await registrarLote(
@@ -400,6 +417,7 @@ export function NuevaVentaModal({
         efectivo,
         transferencia,
       })),
+      corrigiendo ? { turnoId: corrigiendo.turnoId, creadoEn: `${corrigiendo.dia}T${hora}:00-03:00` } : undefined,
     );
     setGuardando(false);
     if (error) {
@@ -433,9 +451,11 @@ export function NuevaVentaModal({
 
   return (
     <>
-      <Button onClick={() => setAbierto(true)} prefix={<PlusIcon />}>
-        Agregar movimientos
-      </Button>
+      {!control && (
+        <Button onClick={() => setAbierto(true)} prefix={<PlusIcon />}>
+          Agregar movimientos
+        </Button>
+      )}
 
       <Modal
         open={abierto}
@@ -486,6 +506,27 @@ export function NuevaVentaModal({
           </div>
         }
       >
+        {corrigiendo && (
+          /* Una hora para todo el lote: se esta reconstruyendo un momento del
+             turno, no cargando cosas sueltas de horas distintas. */
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--ds-amber-400)] bg-[var(--ds-amber-100)] p-3">
+            <div className="w-40">
+              <Input
+                label="¿A qué hora fue?"
+                type="time"
+                size="large"
+                min={corrigiendo.desde}
+                max={corrigiendo.hasta}
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+              />
+            </div>
+            <p className="text-copy-13 text-[var(--ds-amber-900)]">
+              Entra en el turno de {corrigiendo.desde} a {corrigiendo.hasta}, no en el de ahora.
+            </p>
+          </div>
+        )}
+
         <Tabs value={pestania} onValueChange={setPestania} className="mb-4">
           <TabsList>
             <TabsTrigger value="venta">Venta</TabsTrigger>

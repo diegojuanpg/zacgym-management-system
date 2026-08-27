@@ -1261,18 +1261,6 @@ export type Database = {
         }
         Returns: string
       }
-      agregar_venta_olvidada: {
-        Args: {
-          p_alumno_id: string
-          p_cantidad?: number
-          p_creado_en: string
-          p_efectivo?: number
-          p_producto_id: string
-          p_transferencia?: number
-          p_turno_id: string
-        }
-        Returns: string
-      }
       anular_movimiento: {
         Args: { p_movimiento_id: string }
         Returns: undefined
@@ -1337,23 +1325,33 @@ export type Database = {
       registrar_cobro: {
         Args: {
           p_alumno_id: string
+          p_creado_en?: string
           p_efectivo?: number
           p_transferencia?: number
+          p_turno_id?: string
         }
         Returns: number
       }
       registrar_lote: {
-        Args: { p_cobros?: Json; p_movimientos?: Json; p_ventas?: Json }
+        Args: {
+          p_cobros?: Json
+          p_creado_en?: string
+          p_movimientos?: Json
+          p_turno_id?: string
+          p_ventas?: Json
+        }
         Returns: number
       }
       registrar_movimiento: {
         Args: {
           p_alumno_id?: string
           p_caja?: Database["public"]["Enums"]["caja"]
+          p_creado_en?: string
           p_metodo?: Database["public"]["Enums"]["metodo_pago"]
           p_monto: number
           p_motivo: string
           p_tipo: Database["public"]["Enums"]["movimiento_tipo"]
+          p_turno_id?: string
         }
         Returns: string
       }
@@ -1365,7 +1363,10 @@ export type Database = {
         }
         Returns: number
       }
-      registrar_ventas: { Args: { p_items: Json }; Returns: number }
+      registrar_ventas: {
+        Args: { p_creado_en?: string; p_items: Json; p_turno_id?: string }
+        Returns: number
+      }
       responsables_entre: {
         Args: { p_desde: string; p_hasta: string }
         Returns: {
@@ -1381,6 +1382,7 @@ export type Database = {
         Args: { p_cantidad: number; p_producto_id: string }
         Returns: number
       }
+      turno_esta_abierto: { Args: { p_turno_id: string }; Returns: boolean }
     }
     Enums: {
       caja: "grande" | "chica"
