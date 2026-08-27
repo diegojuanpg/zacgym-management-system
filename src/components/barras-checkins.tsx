@@ -85,11 +85,20 @@ export function BarrasCheckins({
       {/* El control de arriba a la derecha cambia con el modo —flechas para
           moverse de semana, desplegable para elegir cuántas— y vive acá y no
           pegado al gráfico, para no meterse entre el título y las barras. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-heading-16">
-          Alumnos activos<span className="text-[var(--ds-gray-900)]">/</span>
-          {modo === "dia" ? "Día" : "Semana"}
-        </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 className="text-heading-16">
+            Alumnos activos<span className="text-[var(--ds-gray-900)]">/</span>
+            {modo === "dia" ? "Día" : "Semana"}
+          </h2>
+
+          <Tabs value={modo} onValueChange={setModo} className="w-auto">
+            <TabsList>
+              <TabsTrigger value="dia">Por día</TabsTrigger>
+              <TabsTrigger value="semana">Por semana</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
         {modo === "dia" ? (
           <div className="flex items-center gap-1">
@@ -130,14 +139,7 @@ export function BarrasCheckins({
         )}
       </div>
 
-      <Tabs value={modo} onValueChange={setModo}>
-        <TabsList>
-          <TabsTrigger value="dia">Por día</TabsTrigger>
-          <TabsTrigger value="semana">Por semana</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <ChartContainer config={config} className="aspect-auto h-36 w-full min-w-64">
+      <ChartContainer config={config} className="aspect-auto h-56 w-full min-w-64">
         <BarChart data={datos} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
           {/* Solo las horizontales: las verticales no ayudan a comparar alturas. */}
           <CartesianGrid vertical={false} stroke="var(--ds-gray-alpha-400)" />
