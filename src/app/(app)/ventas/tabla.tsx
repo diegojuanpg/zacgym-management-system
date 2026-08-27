@@ -173,16 +173,22 @@ export function TablaVentas({
     (a, b) => a.localeCompare(b, "es"),
   );
 
+  // "Todos" queda primera porque es la vista entera, no un rubro. El resto va de
+  // mayor a menor: la solapa que más movimientos tiene es la que más se abre, y
+  // a la izquierda es donde primero se la busca.
   const solapas = [
-    { valor: "todos", nombre: "Todos" },
-    ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
-    { valor: "sin", nombre: "Sin categoría" },
-    { valor: "cobro", nombre: "Cobros" },
-    { valor: "caja", nombre: "Caja" },
-  ].map((s) => ({
-    ...s,
-    cuantos: s.valor === "todos" ? todos.length : todos.filter((r) => rubroDe(r) === s.valor).length,
-  }));
+    { valor: "todos", nombre: "Todos", cuantos: todos.length },
+    ...[
+      ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
+      { valor: "sin", nombre: "Sin categoría" },
+      { valor: "cobro", nombre: "Cobros" },
+      { valor: "caja", nombre: "Movimientos de caja" },
+    ]
+      .map((s) => ({ ...s, cuantos: todos.filter((r) => rubroDe(r) === s.valor).length }))
+      // Desempate alfabético: dos rubros en cero no se pisan el orden de una
+      // carga a la otra.
+      .sort((a, b) => b.cuantos - a.cuantos || a.nombre.localeCompare(b.nombre, "es")),
+  ];
 
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
   const opcionesAlumno = ordenar(todos.map(alumnoDe));
