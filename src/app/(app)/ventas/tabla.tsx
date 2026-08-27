@@ -27,6 +27,7 @@ import {
   MENSUALIDADES,
   esMensualidadNueva as esNueva,
   hayQueDarDeBaja as hayQueBajar,
+  pendienteDeCarga as faltaCargar,
 } from "@/lib/mensualidades";
 import { BarrasIngresos } from "@/components/barras-ingresos";
 import type { DiaDeIngresos } from "@/lib/ingresos";
@@ -166,6 +167,7 @@ export function TablaVentas({
   // solo sobre ventas, y el resto ni siquiera tiene las columnas.
   const esMensualidadNueva = (r: Registro) => r.clase === "venta" && esNueva(r);
   const hayQueDarDeBaja = (r: Registro) => r.clase === "venta" && hayQueBajar(r);
+  const pendienteDeCarga = (r: Registro) => r.clase === "venta" && faltaCargar(r);
 
   /**
    * El estado de un acuse, en palabras. Es lo que lista el filtro del
@@ -211,14 +213,22 @@ export function TablaVentas({
   // mayor a menor: la solapa que más movimientos tiene es la que más se abre, y
   // a la izquierda es donde primero se la busca.
   const solapas = [
-    { valor: "todos", nombre: "Todos", cuantos: todos.length },
+    { valor: "todos", nombre: "Todos", cuantos: todos.length, alerta: undefined, alertaTitulo: undefined },
     ...[
       ...categorias.map((c) => ({ valor: c, nombre: capitalizar(c) })),
       { valor: "sin", nombre: "Sin categoría" },
       { valor: "cobro", nombre: "Cobros" },
       { valor: "caja", nombre: "Movimientos de caja" },
     ]
-      .map((s) => ({ ...s, cuantos: todos.filter((r) => rubroDe(r) === s.valor).length }))
+      .map((s) => ({
+        ...s,
+        cuantos: todos.filter((r) => rubroDe(r) === s.valor).length,
+        // Solo Mensualidades lleva el número rojo: es la única que se replica
+        // afuera. `undefined` en el resto, que es como TabsUrl no lo dibuja.
+        alerta:
+          s.valor === MENSUALIDADES ? todos.filter(pendienteDeCarga).length : undefined,
+        alertaTitulo: "Sin cargar en el sheet o en la app",
+      }))
       // Desempate alfabético: dos rubros en cero no se pisan el orden de una
       // carga a la otra.
       .sort((a, b) => b.cuantos - a.cuantos || a.nombre.localeCompare(b.nombre, "es")),
@@ -299,7 +309,7 @@ export function TablaVentas({
           <TabsUrl
             param="rubro"
             valor={solapa}
-            vistas={solapas.map(({ valor, nombre, cuantos }) => ({ valor, nombre, cuantos }))}
+            vistas={solapas}
           />
         </div>
 

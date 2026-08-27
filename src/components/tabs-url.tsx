@@ -11,6 +11,17 @@ export interface VistaTab {
   nombre: string;
   /** Se muestra al lado del título. En cero no se dibuja. */
   cuantos?: number;
+  /**
+   * Cuántos de esos piden atención. Va en rojo y antes del total, que es el
+   * orden en que se leen: primero lo que hay que hacer, después cuántos son.
+   * En cero no se dibuja, así el rojo aparece solo cuando significa algo.
+   */
+  alerta?: number;
+  /**
+   * Qué son esos que piden atención. Dos números pelados uno al lado del otro
+   * se leen "Mensualidades 1 2709" y no dicen nada: esto le pone nombre al rojo.
+   */
+  alertaTitulo?: string;
 }
 
 /**
@@ -51,6 +62,11 @@ export function TabsUrl({
         title: (
           <span className="flex items-center gap-1.5 whitespace-nowrap">
             {v.nombre}
+            {v.alerta ? (
+              <Badge variant="red" size="sm" title={v.alertaTitulo} aria-label={v.alertaTitulo}>
+                {v.alerta}
+              </Badge>
+            ) : null}
             {v.cuantos ? (
               <Badge variant="gray-subtle" size="sm">
                 {v.cuantos}

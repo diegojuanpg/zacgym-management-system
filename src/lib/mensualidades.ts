@@ -49,3 +49,16 @@ export const hayQueDarDeBaja = (v: CargaDeVenta) =>
   esMensualidadNueva(v) &&
   v.anulada_en !== null &&
   (v.cargada_sheet_en !== null || v.cargada_app_en !== null);
+
+/**
+ * Le falta al menos uno de los dos acuses, así que todavía hay trabajo.
+ *
+ * La anulada que ya se había cargado afuera cuenta igual: la planilla y la app
+ * quedaron con un cobro que acá no existe y hay que ir a borrarlo. Recién
+ * destildando los dos deja de figurar.
+ */
+export const pendienteDeCarga = (v: CargaDeVenta) => {
+  if (!esMensualidadNueva(v)) return false;
+  if (v.anulada_en !== null) return hayQueDarDeBaja(v);
+  return v.cargada_sheet_en === null || v.cargada_app_en === null;
+};
