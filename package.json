@@ -23,7 +23,8 @@
     "test:credito": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/saldo_a_favor.sql",
     "test:devolucion": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/devolucion.sql",
     "smoke:auth": "node --env-file=.env.local scripts/smoke-auth.mjs",
-    "mail": "xdg-open http://127.0.0.1:55324"
+    "mail": "xdg-open http://127.0.0.1:55324",
+    "test:ingresos": "node --experimental-strip-types scripts/ingresos.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

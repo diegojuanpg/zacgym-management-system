@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 import { BotonBorrar } from "@/components/mostrador/boton-borrar";
+import { BarrasIngresos } from "@/components/barras-ingresos";
+import type { DiaDeIngresos } from "@/lib/ingresos";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
@@ -114,10 +116,13 @@ export type Registro =
 export function TablaVentas({
   registros: todos,
   etiquetaPeriodo,
+  ingresos,
 }: {
   registros: Registro[];
   /** "Últimos 30 días" y compañía: lo resolvió la página, acá solo se muestra. */
   etiquetaPeriodo: string;
+  /** El histórico entero, ya sumado por día y rubro. El gráfico lo recorta solo. */
+  ingresos: DiaDeIngresos[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
@@ -230,6 +235,10 @@ export function TablaVentas({
             ? `${diaCorto(rangoFecha.desde) || "el inicio"} → ${diaCorto(rangoFecha.hasta) || "hoy"}`
             : etiquetaPeriodo.toLowerCase()}
         </p>
+      </div>
+
+      <div className="material-base rounded-lg border border-[var(--ds-gray-alpha-400)] p-4">
+        <BarrasIngresos ingresos={ingresos} />
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
