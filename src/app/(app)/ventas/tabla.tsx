@@ -10,7 +10,6 @@ import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Note } from "@/components/ui/note";
 import { Button } from "@/components/ui/button";
 import { DollarIcon } from "@/components/icons";
 import {
@@ -290,28 +289,6 @@ export function TablaVentas({
         <BarrasIngresos ingresos={ingresos} />
       </div>
 
-      {(cuantasPendientes > 0 || solapa === "pendientes") && (
-        <Note
-          type={cuantasPendientes > 0 ? "error" : "success"}
-          fill
-          action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => verPendientes(solapa !== "pendientes")}
-            >
-              {solapa === "pendientes" ? "Ver todo" : "Ver cuáles"}
-            </Button>
-          }
-        >
-          {cuantasPendientes === 0
-            ? "No queda ninguna mensualidad sin cargar."
-            : `${cuantasPendientes} ${
-                cuantasPendientes === 1 ? "mensualidad" : "mensualidades"
-              } sin cargar en el sheet y en la app.`}
-        </Note>
-      )}
-
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <TabsUrl
@@ -321,17 +298,45 @@ export function TablaVentas({
           />
         </div>
 
-        <Buscador inicial={q} placeholder="Buscar alumno o detalle..." />
+        {/* La cola vive al lado del buscador y no entre las solapas: en rojo y
+            fuera de la fila de solapas se ve de lejos, que es todo el punto.
+            Sin pendientes no se dibuja —un botón en cero es ruido todos los
+            días— y para salir del filtro está la solapa Todos, al lado. */}
+        <div className="flex shrink-0 items-center gap-2">
+          {cuantasPendientes > 0 && (
+            <Button
+              variant="error"
+              size="sm"
+              aria-pressed={solapa === "pendientes"}
+              title="Mensualidades que faltan cargar en el sheet y en la app"
+              onClick={() => verPendientes(solapa !== "pendientes")}
+              className="whitespace-nowrap"
+            >
+              {cuantasPendientes} sin cargar
+            </Button>
+          )}
+          <Buscador inicial={q} placeholder="Buscar alumno o detalle..." />
+        </div>
       </div>
 
       {registros.length === 0 ? (
         <EmptyState
           icon={<DollarIcon />}
-          title={todos.length === 0 ? "Sin movimientos en el período" : "Nada coincide"}
+          title={
+            solapa === "pendientes"
+              ? "No queda ninguna sin cargar"
+              : todos.length === 0
+                ? "Sin movimientos en el período"
+                : "Nada coincide"
+          }
           description={
-            todos.length === 0
-              ? "Ampliá el período desde el encabezado de Fecha."
-              : "Probá con otra búsqueda o sacá los filtros de los encabezados."
+            // Tildaste la última y el botón rojo desapareció: sin esto la tabla
+            // vacía parece un filtro mal puesto en vez de trabajo terminado.
+            solapa === "pendientes"
+              ? "Todas las mensualidades nuevas están en el sheet y en la app."
+              : todos.length === 0
+                ? "Ampliá el período desde el encabezado de Fecha."
+                : "Probá con otra búsqueda o sacá los filtros de los encabezados."
           }
         />
       ) : (
@@ -414,7 +419,7 @@ export function TablaVentas({
                       </TableCell>
                       <TableCell>{alumnoDe(r)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           {detalleDe(r)}
                           {hayQueDarDeBaja(r) && (
                             <Badge variant="red-subtle">Dar de baja afuera</Badge>
@@ -444,7 +449,7 @@ export function TablaVentas({
                             {pesos(r.monto)}
                           </span>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-2">
                             {pesos(r.efectivo + r.transferencia)}
                             {r.clase === "venta" && r.saldo > 0 && (
                               <Badge variant="amber-subtle">Debe {pesos(r.saldo)}</Badge>
