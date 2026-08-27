@@ -9,6 +9,17 @@ export function cn(...inputs: ClassValue[]) {
 export const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
+ * Cada palabra con la primera en mayúscula: "diego guerrero" -> "Diego Guerrero".
+ *
+ * Solo toca la primera letra de cada palabra y deja el resto como vino. No pasa
+ * lo demás a minúscula a propósito: arreglaría un "MARIA" gritado, pero también
+ * rompería un "McCarthy" o un "DiCarlo", y no hay forma de distinguirlos. El
+ * apóstrofo y el guion cuentan como separador, para O'Brien y Jean-Luc.
+ */
+export const nombrePropio = (s: string) =>
+  s.replace(/(^|[\s'’-])(\S)/g, (_, separador: string, letra: string) => separador + letra.toUpperCase());
+
+/**
  * Una fecha sin hora ("2026-07-07") no tiene zona. Pasarla por Date la lee como
  * medianoche UTC y en Buenos Aires (UTC-3) cae el dia anterior: el vencimiento
  * del 7 se mostraba como 6. Se arma a mano con los pedazos del ISO.

@@ -86,7 +86,6 @@ export function AltaAlumno({
             </option>
             <option value="femenino">Femenino</option>
             <option value="masculino">Masculino</option>
-            <option value="otro">Otro</option>
           </Select>
         </div>
       </div>
