@@ -47,14 +47,14 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   let qVentas = supabase
     .from("ventas_saldo")
     .select(
-      "id, alumno, producto, categoria, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, creado_en, anulada_en",
+      "id, alumno, alumno_id, producto, producto_id, categoria, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en",
     );
   let qPagos = supabase
     .from("pagos_detalle")
-    .select("id, venta_id, alumno, monto, metodo, creado_en, anulada_en");
+    .select("id, venta_id, alumno, alumno_id, monto, metodo, turno_id, creado_en, anulada_en");
   let qMovs = supabase
     .from("movimientos_caja_detalle")
-    .select("id, tipo, caja, metodo, monto, motivo, creado_en, anulado_en");
+    .select("id, tipo, caja, metodo, monto, motivo, turno_id, creado_en, anulado_en");
 
   if (desde) {
     qVentas = qVentas.gte("creado_en", desde);
@@ -90,6 +90,8 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
     const fila = cobros.get(clave) ?? {
       ids: [],
       alumno: p.alumno,
+      alumno_id: p.alumno_id,
+      turno_id: p.turno_id,
       efectivo: 0,
       transferencia: 0,
       creado_en: p.creado_en,

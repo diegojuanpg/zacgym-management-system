@@ -1,15 +1,14 @@
 "use client";
 
-import { borrar, borrarCobro, borrarMov } from "@/lib/borrados";
 import { saltosEntreTurnos } from "@/lib/caja";
 import { useParametros } from "@/hooks/use-navegacion";
 import { horaCorta } from "@/lib/utils";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { TurnoSeparador, type TurnoDelDia } from "@/components/mostrador/turno-separador";
+import { BotonBorrar } from "@/components/mostrador/boton-borrar";
 import { MetodoPagoSelect } from "@/components/mostrador/metodo-pago-select";
 import { MontoEditable } from "@/components/mostrador/monto-editable";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CartIcon } from "@/components/icons";
 import {
@@ -60,6 +59,8 @@ export interface VentaFila {
   transferencia: number;
   no_paga: number;
   a_favor: number;
+  alumno_id: string;
+  producto_id: string;
   saldo: number;
   turno_id: string;
   creado_en: string;
@@ -70,6 +71,7 @@ export interface PagoFila {
   id: string;
   venta_id: string;
   alumno: string;
+  alumno_id: string;
   producto: string;
   monto: number;
   metodo: "efectivo" | "transferencia" | "no_paga" | "a_favor";
@@ -83,6 +85,7 @@ export interface PagoFila {
 export interface CobroFila {
   ids: string[];
   alumno: string;
+  alumno_id: string;
   efectivo: number;
   transferencia: number;
   turno_id: string;
@@ -375,30 +378,45 @@ export function TablaMostrador({
                         )}
 
                         <TableCell className="text-center">
-                          {(
-                            <form
-                              action={
-                                r.clase === "venta"
-                                  ? borrar
-                                  : r.clase === "cobro"
-                                    ? borrarCobro
-                                    : borrarMov
-                              }
-                            >
-                              <Button
-                                type="submit"
-                                variant="tertiary"
-                                size="sm"
-                                // Sin esto un lector de pantalla oye "Eliminar"
-                                // veinte veces y ninguna dice qué se elimina.
-                                aria-label={`Eliminar ${detalleDe(r).toLowerCase()} de ${alumnoDe(r)}`}
-                                className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
-                              >
-                                Eliminar
-                              </Button>
-                              <input type="hidden" name="id" value={id} />
-                            </form>
-                          )}
+                          <BotonBorrar
+                            registro={
+                              r.clase === "venta"
+                                ? {
+                                    clase: "venta",
+                                    id: r.id,
+                                    turno_id: r.turno_id,
+                                    creado_en: r.creado_en,
+                                    alumno_id: r.alumno_id,
+                                    producto_id: r.producto_id,
+                                    cantidad: r.cantidad,
+                                    efectivo: r.efectivo,
+                                    transferencia: r.transferencia,
+                                    no_paga: r.no_paga,
+                                  }
+                                : r.clase === "movimiento"
+                                  ? {
+                                      clase: "movimiento",
+                                      id: r.id,
+                                      turno_id: r.turno_id,
+                                      creado_en: r.creado_en,
+                                      tipo: r.tipo,
+                                      monto: r.monto,
+                                      motivo: r.motivo,
+                                      caja: r.caja,
+                                      metodo: r.metodo,
+                                    }
+                                  : {
+                                      clase: "cobro",
+                                      ids: r.ids,
+                                      turno_id: r.turno_id,
+                                      creado_en: r.creado_en,
+                                      alumno_id: r.alumno_id,
+                                      efectivo: r.efectivo,
+                                      transferencia: r.transferencia,
+                                    }
+                            }
+                            etiqueta={`${detalleDe(r).toLowerCase()} de ${alumnoDe(r)}`}
+                          />
                         </TableCell>
                       </TableRow>
                     );

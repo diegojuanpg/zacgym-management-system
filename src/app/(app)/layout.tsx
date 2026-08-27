@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { COOKIE_MENU } from "@/lib/menu";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/toast";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const staff = await requireStaff();
@@ -20,6 +21,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-full flex-1">
+      {/* Los avisos de "listo, y si te arrepentís, deshacer" viven acá: una sola
+          vez para toda la app. */}
+      <Toaster />
       <AppSidebar
         fijoInicial={fijo}
         pie={

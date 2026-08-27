@@ -9,7 +9,6 @@ import { Buscador } from "@/components/buscador";
 import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DollarIcon } from "@/components/icons";
 import {
@@ -22,7 +21,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
-import { borrar, borrarCobro, borrarMov } from "@/lib/borrados";
+import { BotonBorrar } from "@/components/mostrador/boton-borrar";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
@@ -53,7 +52,10 @@ function nombreMetodo(efectivo: number, transferencia: number, noPaga = 0, aFavo
 export interface VentaFila {
   id: string;
   alumno: string;
+  alumno_id: string;
   producto: string;
+  producto_id: string;
+  turno_id: string;
   categoria: string | null;
   cantidad: number;
   total: number;
@@ -70,6 +72,8 @@ export interface PagoFila {
   id: string;
   venta_id: string;
   alumno: string;
+  alumno_id: string;
+  turno_id: string;
   monto: number;
   metodo: "efectivo" | "transferencia" | "no_paga" | "a_favor";
   creado_en: string;
@@ -78,6 +82,7 @@ export interface PagoFila {
 
 export interface MovimientoFila {
   id: string;
+  turno_id: string;
   tipo: "ingreso" | "egreso";
   caja: "grande" | "chica";
   metodo: "efectivo" | "transferencia";
@@ -90,6 +95,8 @@ export interface MovimientoFila {
 export interface CobroFila {
   ids: string[];
   alumno: string;
+  alumno_id: string;
+  turno_id: string;
   efectivo: number;
   transferencia: number;
   creado_en: string;
@@ -362,28 +369,45 @@ export function TablaVentas({
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        {(
-                          <form
-                            action={
-                              r.clase === "venta"
-                                ? borrar
-                                : r.clase === "cobro"
-                                  ? borrarCobro
-                                  : borrarMov
-                            }
-                          >
-                            <Button
-                              type="submit"
-                              variant="tertiary"
-                              size="sm"
-                              aria-label={`Eliminar ${detalleDe(r).toLowerCase()} de ${alumnoDe(r)}`}
-                              className="hover:bg-[var(--ds-red-200)] hover:text-[var(--ds-red-900)]"
-                            >
-                              Eliminar
-                            </Button>
-                            <input type="hidden" name="id" value={id} />
-                          </form>
-                        )}
+                        <BotonBorrar
+                          registro={
+                            r.clase === "venta"
+                              ? {
+                                  clase: "venta",
+                                  id: r.id,
+                                  turno_id: r.turno_id,
+                                  creado_en: r.creado_en,
+                                  alumno_id: r.alumno_id,
+                                  producto_id: r.producto_id,
+                                  cantidad: r.cantidad,
+                                  efectivo: r.efectivo,
+                                  transferencia: r.transferencia,
+                                  no_paga: r.no_paga,
+                                }
+                              : r.clase === "movimiento"
+                                ? {
+                                    clase: "movimiento",
+                                    id: r.id,
+                                    turno_id: r.turno_id,
+                                    creado_en: r.creado_en,
+                                    tipo: r.tipo,
+                                    monto: r.monto,
+                                    motivo: r.motivo,
+                                    caja: r.caja,
+                                    metodo: r.metodo,
+                                  }
+                                : {
+                                    clase: "cobro",
+                                    ids: r.ids,
+                                    turno_id: r.turno_id,
+                                    creado_en: r.creado_en,
+                                    alumno_id: r.alumno_id,
+                                    efectivo: r.efectivo,
+                                    transferencia: r.transferencia,
+                                  }
+                          }
+                          etiqueta={`${detalleDe(r).toLowerCase()} de ${alumnoDe(r)}`}
+                        />
                       </TableCell>
                     </TableRow>
                   );
