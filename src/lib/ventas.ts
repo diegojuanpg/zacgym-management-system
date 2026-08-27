@@ -200,3 +200,34 @@ export async function editarCobro(
   refrescar();
   return {};
 }
+
+/**
+ * Marca (o desmarca) que una mensualidad quedó cargada en la planilla o en la
+ * app de pagos.
+ *
+ * Son dos acuses sueltos y no un estado único: "cargada" es tener los dos, y
+ * mientras falte uno la venta sigue en la cola. Guarda el momento en vez de un
+ * booleano, así también queda cuándo se hizo.
+ */
+export async function marcarCargada(
+  ventaId: string,
+  donde: "sheet" | "app",
+  cargada: boolean,
+): Promise<{ error?: string }> {
+  const columna = donde === "sheet" ? "cargada_sheet_en" : "cargada_app_en";
+
+  const supabase = await createClient();
+  // select() para saber si tocó algo: con RLS, un update que no alcanza ninguna
+  // fila vuelve sin error y sin haber hecho nada.
+  const { data, error } = await supabase
+    .from("ventas")
+    .update({ [columna]: cargada ? new Date().toISOString() : null })
+    .eq("id", ventaId)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if ((data ?? []).length === 0) return { error: "No se pudo marcar la mensualidad." };
+
+  revalidatePath("/ventas");
+  return {};
+}

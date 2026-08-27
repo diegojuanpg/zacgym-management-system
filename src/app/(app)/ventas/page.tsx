@@ -48,7 +48,7 @@ export default async function VentasPage({ searchParams }: PageProps<"/ventas">)
   let qVentas = supabase
     .from("ventas_saldo")
     .select(
-      "id, alumno, alumno_id, producto, producto_id, categoria, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en",
+      "id, alumno, alumno_id, producto, producto_id, categoria, cantidad, total, efectivo, transferencia, no_paga, a_favor, saldo, turno_id, creado_en, anulada_en, cargada_sheet_en, cargada_app_en",
     );
   let qPagos = supabase
     .from("pagos_detalle")
