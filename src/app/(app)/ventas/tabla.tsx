@@ -34,6 +34,21 @@ import type { DiaDeIngresos } from "@/lib/ingresos";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 
+/**
+ * El orden de las solapas, a mano.
+ *
+ * Va fijo y no por cantidad: lo que manda es para qué se usa cada una, y por
+ * cantidad las dos que más se miran quedaban donde las dejara el mes. Una
+ * categoría nueva del catálogo no está acá, así que cae al final —visible, que
+ * es lo que corresponde hasta que se decida dónde va—.
+ */
+const ORDEN_SOLAPAS = ["mensualidades", "consumibles", "suplementos", "caja", "cobro", "sin"];
+
+const lugarDeSolapa = (valor: string) => {
+  const lugar = ORDEN_SOLAPAS.indexOf(valor);
+  return lugar === -1 ? ORDEN_SOLAPAS.length : lugar;
+};
+
 /** Las anteriores al corte no están cargadas ni pendientes: quedan fuera de la cuenta. */
 const SIN_REGISTRO = "Sin registro";
 
@@ -209,9 +224,9 @@ export function TablaVentas({
     (a, b) => a.localeCompare(b, "es"),
   );
 
-  // "Todos" queda primera porque es la vista entera, no un rubro. El resto va de
-  // mayor a menor: la solapa que más movimientos tiene es la que más se abre, y
-  // a la izquierda es donde primero se la busca.
+  // "Todos" queda primera porque es la vista entera, no un rubro. El resto va en
+  // el orden de ORDEN_SOLAPAS: es a mano y no por cantidad porque el orden lo
+  // fija para qué se usa cada una, no cuántas filas junta.
   const solapas = [
     { valor: "todos", nombre: "Todos", cuantos: todos.length, alerta: undefined, alertaTitulo: undefined },
     ...[
@@ -229,9 +244,7 @@ export function TablaVentas({
           s.valor === MENSUALIDADES ? todos.filter(pendienteDeCarga).length : undefined,
         alertaTitulo: "Sin cargar en el sheet o en la app",
       }))
-      // Desempate alfabético: dos rubros en cero no se pisan el orden de una
-      // carga a la otra.
-      .sort((a, b) => b.cuantos - a.cuantos || a.nombre.localeCompare(b.nombre, "es")),
+      .sort((a, b) => lugarDeSolapa(a.valor) - lugarDeSolapa(b.valor)),
   ];
 
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
