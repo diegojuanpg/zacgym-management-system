@@ -17,10 +17,20 @@ assert.equal(nombrePropio("ángel muñoz"), "Ángel Muñoz");
 assert.equal(nombrePropio("o'brien"), "O'Brien");
 assert.equal(nombrePropio("jean-luc"), "Jean-Luc");
 
-// El resto de la palabra queda como vino: bajarlo arreglaria un "MARIA" gritado
-// pero romperia un "McCarthy", y no hay forma de distinguirlos.
+// Todo en mayuscula no es valido: se baja y se sube la primera.
+assert.equal(nombrePropio("MARIA"), "Maria");
+assert.equal(nombrePropio("MARIA GUERRERO"), "Maria Guerrero");
+assert.equal(nombrePropio("ÁNGEL MUÑOZ"), "Ángel Muñoz");
+// Una sola palabra gritada dentro de un nombre bien escrito tambien.
+assert.equal(nombrePropio("Maria GUERRERO"), "Maria Guerrero");
+
+// La palabra mixta no se toca: es la que distingue un "McCarthy" de un grito.
 assert.equal(nombrePropio("McCarthy"), "McCarthy");
-assert.equal(nombrePropio("MARIA"), "MARIA");
+assert.equal(nombrePropio("DiCarlo"), "DiCarlo");
+assert.equal(nombrePropio("mcCarthy"), "McCarthy");
+
+// El punto separa, asi las iniciales sobreviven en vez de quedar "J.p.".
+assert.equal(nombrePropio("J.P."), "J.P.");
 
 // Espacios de mas no rompen nada ni agregan mayusculas sueltas.
 assert.equal(nombrePropio(""), "");
