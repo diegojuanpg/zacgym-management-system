@@ -179,10 +179,10 @@ export function TablaTareas({
             <Table aria-label="Tareas">
               <TableColgroup>
                 <TableCol style={{ width: "13%" }} />
+                <TableCol style={{ width: "11%" }} />
                 <TableCol style={{ width: "12%" }} />
                 <TableCol style={{ width: "15%" }} />
                 <TableCol style={{ width: "29%" }} />
-                <TableCol style={{ width: "11%" }} />
                 <TableCol style={{ width: "13%" }} />
                 <TableCol style={{ width: "7%" }} />
               </TableColgroup>
@@ -202,6 +202,9 @@ export function TablaTareas({
                     />
                   </TableHead>
                   <TableHead>
+                    <FiltroColumna etiqueta="Anotó" param="anoto" opciones={opcionesAnoto} />
+                  </TableHead>
+                  <TableHead>
                     <FiltroColumna
                       etiqueta="Categoría"
                       param="categoria"
@@ -212,9 +215,6 @@ export function TablaTareas({
                     <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
                   </TableHead>
                   <TableHead>Tarea</TableHead>
-                  <TableHead>
-                    <FiltroColumna etiqueta="Anotó" param="anoto" opciones={opcionesAnoto} />
-                  </TableHead>
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Estado"
@@ -236,6 +236,11 @@ export function TablaTareas({
                         {haceCuanto(t.creado_en)}
                       </div>
                     </TableCell>
+                    <TableCell
+                      className={t.anoto === null ? "text-muted-foreground" : undefined}
+                    >
+                      {t.anoto ?? SIN_ANOTAR}
+                    </TableCell>
                     <TableCell>
                       <CategoriaTareaSelect
                         id={t.id}
@@ -252,11 +257,6 @@ export function TablaTareas({
                     {/* La tarea es editable directamente en la celda. */}
                     <TableCell className="whitespace-normal text-[var(--ds-gray-1000)]">
                       <DetalleTareaEditable id={t.id} detalle={t.detalle} />
-                    </TableCell>
-                    <TableCell
-                      className={t.anoto === null ? "text-muted-foreground" : undefined}
-                    >
-                      {t.anoto ?? SIN_ANOTAR}
                     </TableCell>
                     <TableCell>
                       <EstadoTareaSelect id={t.id} estado={t.estado} />
