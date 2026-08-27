@@ -191,21 +191,30 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
             cursor={false}
             content={
               <ChartTooltipContent
-                formatter={(valor, nombre) => (
-                  <div className="flex w-full items-center gap-2">
-                    <span
-                      aria-hidden
-                      className="size-2.5 shrink-0 rounded-[2px]"
-                      style={{ backgroundColor: colorDe(String(nombre)) }}
-                    />
-                    <span className="flex-1 text-muted-foreground">
-                      {nombreRubro(String(nombre))}
-                    </span>
-                    <span className="font-medium tabular-nums text-foreground">
-                      {pesos(Number(valor))}
-                    </span>
-                  </div>
-                )}
+                formatter={(valor, nombre, _item, _indice, fila) => {
+                  // La parte se calcula sobre los rubros encendidos, que es lo
+                  // que se está viendo: si Mensualidad está apagada, el 100% es
+                  // lo que quedó, no el mes entero.
+                  const dela = fila as unknown as Record<string, number> | undefined;
+                  const suma = encendidos.reduce((t, r) => t + Number(dela?.[r] ?? 0), 0);
+                  const parte = suma > 0 ? Math.round((Number(valor) / suma) * 100) : 0;
+                  return (
+                    <div className="flex w-full items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-[2px]"
+                        style={{ backgroundColor: colorDe(String(nombre)) }}
+                      />
+                      <span className="flex-1 text-muted-foreground">
+                        {nombreRubro(String(nombre))}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">{parte}%</span>
+                      <span className="font-medium tabular-nums text-foreground">
+                        {pesos(Number(valor))}
+                      </span>
+                    </div>
+                  );
+                }}
               />
             }
           />
@@ -224,38 +233,38 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
         </BarChart>
       </ChartContainer>
 
-      {/* La referencia es el control: cada rubro es un botón que lo saca de la
-          pila. Apagado se muestra igual, en gris y tachado, así se ve que está
-          apagado y no que desapareció del catálogo. */}
-      <ul className="flex flex-wrap gap-x-3 gap-y-1.5">
+      {/* La referencia es el control, así que tiene que parecer uno: cada rubro
+          es un botón del sistema, con borde mientras está prendido. Antes eran
+          nombres sueltos con un punto al lado y nadie adivinaba que se clickean.
+
+          Apagar el rubro grande es lo que hace legibles a los chicos: sale del
+          apilado, y el eje se reescala solo a lo que queda. */}
+      <div className="flex flex-wrap gap-1.5">
         {rubros.map((rubro) => {
           const apagado = apagados.has(rubro);
           return (
-            <li key={rubro}>
-              <button
-                type="button"
-                aria-pressed={!apagado}
-                onClick={() => alternar(rubro)}
-                className="flex items-center gap-2 rounded-md px-1 py-0.5 text-copy-13 hover:bg-[var(--ds-gray-alpha-200)] focus-visible:shadow-[var(--ds-focus-ring)] focus-visible:outline-none"
-              >
+            <Button
+              key={rubro}
+              variant={apagado ? "tertiary" : "secondary"}
+              size="xs"
+              aria-pressed={!apagado}
+              onClick={() => alternar(rubro)}
+              title={apagado ? "Sumar al gráfico" : "Sacar del gráfico"}
+              prefix={
                 <span
                   aria-hidden
-                  className="size-2.5 shrink-0 rounded-sm"
+                  className="size-2.5 rounded-sm"
                   style={{ backgroundColor: apagado ? "var(--ds-gray-500)" : colorDe(rubro) }}
                 />
-                <span
-                  className={cn(
-                    "whitespace-nowrap",
-                    apagado && "text-muted-foreground line-through",
-                  )}
-                >
-                  {nombreRubro(rubro)}
-                </span>
-              </button>
-            </li>
+              }
+            >
+              <span className={cn(apagado && "text-muted-foreground line-through")}>
+                {nombreRubro(rubro)}
+              </span>
+            </Button>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
