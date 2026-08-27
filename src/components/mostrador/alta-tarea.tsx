@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Note } from "@/components/ui/note";
 import { Select } from "@/components/ui/select";
 import { PlusIcon, XIcon } from "@/components/icons";
+import type { Empleado } from "@/lib/turnos";
 
 export interface AlumnoTarea {
   id: string;
@@ -23,7 +24,10 @@ export interface AlumnoTarea {
 }
 
 /**
- * Alta de tarea: sobre quién, de qué tipo y qué hay que hacer.
+ * Alta de tarea: sobre quién, de qué tipo, qué hay que hacer y quién la anota.
+ *
+ * Los cuatro son obligatorios. "Anotó" es el empleado del mostrador y no el
+ * usuario de la sesión, que es compartido y siempre es el mismo.
  *
  * Las categorías se editan acá mismo en vez de en una pantalla aparte: se tocan
  * de a una cada tanto y siempre en el momento de cargar la tarea.
@@ -31,15 +35,18 @@ export interface AlumnoTarea {
 export function AltaTarea({
   alumnos,
   categorias,
+  empleados,
   onCreada,
 }: {
   alumnos: AlumnoTarea[];
   categorias: Categoria[];
+  empleados: Empleado[];
   onCreada: (alumno: string) => void;
 }) {
   const router = useRouter();
   const [alumnoId, setAlumnoId] = React.useState("");
   const [categoriaId, setCategoriaId] = React.useState("");
+  const [anotadoPor, setAnotadoPor] = React.useState("");
   const [detalle, setDetalle] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [guardando, setGuardando] = React.useState(false);
@@ -54,8 +61,9 @@ export function AltaTarea({
     setError(null);
     const { error } = await crearTarea({
       alumno_id: alumnoId,
-      categoria_id: categoriaId || null,
+      categoria_id: categoriaId,
       detalle,
+      anotado_por: anotadoPor,
     });
     setGuardando(false);
     if (error) return setError(error);
@@ -63,6 +71,8 @@ export function AltaTarea({
     const alumno = alumnos.find((a) => a.id === alumnoId)?.nombre_completo ?? "La tarea";
     setAlumnoId("");
     setDetalle("");
+    // `anotadoPor` no se limpia: en un turno las carga siempre el mismo, y
+    // volver a elegirse a uno mismo en cada tarea es puro clic al pedo.
     onCreada(alumno);
     enfocarPrimero(form);
   }
@@ -120,10 +130,13 @@ export function AltaTarea({
           <Select
             id="tarea-categoria"
             size="large"
+            required
             value={categoriaId}
             onChange={(e) => setCategoriaId(e.target.value)}
           >
-            <option value="">Sin categoría</option>
+            <option value="" disabled>
+              Elegir
+            </option>
             {categorias.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
@@ -193,14 +206,43 @@ export function AltaTarea({
         </div>
       )}
 
-      <Input
-        label="Tarea"
-        size="large"
-        required
-        placeholder="Qué hay que hacer"
-        value={detalle}
-        onChange={(e) => setDetalle(e.target.value)}
-      />
+      {/* La tarea se lleva el ancho: es texto libre y lo demás son desplegables. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Input
+          label="Tarea"
+          size="large"
+          required
+          className="sm:col-span-2"
+          placeholder="Qué hay que hacer"
+          value={detalle}
+          onChange={(e) => setDetalle(e.target.value)}
+        />
+
+        <div>
+          <Label htmlFor="tarea-anoto">Anotó</Label>
+          <Select
+            id="tarea-anoto"
+            size="large"
+            required
+            value={anotadoPor}
+            onChange={(e) => setAnotadoPor(e.target.value)}
+          >
+            <option value="" disabled>
+              Elegir
+            </option>
+            {empleados.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nombre}
+              </option>
+            ))}
+          </Select>
+          {empleados.length === 0 && (
+            <span className="text-copy-13 text-muted-foreground">
+              No hay empleados cargados. Se agregan desde Check-in.
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="mt-1 flex items-center justify-end gap-3 border-t border-border pt-4">
         <Button
@@ -208,7 +250,7 @@ export function AltaTarea({
           variant="secondary"
           size="lg"
           prefix={<PlusIcon />}
-          disabled={!alumnoId}
+          disabled={!alumnoId || !categoriaId || !anotadoPor || detalle.trim() === ""}
           loading={guardando}
         >
           Crear tarea

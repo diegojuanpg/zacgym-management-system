@@ -19,7 +19,7 @@ export default async function TareasPage({ searchParams }: PageProps<"/tareas">)
     traerTodo<Tarea>(
       supabase
         .from("tareas_detalle")
-        .select("id, alumno_id, alumno, categoria_id, categoria, detalle, creado_en, estado")
+        .select("id, alumno_id, alumno, categoria_id, categoria, detalle, creado_en, estado, anoto")
         .order("creado_en", { ascending: false }),
     ),
     // Todas las categorías para filtros y asignación rápida en la tabla.

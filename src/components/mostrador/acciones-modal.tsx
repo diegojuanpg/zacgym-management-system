@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AltaAlumno } from "@/components/mostrador/alta-alumno";
 import { AltaTarea, type AlumnoTarea } from "@/components/mostrador/alta-tarea";
 import type { Categoria } from "@/lib/tareas";
+import type { Empleado } from "@/lib/turnos";
 import { BotonBloqueado } from "@/components/mostrador/boton-bloqueado";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -15,11 +16,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function AccionesModal({
   alumnos,
   categorias,
+  empleados,
   bloqueado = false,
   motivoBloqueo,
 }: {
   alumnos: AlumnoTarea[];
   categorias: Categoria[];
+  /** Para decir quién anota la tarea: el login del mostrador es compartido. */
+  empleados: Empleado[];
   /** Sin turno abierto, o mirando un día pasado: el botón queda muerto. */
   bloqueado?: boolean;
   motivoBloqueo?: string;
@@ -79,6 +83,7 @@ export function AccionesModal({
           <AltaTarea
             alumnos={alumnos}
             categorias={categorias}
+            empleados={empleados}
             onCreada={(alumno) => {
               setHecho(`Tarea cargada para ${alumno}.`);
               router.refresh();

@@ -82,9 +82,15 @@ export function CategoriaTareaSelect({
           aria-label="Categoría de la tarea"
           className="h-6 cursor-pointer appearance-none truncate rounded-full bg-transparent py-0 pr-6 pl-2.5 text-inherit outline-none"
         >
-          <option value="" className="bg-[var(--ds-background-100)] text-[var(--ds-gray-1000)]">
-            {SIN_CATEGORIA}
-          </option>
+          {/* La categoría es obligatoria al anotar, así que no se ofrece volver a
+              "Sin categoría": dejarlo era una puerta para deshacer la obligación
+              desde la tabla. Aparece solo en las tareas viejas, que se cargaron
+              antes de que se pidiera y no tienen ninguna. */}
+          {!actualId && (
+            <option value="" className="bg-[var(--ds-background-100)] text-[var(--ds-gray-1000)]">
+              {SIN_CATEGORIA}
+            </option>
+          )}
           {categorias.map((c) => (
             <option
               key={c.id}
