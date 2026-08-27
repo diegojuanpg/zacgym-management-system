@@ -93,3 +93,25 @@ export function filasDe(
   const cubos = agrupar(ingresos, (d) => d);
   return DIAS.map((nombre, i) => ({ etiqueta: nombre, ...cubos.get(masDias(semana, i)) }));
 }
+
+/** Cuánto puso cada rubro en las filas que se están viendo. */
+export function totalesPorRubro(datos: Fila[], rubros: string[]) {
+  const suma: Record<string, number> = Object.fromEntries(rubros.map((r) => [r, 0]));
+  for (const fila of datos) for (const r of rubros) suma[r] += Number(fila[r] ?? 0);
+  return suma;
+}
+
+/**
+ * Los rubros de mayor a menor.
+ *
+ * Recharts apila en el orden en que se dibujan las barras, así que el primero
+ * queda abajo. Ahí va el que más entra: apoyado en el eje es el único tramo que
+ * se puede medir contra algo. Los de arriba flotan y solo se comparan entre
+ * ellos, que es justo lo que hace falta con los chicos.
+ *
+ * El desempate alfabético evita que dos rubros en cero se pisen el orden de una
+ * vista a la otra.
+ */
+export function porMonto(rubros: string[], totalDe: Record<string, number>) {
+  return [...rubros].sort((a, b) => totalDe[b] - totalDe[a] || a.localeCompare(b, "es"));
+}

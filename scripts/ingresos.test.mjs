@@ -1,6 +1,6 @@
 // node --experimental-strip-types scripts/ingresos.test.mjs
 import assert from "node:assert/strict";
-import { filasDe, semanasDe } from "../src/lib/ingresos.ts";
+import { filasDe, porMonto, semanasDe, totalesPorRubro } from "../src/lib/ingresos.ts";
 
 // Enero, agosto y diciembre: los dos extremos del año y uno del medio, que es
 // donde se nota si el mes se corre un lugar. Más un día del año anterior, que
@@ -60,6 +60,23 @@ const ultimas2 = filasDe(datos, { ...opciones, modo: "semana", semanas, cuantas:
 assert.deepEqual(
   ultimas2.map((f) => f.etiqueta),
   ["17/8", "24/8"],
+);
+
+// --- El orden del apilado: el que mas entra va primero, o sea abajo de la pila.
+// "suplemento" no aparece en los datos a proposito: tiene que quedar en cero y
+// no en undefined, o la resta del sort da NaN y el orden sale cualquier cosa.
+const rubros = ["cobro", "cuota", "kiosco", "suplemento"];
+const delAño = filasDe(datos, { ...opciones, modo: "mes" });
+const totales = totalesPorRubro(delAño, rubros);
+assert.deepEqual(totales, { cobro: 5000, cuota: 100000, kiosco: 1000, suplemento: 0 });
+
+// Cuota es la que mas entra, asi que va primera: abajo de todo, apoyada en el eje.
+assert.deepEqual(porMonto(rubros, totales), ["cuota", "cobro", "kiosco", "suplemento"]);
+
+// Empate en cero: desempata el abecedario, para que el orden no baile entre vistas.
+assert.deepEqual(
+  porMonto(["zeta", "alfa", "beta"], { zeta: 0, alfa: 0, beta: 0 }),
+  ["alfa", "beta", "zeta"],
 );
 
 console.log("ingresos ok");

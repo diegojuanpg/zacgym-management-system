@@ -14,7 +14,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { lunes, masDias } from "@/lib/filtros";
 import { capitalizar, cn, hoyEnBsAs } from "@/lib/utils";
-import { corta, filasDe, semanasDe, type DiaDeIngresos } from "@/lib/ingresos";
+import {
+  corta,
+  filasDe,
+  porMonto,
+  semanasDe,
+  totalesPorRubro,
+  type DiaDeIngresos,
+} from "@/lib/ingresos";
 
 // Un color por rubro, por orden alfabético. Son las familias de Geist a la misma
 // altura, que es lo que las hace distinguibles entre sí: mezclar pasos (700 con
@@ -39,8 +46,17 @@ const nombreRubro = (rubro: string) =>
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
-/** El eje no tiene lugar para los miles: $40.000 entra como $40k. */
-const pesosCortos = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`);
+/**
+ * Plata corta, para donde no entra el número entero: el eje y la referencia.
+ * Los millones van con un decimal ($12,1M) y los miles redondos ($402k); pasar
+ * un mes de mensualidades a miles daba "$12100k", que no se lee.
+ */
+const pesosCortos = (n: number) => {
+  if (n >= 1_000_000) {
+    return `$${(n / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}M`;
+  }
+  return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
+};
 
 /**
  * Cuánta plata entró, apilada por rubro, en tres escalas.
@@ -67,11 +83,14 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
   // Los rubros son los que aparecen en los datos, no una lista fija: una
   // categoría nueva del catálogo entra sola, y una que nunca vendió no ocupa
   // un color ni un renglón de la referencia.
+  //
+  // El orden es alfabético y de acá sale el color: si el color siguiera al
+  // ranking, un rubro cambiaría de color al cambiar de año y no habría manera
+  // de seguirlo entre dos vistas.
   const rubros = React.useMemo(
     () => [...new Set(ingresos.map((i) => i.rubro))].sort((a, b) => a.localeCompare(b, "es")),
     [ingresos],
   );
-  const encendidos = rubros.filter((r) => !apagados.has(r));
 
   const anios = React.useMemo(() => {
     const vistos = [...new Set(ingresos.map((i) => i.dia.slice(0, 4)))].sort().reverse();
@@ -88,13 +107,15 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
     [ingresos, modo, anio, cuantas, semanas, semana],
   );
 
+  // Cuánto puso cada rubro en lo que se está viendo: el número de la referencia
+  // y el que decide el orden del apilado, de mayor a menor.
+  const totalDe = React.useMemo(() => totalesPorRubro(datos, rubros), [datos, rubros]);
+  const ranking = React.useMemo(() => porMonto(rubros, totalDe), [rubros, totalDe]);
+  const encendidos = ranking.filter((r) => !apagados.has(r));
+
   // El total es el de lo que se está viendo: cambia con la escala, con el año y
-  // con cada rubro que se apaga. Es la pregunta que el gráfico contesta de un
-  // vistazo y que sumar barras a ojo no contesta.
-  const total = datos.reduce(
-    (suma, fila) => suma + encendidos.reduce((t, r) => t + Number(fila[r] ?? 0), 0),
-    0,
-  );
+  // con cada rubro que se apaga.
+  const total = encendidos.reduce((suma, r) => suma + totalDe[r], 0);
 
   const colorDe = (rubro: string) => PALETA[rubros.indexOf(rubro) % PALETA.length];
   const config: ChartConfig = Object.fromEntries(
@@ -234,13 +255,18 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
       </ChartContainer>
 
       {/* La referencia es el control, así que tiene que parecer uno: cada rubro
-          es un botón del sistema, con borde mientras está prendido. Antes eran
-          nombres sueltos con un punto al lado y nadie adivinaba que se clickean.
+          es un botón del sistema, con borde mientras está prendido.
 
-          Apagar el rubro grande es lo que hace legibles a los chicos: sale del
-          apilado, y el eje se reescala solo a lo que queda. */}
+          Y lleva su monto, que es lo que el gráfico no puede mostrar: con un
+          rubro que se lleva el 94%, los otros quedan en una franja de dos
+          píxeles y el número es la única forma de leerlos sin apagar nada.
+          Apagar el grande es la otra: sale del apilado y el eje se reescala
+          solo a lo que queda.
+
+          Van en el mismo orden que el apilado, de mayor a menor, así la
+          referencia se lee como el ranking que es. */}
       <div className="flex flex-wrap gap-1.5">
-        {rubros.map((rubro) => {
+        {ranking.map((rubro) => {
           const apagado = apagados.has(rubro);
           return (
             <Button
@@ -251,15 +277,24 @@ export function BarrasIngresos({ ingresos }: { ingresos: DiaDeIngresos[] }) {
               onClick={() => alternar(rubro)}
               title={apagado ? "Sumar al gráfico" : "Sacar del gráfico"}
               prefix={
+                // Apagado el cuadrito no se pone gris: se destiñe. Conserva el
+                // color, que es lo que dice de qué rubro se trata, y el que
+                // esté apagado ya lo cantan el borde y el tachado.
                 <span
                   aria-hidden
-                  className="size-2.5 rounded-sm"
-                  style={{ backgroundColor: apagado ? "var(--ds-gray-500)" : colorDe(rubro) }}
+                  className={cn("size-2.5 rounded-sm", apagado && "opacity-30")}
+                  style={{ backgroundColor: colorDe(rubro) }}
                 />
               }
             >
-              <span className={cn(apagado && "text-muted-foreground line-through")}>
-                {nombreRubro(rubro)}
+              <span className={cn(apagado && "line-through")}>{nombreRubro(rubro)}</span>
+              <span
+                className={cn(
+                  "ml-1.5 tabular-nums",
+                  apagado ? "text-[var(--ds-gray-700)]" : "text-muted-foreground",
+                )}
+              >
+                {pesosCortos(totalDe[rubro])}
               </span>
             </Button>
           );
