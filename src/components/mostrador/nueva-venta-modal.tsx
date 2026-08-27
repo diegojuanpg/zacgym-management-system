@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { RadioGroup, Radio } from "@/components/ui/radio";
 import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -77,7 +76,7 @@ interface FilaCobro extends ItemCobro {
 
 type Fila = FilaVenta | FilaMovimiento | FilaCobro;
 
-type Metodo = "efectivo" | "transferencia" | "mixto" | "debe" | "no_paga";
+type Metodo = "efectivo" | "transferencia" | "mixto" | "no_paga";
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
@@ -101,7 +100,6 @@ function faltante(f: FilaVenta) {
 function repartir(m: Metodo, efe: string, tra: string, sugerido: number) {
   const e = Number(efe) || 0;
   const t = Number(tra) || 0;
-  if (m === "debe") return { efectivo: 0, transferencia: 0, no_paga: 0 };
   // Sin cargo: cubre todo, no hay monto que escribir.
   if (m === "no_paga") return { efectivo: 0, transferencia: 0, no_paga: sugerido };
   if (m === "mixto") return { efectivo: e, transferencia: t, no_paga: 0 };
@@ -164,7 +162,9 @@ export function NuevaVentaModal({
   const [movMotivo, setMovMotivo] = React.useState("");
 
   // --- cuenta del alumno: cobrarle lo que debe o devolverle lo que tiene a favor ---
-  const [cuentaOp, setCuentaOp] = React.useState<"cobro" | "devolucion">("cobro");
+  // Cobrar y devolver son dos solapas, asi que el sentido de la plata sale de
+  // cual esta abierta.
+  const cuentaOp: "cobro" | "devolucion" = pestania === "devolucion" ? "devolucion" : "cobro";
   const [devCaja, setDevCaja] = React.useState<ItemMovimiento["caja"]>("grande");
   const [cobroAlumnoId, setCobroAlumnoId] = React.useState("");
   const [cobroMetodo, setCobroMetodo] = React.useState<Metodo>("efectivo");
@@ -380,8 +380,8 @@ export function NuevaVentaModal({
 
   // Cobrar y devolver no comparten ni los alumnos ni los métodos: al cambiar de
   // sentido se limpia todo para no cargar una cosa con los datos de la otra.
-  function cambiarOperacion(op: string) {
-    setCuentaOp(op as "cobro" | "devolucion");
+  function cambiarPestania(cual: string) {
+    setPestania(cual);
     setCobroAlumnoId("");
     setCobroMetodo("efectivo");
     setCobroEfectivo("");
@@ -532,11 +532,12 @@ export function NuevaVentaModal({
           </div>
         )}
 
-        <Tabs value={pestania} onValueChange={setPestania} className="mb-4">
+        <Tabs value={pestania} onValueChange={cambiarPestania} className="mb-4">
           <TabsList>
-            <TabsTrigger value="venta">Venta</TabsTrigger>
-            <TabsTrigger value="cobro">Cuenta</TabsTrigger>
-            <TabsTrigger value="caja">Movimiento de caja</TabsTrigger>
+            <TabsTrigger value="venta">Ventas</TabsTrigger>
+            <TabsTrigger value="caja">Extracciones y depósitos</TabsTrigger>
+            <TabsTrigger value="cobro">Cobro de deudas</TabsTrigger>
+            <TabsTrigger value="devolucion">Devolver dinero</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -598,7 +599,6 @@ export function NuevaVentaModal({
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia</option>
                   <option value="mixto">Mixto</option>
-                  <option value="debe">Debe</option>
                   {/* Lo que saca el dueño: sale del stock y no se cobra. */}
                   <option value="no_paga">No paga</option>
                 </Select>
@@ -640,7 +640,7 @@ export function NuevaVentaModal({
                       />
                     </div>
                   </>
-                ) : metodo === "debe" || metodo === "no_paga" ? null : (
+                ) : metodo === "no_paga" ? null : (
                   <div className="w-40">
                     <Input
                       label="Paga"
@@ -709,23 +709,12 @@ export function NuevaVentaModal({
               </span>
             </div>
           </form>
-        ) : pestania === "cobro" ? (
+        ) : pestania === "cobro" || pestania === "devolucion" ? (
           <form
             onSubmit={cuentaOp === "cobro" ? agregarCobro : agregarDevolucion}
             onKeyDown={enterAvanza}
             className="flex flex-col gap-1 pb-4"
           >
-            {/* El sentido de la plata se elige, no se deduce del alumno: cobrar y
-                devolver mueven el cajón para lados opuestos. */}
-            <RadioGroup
-              value={cuentaOp}
-              onValueChange={cambiarOperacion}
-              className="mb-4 flex-row gap-6"
-            >
-              <Radio value="cobro">Cobrar deuda</Radio>
-              <Radio value="devolucion">Devolver plata</Radio>
-            </RadioGroup>
-
             <div
               className={`grid grid-cols-2 items-end gap-3 ${
                 cuentaOp === "cobro"
@@ -831,7 +820,7 @@ export function NuevaVentaModal({
                 ) : (
                   <div className="w-40">
                     <Input
-                      label={cuentaOp === "cobro" ? "Paga" : "Devuelve"}
+                      label={cuentaOp === "cobro" ? "Paga" : "Devolvés"}
                       size="large"
                       inputMode="numeric"
                       prefix="$"
@@ -892,8 +881,8 @@ export function NuevaVentaModal({
                   value={movTipo}
                   onChange={(e) => setMovTipo(e.target.value as ItemMovimiento["tipo"])}
                 >
-                  <option value="egreso">Sale plata</option>
-                  <option value="ingreso">Entra plata</option>
+                  <option value="egreso">Extracción</option>
+                  <option value="ingreso">Depósito</option>
                 </Select>
               </div>
 
