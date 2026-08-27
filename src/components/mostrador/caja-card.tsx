@@ -17,6 +17,9 @@ export interface CajaEnCurso extends Desglose {
   estado: "abierto";
 }
 
+/** De qué es la cuenta: de un turno solo o del día entero. */
+export type Alcance = "turno" | "dia";
+
 /** Día terminado: el mismo desglose pero del día entero, contra lo que contaron. */
 export interface CajaCerrada extends Desglose {
   estado: "cerrado";
@@ -41,7 +44,16 @@ export type EstadoCaja = CajaEnCurso | CajaCerrada | { estado: "sin_datos" };
  *
  * Las transferencias no cuentan en ninguno de los dos: nunca pasaron por el cajón.
  */
-export function CajaCard({ etiqueta, caja }: { etiqueta: string; caja: EstadoCaja }) {
+export function CajaCard({
+  etiqueta,
+  caja,
+  alcance = "dia",
+}: {
+  etiqueta: string;
+  caja: EstadoCaja;
+  /** Cambia de qué habla el primer renglón: del turno o del día. */
+  alcance?: Alcance;
+}) {
   if (caja.estado === "sin_datos") {
     return (
       <Card padded={false} className="overflow-hidden">
@@ -80,7 +92,13 @@ export function CajaCard({ etiqueta, caja }: { etiqueta: string; caja: EstadoCaj
 
       <dl className="text-copy-13 m-0 flex flex-col gap-2 border-t border-[var(--ds-gray-alpha-400)] p-4">
         <Renglon
-          etiqueta={caja.estado === "abierto" ? "Abriste con" : "Arrancó el día con"}
+          etiqueta={
+            caja.estado === "abierto"
+              ? "Abriste con"
+              : alcance === "turno"
+                ? "Se arrancó el turno con"
+                : "Se arrancó el día con"
+          }
           valor={pesos(caja.inicial)}
         />
         <Renglon etiqueta="Ventas y cobros" valor={conSigno(caja.ventas)} />

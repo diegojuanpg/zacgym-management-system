@@ -18,7 +18,7 @@ import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
 import { CheckInModal } from "@/components/mostrador/checkin-modal";
 import type { Asistencia } from "@/lib/asistencias";
-import { CajaCard, type EstadoCaja } from "@/components/mostrador/caja-card";
+import { CajaCard, type EstadoCaja, type Alcance } from "@/components/mostrador/caja-card";
 import { efectivoDelDia } from "@/lib/caja";
 import { SelectorDia } from "@/components/mostrador/selector-dia";
 import type { TurnoDelDia, DiferenciaProducto } from "@/components/mostrador/turno-separador";
@@ -260,6 +260,8 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   const primerTurno = turnosDelDia[turnosDelDia.length - 1];
   const ultimoCierre = turnosDelDia.find((t) => t.cerrado_en !== null) ?? null;
 
+  const alcance: Alcance = esHoy && turno ? "turno" : "dia";
+
   const cajaDe = (cual: "grande" | "chica"): EstadoCaja => {
     if (esHoy && turno) {
       return {
@@ -289,8 +291,10 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
   };
 
   const totales = [
-    { etiqueta: "Caja grande", caja: cajaDe("grande") },
-    { etiqueta: "Caja chica", caja: cajaDe("chica") },
+    // Con un turno abierto la pantalla es la de ese turno; sin ninguno, la del
+    // dia entero. El primer renglon de la tarjeta lo dice.
+    { etiqueta: "Caja grande", caja: cajaDe("grande"), alcance },
+    { etiqueta: "Caja chica", caja: cajaDe("chica"), alcance },
   ];
 
   type Registro =
