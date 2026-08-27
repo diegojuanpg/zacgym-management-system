@@ -1,10 +1,10 @@
 /**
- * Qué mensualidad falta replicar afuera.
+ * Qué mensualidad entra en la cuenta de lo que hay que replicar afuera.
  *
  * Cada mensualidad que entra hay que cargarla en dos lugares que no son esta
- * app: la planilla y la app con la que se manejan los pagos. Acá vive la cuenta
- * de cuál falta, que es la parte que se equivoca sola —un corte de fecha, una
- * anulada a destiempo— y por eso se puede probar.
+ * app: la planilla y la app con la que se manejan los pagos. Cuál falta se
+ * filtra desde los encabezados de la tabla; acá vive lo que se equivoca solo
+ * —el corte de fecha, la anulada a destiempo— y por eso se puede probar.
  */
 
 /** El rubro del catálogo que hay que replicar afuera. */
@@ -38,14 +38,10 @@ export interface CargaDeVenta {
 export const esMensualidadNueva = (v: CargaDeVenta) =>
   v.categoria === MENSUALIDADES && Date.parse(v.creado_en) >= DESDE_CARGA;
 
-/** Cargada es tener los dos. Con uno solo quedó a medias. */
-export const estaCargada = (v: CargaDeVenta) =>
-  v.cargada_sheet_en !== null && v.cargada_app_en !== null;
-
 /**
  * Anulada después de haberla cargado afuera: la planilla y la app quedaron con
  * un cobro que acá ya no existe, así que hay que ir a borrarlo. Destildando los
- * dos acuses se va de la cola.
+ * dos acuses vuelve a figurar como pendiente.
  *
  * La anulada que nunca se cargó no molesta a nadie: no llegó a salir de acá.
  */
@@ -53,10 +49,3 @@ export const hayQueDarDeBaja = (v: CargaDeVenta) =>
   esMensualidadNueva(v) &&
   v.anulada_en !== null &&
   (v.cargada_sheet_en !== null || v.cargada_app_en !== null);
-
-/** Lo que tiene que aparecer en la cola de trabajo. */
-export const pendienteDeCarga = (v: CargaDeVenta) => {
-  if (!esMensualidadNueva(v)) return false;
-  if (v.anulada_en !== null) return hayQueDarDeBaja(v);
-  return !estaCargada(v);
-};

@@ -10,7 +10,6 @@ import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Button } from "@/components/ui/button";
 import { DollarIcon } from "@/components/icons";
 import {
   TableRoot,
@@ -21,19 +20,21 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { comoObjeto, useNavegacion, useParametros } from "@/hooks/use-navegacion";
+import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
 import { BotonBorrar } from "@/components/mostrador/boton-borrar";
 import { TildeCarga } from "@/components/ventas/tilde-carga";
 import {
   MENSUALIDADES,
   esMensualidadNueva as esNueva,
   hayQueDarDeBaja as hayQueBajar,
-  pendienteDeCarga as faltaCargar,
 } from "@/lib/mensualidades";
 import { BarrasIngresos } from "@/components/barras-ingresos";
 import type { DiaDeIngresos } from "@/lib/ingresos";
 
 const ZONA = "America/Argentina/Buenos_Aires";
+
+/** Las anteriores al corte no están cargadas ni pendientes: quedan fuera de la cuenta. */
+const SIN_REGISTRO = "Sin registro";
 
 /** Por qué una mensualidad vieja no tiene tilde ni pendiente. */
 const SIN_CUENTA =
@@ -142,7 +143,6 @@ export function TablaVentas({
   ingresos: DiaDeIngresos[];
 }) {
   const parametros = useParametros();
-  const { irA } = useNavegacion();
   const params = comoObjeto(parametros);
   const q = parametros.get("q") ?? "";
   const busqueda = q.trim().toLowerCase();
@@ -166,7 +166,17 @@ export function TablaVentas({
   // solo sobre ventas, y el resto ni siquiera tiene las columnas.
   const esMensualidadNueva = (r: Registro) => r.clase === "venta" && esNueva(r);
   const hayQueDarDeBaja = (r: Registro) => r.clase === "venta" && hayQueBajar(r);
-  const pendienteDeCarga = (r: Registro) => r.clase === "venta" && faltaCargar(r);
+
+  /**
+   * El estado de un acuse, en palabras. Es lo que lista el filtro del
+   * encabezado, así que tiene que cubrir también a las que no llevan cuenta:
+   * sin eso, "Pendiente" se comería a las 2708 viejas, que no lo están.
+   */
+  const estadoCarga = (r: Registro, donde: "sheet" | "app") => {
+    if (!esMensualidadNueva(r) || r.clase !== "venta") return SIN_REGISTRO;
+    const cuando = donde === "sheet" ? r.cargada_sheet_en : r.cargada_app_en;
+    return cuando === null ? "Pendiente" : "Cargada";
+  };
 
   const alumnoDe = (r: Registro) =>
     r.clase === "movimiento" ? "Movimiento de caja" : r.alumno;
@@ -219,7 +229,12 @@ export function TablaVentas({
   const opcionesDetalle = ordenar(todos.map(detalleDe));
   const opcionesMetodo = ordenar(todos.map(metodoDe));
 
+  const opcionesSheet = ordenar(todos.map((r) => estadoCarga(r, "sheet")));
+  const opcionesApp = ordenar(todos.map((r) => estadoCarga(r, "app")));
+
   const filtroAlumno = lista_("alumno");
+  const filtroSheet = lista_("sheet");
+  const filtroApp = lista_("app");
   const filtroDetalle = lista_("detalle");
   const filtroMetodo = lista_("metodo");
   const rangoHora = rangoDe(parametros.get("hora") ?? undefined);
@@ -229,11 +244,12 @@ export function TablaVentas({
   const registros = todos
     .filter(
       (r) =>
-        (solapa === "todos" ||
-          (solapa === "pendientes" ? pendienteDeCarga(r) : rubroDe(r) === solapa)) &&
+        (solapa === "todos" || rubroDe(r) === solapa) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(alumnoDe(r))) &&
         (filtroDetalle.length === 0 || filtroDetalle.includes(detalleDe(r))) &&
         (filtroMetodo.length === 0 || filtroMetodo.includes(metodoDe(r))) &&
+        (filtroSheet.length === 0 || filtroSheet.includes(estadoCarga(r, "sheet"))) &&
+        (filtroApp.length === 0 || filtroApp.includes(estadoCarga(r, "app"))) &&
         (rangoHora.desde === "" || horaDe(r.creado_en) >= rangoHora.desde) &&
         (rangoHora.hasta === "" || horaDe(r.creado_en) <= rangoHora.hasta) &&
         (filtroPago === null || filtroPago(entraDe(r))) &&
@@ -251,19 +267,8 @@ export function TablaVentas({
   // Los tildes solo tienen sentido sobre mensualidades: en las otras solapas
   // serían dos columnas vacías. En la de Mensualidades aparecen igual que en la
   // cola, para poder ver el estado de una que ya se cargó.
-  const muestraCarga = solapa === "pendientes" || solapa === MENSUALIDADES;
+  const muestraCarga = solapa === MENSUALIDADES;
 
-  // La cola no es una solapa más: es trabajo sin hacer y tiene que pedir que la
-  // miren. Va arriba de todo, en su propio renglón, y desaparece sola cuando no
-  // queda nada —una solapa en cero ocupa lugar todos los días para no decir nada—.
-  const cuantasPendientes = todos.filter(pendienteDeCarga).length;
-  const verPendientes = (encendido: boolean) => {
-    const nuevos = new URLSearchParams(parametros.toString());
-    nuevos.set("rubro", encendido ? "pendientes" : "todos");
-    // La paginación es de la vista anterior: arrancar de nuevo.
-    nuevos.delete("filas");
-    irA(nuevos);
-  };
 
   // La tabla se dibuja de a tandas. Con el período en "Todo" el filtro deja más
   // de cinco mil filas, y pintarlas todas de una es medio segundo de puro HTML
@@ -298,45 +303,17 @@ export function TablaVentas({
           />
         </div>
 
-        {/* La cola vive al lado del buscador y no entre las solapas: en rojo y
-            fuera de la fila de solapas se ve de lejos, que es todo el punto.
-            Sin pendientes no se dibuja —un botón en cero es ruido todos los
-            días— y para salir del filtro está la solapa Todos, al lado. */}
-        <div className="flex shrink-0 items-center gap-2">
-          {cuantasPendientes > 0 && (
-            <Button
-              variant="error"
-              size="sm"
-              aria-pressed={solapa === "pendientes"}
-              title="Mensualidades que faltan cargar en el sheet y en la app"
-              onClick={() => verPendientes(solapa !== "pendientes")}
-              className="whitespace-nowrap"
-            >
-              {cuantasPendientes} sin cargar
-            </Button>
-          )}
-          <Buscador inicial={q} placeholder="Buscar alumno o detalle..." />
-        </div>
+        <Buscador inicial={q} placeholder="Buscar alumno o detalle..." />
       </div>
 
       {registros.length === 0 ? (
         <EmptyState
           icon={<DollarIcon />}
-          title={
-            solapa === "pendientes"
-              ? "No queda ninguna sin cargar"
-              : todos.length === 0
-                ? "Sin movimientos en el período"
-                : "Nada coincide"
-          }
+          title={todos.length === 0 ? "Sin movimientos en el período" : "Nada coincide"}
           description={
-            // Tildaste la última y el botón rojo desapareció: sin esto la tabla
-            // vacía parece un filtro mal puesto en vez de trabajo terminado.
-            solapa === "pendientes"
-              ? "Todas las mensualidades nuevas están en el sheet y en la app."
-              : todos.length === 0
-                ? "Ampliá el período desde el encabezado de Fecha."
-                : "Probá con otra búsqueda o sacá los filtros de los encabezados."
+            todos.length === 0
+              ? "Ampliá el período desde el encabezado de Fecha."
+              : "Probá con otra búsqueda o sacá los filtros de los encabezados."
           }
         />
       ) : (
@@ -382,10 +359,17 @@ export function TablaVentas({
                   <TableHead>
                     <FiltroColumna etiqueta="Total" monto={{ param: "total" }} />
                   </TableHead>
+                  {/* Los dos encabezados filtran: tildando "Pendiente" en Sheet
+                      quedan las que faltan cargar ahí, y cruzando los dos se
+                      llega a cualquier combinación sin un botón aparte. */}
                   {muestraCarga && (
                     <>
-                      <TableHead className="text-center">Sheet</TableHead>
-                      <TableHead className="text-center">App</TableHead>
+                      <TableHead>
+                        <FiltroColumna etiqueta="Sheet" param="sheet" opciones={opcionesSheet} />
+                      </TableHead>
+                      <TableHead>
+                        <FiltroColumna etiqueta="App" param="app" opciones={opcionesApp} />
+                      </TableHead>
                     </>
                   )}
                   <TableHead className="text-center" />
