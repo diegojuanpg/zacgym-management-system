@@ -11,12 +11,23 @@ export interface Categoria {
 
 export interface DatosTarea {
   alumno_id: string;
-  categoria_id: string | null;
+  categoria_id: string;
   detalle: string;
+  /** El empleado del mostrador que la anota. No es el usuario de la sesión. */
+  anotado_por: string;
 }
 
+/**
+ * Alta de tarea. Los cuatro campos son obligatorios.
+ *
+ * `anotado_por` es el empleado y no el usuario de la sesión: el login del
+ * mostrador es compartido, así que `creado_por` dice siempre el mismo y no
+ * sirve para saber quién la anotó. Se siguen guardando los dos.
+ */
 export async function crearTarea(datos: DatosTarea): Promise<{ error?: string }> {
   if (!datos.alumno_id) return { error: "Elegí el alumno." };
+  if (!datos.categoria_id) return { error: "Elegí la categoría." };
+  if (!datos.anotado_por) return { error: "Elegí quién la anota." };
   if (datos.detalle.trim() === "") return { error: "Escribí la tarea." };
 
   const supabase = await createClient();
@@ -27,6 +38,7 @@ export async function crearTarea(datos: DatosTarea): Promise<{ error?: string }>
     alumno_id: datos.alumno_id,
     categoria_id: datos.categoria_id,
     detalle: datos.detalle.trim(),
+    anotado_por: datos.anotado_por,
     creado_por: sesion.user.id,
   });
 

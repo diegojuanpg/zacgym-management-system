@@ -35,6 +35,9 @@ const ZONA = "America/Argentina/Buenos_Aires";
 /** Sin categoría no es un valor de la base: es no tener ninguna. */
 const SIN_CATEGORIA = "Sin categoría";
 
+/** Las tareas viejas se cargaron antes de que el alta pidiera quién las anota. */
+const SIN_ANOTAR = "Sin registrar";
+
 const cuando = (iso: string) =>
   new Date(iso).toLocaleString("es-AR", {
     timeZone: ZONA,
@@ -63,6 +66,8 @@ export interface Tarea {
   detalle: string;
   creado_en: string;
   estado: EstadoTarea;
+  /** El empleado que la anotó. Null en las cargadas antes de que se pidiera. */
+  anoto: string | null;
 }
 
 /** La tabla de tareas: solapas por estado, buscador, filtros y filas editables. */
@@ -82,6 +87,7 @@ export function TablaTareas({
   const lista_ = (nombre: string) => parametros.getAll(nombre);
 
   const categoriaDe = (t: Tarea) => t.categoria ?? SIN_CATEGORIA;
+  const anotoDe = (t: Tarea) => t.anoto ?? SIN_ANOTAR;
 
   const vistas = [
     { valor: "todas", nombre: "Todas", cuantos: todas.length },
@@ -107,7 +113,9 @@ export function TablaTareas({
   const opcionesAlumno = ordenar(todas.map((t) => t.alumno));
   const opcionesCategoria = ordenar([...categorias.map((c) => c.nombre), ...todas.map(categoriaDe)]);
   const filtroAlumno = lista_("alumno");
+  const opcionesAnoto = ordenar(todas.map(anotoDe));
   const filtroCategoria = lista_("categoria");
+  const filtroAnoto = lista_("anoto");
   const nombreEstado = (e: EstadoTarea) => ESTADOS.find((x) => x.valor === e)!.nombre;
   const filtroEstado = lista_("estado");
   // El mismo rango de fechas que en Ventas. creado_en es un instante: se pasa a
@@ -122,13 +130,15 @@ export function TablaTareas({
         (vistaActual.valor === "todas" || t.estado === vistaActual.valor) &&
         (filtroCategoria.length === 0 || filtroCategoria.includes(categoriaDe(t))) &&
         (filtroAlumno.length === 0 || filtroAlumno.includes(t.alumno)) &&
+        (filtroAnoto.length === 0 || filtroAnoto.includes(anotoDe(t))) &&
         (filtroEstado.length === 0 || filtroEstado.includes(nombreEstado(t.estado))) &&
         (rangoCreada.desde === "" || diaDe(t.creado_en) >= rangoCreada.desde) &&
         (rangoCreada.hasta === "" || diaDe(t.creado_en) <= rangoCreada.hasta) &&
         (busqueda === "" ||
           t.alumno.toLowerCase().includes(busqueda) ||
           t.detalle.toLowerCase().includes(busqueda) ||
-          (t.categoria ?? "").toLowerCase().includes(busqueda)),
+          (t.categoria ?? "").toLowerCase().includes(busqueda) ||
+          (t.anoto ?? "").toLowerCase().includes(busqueda)),
     )
     .sort((a, b) =>
       criterio === "antigua"
@@ -168,10 +178,11 @@ export function TablaTareas({
           <TableRoot className="md:max-h-[calc(100vh-16rem)]">
             <Table aria-label="Tareas">
               <TableColgroup>
-                <TableCol style={{ width: "14%" }} />
                 <TableCol style={{ width: "13%" }} />
-                <TableCol style={{ width: "17%" }} />
-                <TableCol style={{ width: "36%" }} />
+                <TableCol style={{ width: "12%" }} />
+                <TableCol style={{ width: "15%" }} />
+                <TableCol style={{ width: "29%" }} />
+                <TableCol style={{ width: "11%" }} />
                 <TableCol style={{ width: "13%" }} />
                 <TableCol style={{ width: "7%" }} />
               </TableColgroup>
@@ -201,6 +212,9 @@ export function TablaTareas({
                     <FiltroColumna etiqueta="Alumno" param="alumno" opciones={opcionesAlumno} />
                   </TableHead>
                   <TableHead>Tarea</TableHead>
+                  <TableHead>
+                    <FiltroColumna etiqueta="Anotó" param="anoto" opciones={opcionesAnoto} />
+                  </TableHead>
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Estado"
@@ -239,6 +253,11 @@ export function TablaTareas({
                     <TableCell className="whitespace-normal text-[var(--ds-gray-1000)]">
                       <DetalleTareaEditable id={t.id} detalle={t.detalle} />
                     </TableCell>
+                    <TableCell
+                      className={t.anoto === null ? "text-muted-foreground" : undefined}
+                    >
+                      {t.anoto ?? SIN_ANOTAR}
+                    </TableCell>
                     <TableCell>
                       <EstadoTareaSelect id={t.id} estado={t.estado} />
                     </TableCell>
@@ -264,7 +283,7 @@ export function TablaTareas({
                   tope={tope}
                   enPagina={visibles.length}
                   total={lista.length}
-                  columnas={6}
+                  columnas={7}
                 />
               </TableBody>
             </Table>

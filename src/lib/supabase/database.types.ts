@@ -553,6 +553,7 @@ export type Database = {
       tareas: {
         Row: {
           alumno_id: string
+          anotado_por: string | null
           categoria_id: string | null
           creado_en: string
           creado_por: string
@@ -562,6 +563,7 @@ export type Database = {
         }
         Insert: {
           alumno_id: string
+          anotado_por?: string | null
           categoria_id?: string | null
           creado_en?: string
           creado_por: string
@@ -571,6 +573,7 @@ export type Database = {
         }
         Update: {
           alumno_id?: string
+          anotado_por?: string | null
           categoria_id?: string | null
           creado_en?: string
           creado_por?: string
@@ -591,6 +594,13 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_anotado_por_fkey"
+            columns: ["anotado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
             referencedColumns: ["id"]
           },
           {
@@ -1102,6 +1112,8 @@ export type Database = {
         Row: {
           alumno: string | null
           alumno_id: string | null
+          anotado_por: string | null
+          anoto: string | null
           categoria: string | null
           categoria_id: string | null
           creado_en: string | null
@@ -1122,6 +1134,13 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_anotado_por_fkey"
+            columns: ["anotado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
             referencedColumns: ["id"]
           },
           {
@@ -1320,6 +1339,10 @@ export type Database = {
       fichar_asistencia: {
         Args: { p_empleado: string; p_inicia: string; p_termina: string }
         Returns: string
+      }
+      mover_esperado_cierre: {
+        Args: { p_delta: number; p_producto_id: string; p_turno_id: string }
+        Returns: undefined
       }
       recalcular_turno: { Args: { p_turno_id: string }; Returns: undefined }
       registrar_cobro: {

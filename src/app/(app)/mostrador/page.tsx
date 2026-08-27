@@ -393,6 +393,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             <AccionesModal
               alumnos={alumnos ?? []}
               categorias={categorias ?? []}
+              empleados={empleados ?? []}
               bloqueado={!turno || !esHoy}
               motivoBloqueo={bloqueoPorFecha}
             />
