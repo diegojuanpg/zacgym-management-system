@@ -42,7 +42,7 @@ const PALETA = [
 
 /** Los dos rubros que no son una categoría del catálogo se nombran como en la tabla. */
 const nombreRubro = (rubro: string) =>
-  rubro === "cobro" ? "Cobro de deuda" : rubro === "sin" ? "Sin categoría" : capitalizar(rubro);
+  rubro === "cobro" ? "Cobros" : rubro === "sin" ? "Sin categoría" : capitalizar(rubro);
 
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
