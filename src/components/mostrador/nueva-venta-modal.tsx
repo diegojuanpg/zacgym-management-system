@@ -466,7 +466,6 @@ export function NuevaVentaModal({
         open={abierto}
         onOpenChange={cambiarApertura}
         title="Cargar movimientos"
-        description="Apilá todo lo del turno y confirmá una sola vez."
         className="w-[min(60rem,94vw)]"
         sticky
         footer={
