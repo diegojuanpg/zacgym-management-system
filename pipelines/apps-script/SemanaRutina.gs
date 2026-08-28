@@ -94,12 +94,40 @@ function semLog_(runId, nivel, mensaje, contexto) {
  * tienen la cuota al dia. Los que no entrenan hace rato no cambian de semana, y
  * leerles el archivo todos los dias es gastar cuota de Google al pedo.
  */
-function semPoblacion_() {
-  const corte = new Date(Date.now() - SEM.DIAS_ACTIVIDAD * 86400000).toISOString();
-  const hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
-  return semGet_('alumnos_cuenta?select=id,apellido,nombre,sheet_id'
-    + '&sheet_id=not.is.null'
-    + '&or=(ultima_actividad.gte.' + corte + ',vence.gte.' + hoy + ')');
+function semPoblacion_(todos) {
+  let q = 'alumnos_cuenta?select=id,apellido,nombre,sheet_id&sheet_id=not.is.null';
+  if (!todos) {
+    const corte = new Date(Date.now() - SEM.DIAS_ACTIVIDAD * 86400000).toISOString();
+    const hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+    q += '&or=(ultima_actividad.gte.' + corte + ',vence.gte.' + hoy + ')';
+  }
+  return semGet_(q);
+}
+
+/**
+ * Una corrida sobre TODOS los que tienen planilla, no solo los del ultimo mes.
+ *
+ * Sirve para la primera carga, o cuando se quiere una foto completa. No cambia
+ * el criterio diario: arma la lista entera y despues sigue el mismo camino, asi
+ * que se reanuda igual y el trigger que quede instalado vuelve a mirar solo a
+ * los activos.
+ *
+ * Son seis veces mas planillas, y cada una son dos viajes a la API de Sheets:
+ * contar con varias pasadas.
+ */
+function semanaRutinaTodos() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty(PROP_SEM_PENDIENTES)) {
+    Logger.log('Hay una corrida a medio terminar. Corre reiniciarSemanaRutina primero.');
+    return;
+  }
+  const lista = semPoblacion_(true).map(function (a) {
+    return { id: a.id, sheet: a.sheet_id, quien: a.apellido + ', ' + a.nombre };
+  });
+  props.setProperty(PROP_SEM_PENDIENTES, JSON.stringify(lista));
+  props.setProperty(PROP_SEM_RESUMEN, '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0}');
+  Logger.log('Cargados ' + lista.length + ' alumnos. Arranca.');
+  semanaRutina();
 }
 
 /** Una fecha serial de Sheets a "YYYY-MM-DD". Sheets cuenta desde 1899-12-30. */
@@ -227,7 +255,7 @@ function semanaRutina() {
       || '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0}');
 
     if (pendientes === null) {
-      pendientes = semPoblacion_().map(function (a) {
+      pendientes = semPoblacion_(false).map(function (a) {
         return { id: a.id, sheet: a.sheet_id, quien: a.apellido + ', ' + a.nombre };
       });
       Logger.log('semanaRutina: ' + pendientes.length + ' alumnos por leer.');
