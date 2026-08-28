@@ -38,8 +38,12 @@ llamada mas a Drive y por eso solo se paga cuando el nombre fallo.
 
 Dos reglas que conviene tener presentes:
 
-- **Drive manda.** Si el alumno ya tenia otro `sheet_id` y aparece un archivo con
-  su nombre, se pisa. Queda el warn con el valor anterior por si hay que volver.
+- **Drive le gana a la base.** Si el alumno ya tenia otro `sheet_id` y aparece
+  un archivo con su nombre, se pisa. Queda el warn con el valor anterior.
+- **Entre dos archivos de Drive no gana ninguno.** Dos rutinas para el mismo
+  alumno son duplicados en Drive, y elegir una al azar es peor que no tocar
+  nada: se avisa y se deja lo que estaba. Sin esto el resultado dependia del
+  orden en que Drive devolviera los archivos y cambiaba de corrida en corrida.
 - **No crea alumnos.** Un archivo que no engancha con nadie solo deja un warn.
   La version vieja agregaba filas sola, y por eso despues tenia que borrar
   duplicados.
