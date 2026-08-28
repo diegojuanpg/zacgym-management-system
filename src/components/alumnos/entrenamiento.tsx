@@ -28,8 +28,13 @@ export function Entrenamiento({
   semana: string | null;
   estado: string | null;
 }) {
-  const texto = semana ? fechaCorta(semana, "2-digit") : estado;
-  if (!texto) return SIN_DATO;
+  if (!semana && !estado) return SIN_DATO;
+
+  // Sin fecha siempre dice "Revisar", sea porque quedaron dos semanas abiertas o
+  // porque la grilla esta corrida. Las dos cosas se arreglan igual: entrando a
+  // mirar la planilla. El motivo exacto va en el tooltip, que es donde se busca
+  // cuando ya decidiste entrar; en la celda solo estorba y no entra.
+  const texto = semana ? fechaCorta(semana, "2-digit") : "Revisar";
 
   // Sin planilla no hay a dónde ir: se muestra el texto pelado en vez de un
   // link roto.
@@ -42,7 +47,7 @@ export function Entrenamiento({
       href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
       target="_blank"
       rel="noopener noreferrer"
-      title={semana ? "Abrir la rutina" : `${estado} — abrir la rutina`}
+      title={semana ? "Abrir la rutina" : `${estado}. Abrir la rutina.`}
       className={
         semana
           ? "underline decoration-dotted underline-offset-2 hover:decoration-solid"
