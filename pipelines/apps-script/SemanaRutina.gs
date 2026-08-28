@@ -22,9 +22,12 @@ const SEM = {
   API: 'https://sheets.googleapis.com/v4/spreadsheets/',
   // Entran los que entrenaron en el ultimo mes y los que tienen la cuota al dia.
   DIAS_ACTIVIDAD: 30,
-  EN_PARALELO: 10,
-  ESPERA_MS: 1500,      // entre tandas, para no comerse un 429
-  REINTENTOS: 3,
+  // La API de Sheets deja ~60 lecturas por minuto y por usuario. Con 10 en
+  // paralelo cada 1,5s se pedian ~400: la mitad de las planillas volvia con 429.
+  // Cinco cada 5 segundos son 60 por minuto justos.
+  EN_PARALELO: 5,
+  ESPERA_MS: 5000,
+  REINTENTOS: 4,
   MAX_RUNTIME_MS: 4.5 * 60 * 1000,
   RETRASO_TRIGGER_MS: 60 * 1000,
   HORA_TRIGGER: 4,      // despues de runDaily
@@ -125,7 +128,7 @@ function semanaRutinaTodos() {
     return { id: a.id, sheet: a.sheet_id, quien: a.apellido + ', ' + a.nombre };
   });
   props.setProperty(PROP_SEM_PENDIENTES, JSON.stringify(lista));
-  props.setProperty(PROP_SEM_RESUMEN, '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0}');
+  props.setProperty(PROP_SEM_RESUMEN, '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0,"frenados":0}');
   Logger.log('Cargados ' + lista.length + ' alumnos. Arranca.');
   semanaRutina();
 }
@@ -157,7 +160,13 @@ const semTexto_ = (c) => String(
  */
 const semPlano_ = (c) => semTexto_(c).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-/** Pide de a diez en paralelo, con reintentos: la API de Sheets tira 429 facil. */
+/** Un 429 o un 5xx no dicen nada del alumno: la lectura ni se intento. */
+const semTransitorio_ = (res) => {
+  const c = res.getResponseCode();
+  return c === 429 || c >= 500;
+};
+
+/** Pide de a poco en paralelo, con reintentos: la API de Sheets tira 429 facil. */
 function semTraer_(pedidos) {
   const salida = [];
   for (let i = 0; i < pedidos.length; i += SEM.EN_PARALELO) {
@@ -252,7 +261,7 @@ function semanaRutina() {
   try {
     let pendientes = JSON.parse(props.getProperty(PROP_SEM_PENDIENTES) || 'null');
     const r = JSON.parse(props.getProperty(PROP_SEM_RESUMEN)
-      || '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0}');
+      || '{"leidos":0,"revisar":0,"sinFecha":0,"errores":0,"frenados":0}');
 
     if (pendientes === null) {
       pendientes = semPoblacion_(false).map(function (a) {
@@ -266,6 +275,9 @@ function semanaRutina() {
 
     while (pendientes.length && Date.now() - t0 < SEM.MAX_RUNTIME_MS) {
       const lote = pendientes.splice(0, SEM.EN_PARALELO * 3);
+      // Los que la API no quiso atender vuelven al final de la cola: el problema
+      // es la cuota, no ellos, y escribirles un error seria mentir.
+      const devueltos = [];
 
       // Vuelta 1: que hojas tiene cada planilla, para quedarse con la
       // Entrenamiento de numero mas alto.
@@ -277,6 +289,7 @@ function semanaRutina() {
       const conHoja = [];
       hojas.forEach(function (res, i) {
         const a = lote[i];
+        if (semTransitorio_(res)) { devueltos.push(a); return; }
         if (res.getResponseCode() !== 200) {
           r.errores++;
           semPatch_(a.id, { rutina_semana: null, rutina_estado: 'no se pudo abrir la planilla',
@@ -321,6 +334,7 @@ function semanaRutina() {
 
       grillas.forEach(function (res, i) {
         const x = conHoja[i];
+        if (semTransitorio_(res)) { devueltos.push(x.a); return; }
         let leido;
         if (res.getResponseCode() !== 200) {
           leido = { estado: 'error ' + res.getResponseCode() + ' al leer la grilla' };
@@ -344,6 +358,17 @@ function semanaRutina() {
           semLog_(runId, 'error', 'No se pudo guardar: ' + e.message, { alumno: x.a.quien });
         }
       });
+
+      if (devueltos.length) {
+        r.frenados += devueltos.length;
+        devueltos.forEach(function (a) { pendientes.push(a); });
+        // Si la tanda entera reboto, la cuota esta agotada: seguir pidiendo solo
+        // gasta el tiempo de la corrida contra 429.
+        if (devueltos.length >= lote.length) {
+          Logger.log('semanaRutina: cuota agotada, corto y sigo despues.');
+          break;
+        }
+      }
     }
 
     if (pendientes.length) {
