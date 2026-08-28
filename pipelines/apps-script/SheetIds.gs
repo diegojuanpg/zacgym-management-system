@@ -165,11 +165,12 @@ function sidsIndexar_(alumnos) {
  * DATOS"—: recortar palabra por palabra hasta que enganche podria pegarle al
  * alumno equivocado, y ese nombre lo tiene que arreglar una persona en Drive.
  */
-function sidsSoloNombre_(titulo) {
-  return String(titulo)
-    // Los parentesis primero: en "Fulano (nueva rutina)" el corte por "rutina"
-    // dispararia adentro del parentesis y dejaria "Fulano (nueva".
-    .replace(/\([^)]*\)/g, ' ')
+function sidsSoloNombre_(titulo, sacarParentesis) {
+  let t = String(titulo);
+  // Los parentesis, cuando se sacan, van primero: en "Fulano (nueva rutina)" el
+  // corte por "rutina" dispararia adentro del parentesis y dejaria "Fulano (nueva".
+  if (sacarParentesis) t = t.replace(/\([^)]*\)/g, ' ');
+  return t
     .replace(/[-–—]?\s*rutina.*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -183,8 +184,16 @@ function sidsSoloNombre_(titulo) {
  * cuando el nombre fallo.
  */
 function sidsIdentificar_(archivo, indice) {
-  const porNombre = indice.porNombre[sidsNorm_(sidsSoloNombre_(archivo.getName()))];
-  if (porNombre) return { alumno: porNombre, como: 'nombre' };
+  const titulo = archivo.getName();
+  // Con los parentesis primero y sin ellos despues. El orden importa: hay tres
+  // alumnos cuyo nombre ES el parentesis —"Guillermo (Hijo)", "Hernan (Padre)",
+  // "Mariano (grande)"—, cada uno con un homonimo sin el. Sacandolos de entrada,
+  // padre e hijo se funden en uno y ninguno de los dos recibe su sheet_id.
+  // Sacandolos despues sigue limpiando las anotaciones tipo "(nueva)".
+  for (let i = 0; i < 2; i++) {
+    const a = indice.porNombre[sidsNorm_(sidsSoloNombre_(titulo, i === 1))];
+    if (a) return { alumno: a, como: 'nombre' };
+  }
 
   const mails = {};
   try {
