@@ -32,7 +32,11 @@ los `sin sheet_id en Control de usuarios`.
 Ahora la fuente es `alumnos.sheet_id`, que ya existia en el esquema y esta
 poblada. `sheetIds` la mantiene al dia: busca en Drive los archivos que terminan
 en " - Rutina" —salteando la carpeta "Usuarios archivados"— y busca de quien es.
-Primero por el nombre del archivo contra apellido y nombre, en los dos ordenes.
+Primero por el nombre del archivo contra apellido y nombre, en los dos ordenes,
+probando con los parentesis y despues sin ellos —hay tres alumnos cuyo nombre
+ES el parentesis, "Guillermo (Hijo)", "Hernan (Padre)" y "Mariano (grande)",
+cada uno con un homonimo sin el, asi que sacarlos de entrada funde a padre e
+hijo en una sola persona—.
 Si no engancha, mira con que mails esta compartido el archivo, que cuesta una
 llamada mas a Drive y por eso solo se paga cuando el nombre fallo.
 

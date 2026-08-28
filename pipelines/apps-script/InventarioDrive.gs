@@ -49,12 +49,27 @@ function invNorm_(texto) {
  * El nombre del alumno adentro del nombre del archivo. Misma regla que usa
  * SheetIds.gs, repetida a proposito para que este archivo ande solo.
  */
-function invSoloNombre_(titulo) {
-  return String(titulo)
-    .replace(/\([^)]*\)/g, ' ')
+function invSoloNombre_(titulo, sacarParentesis) {
+  let t = String(titulo);
+  if (sacarParentesis) t = t.replace(/\([^)]*\)/g, ' ');
+  return t
     .replace(/[-–—]?\s*rutina.*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * El alumno que le corresponde, probando con parentesis y despues sin.
+ * Hay tres alumnos cuyo nombre ES el parentesis —"(Hijo)", "(Padre)",
+ * "(grande)"— y cada uno tiene un homonimo sin el: sacarlos de entrada
+ * funde a padre e hijo en una sola persona.
+ */
+function invAlumnoDe_(titulo, enBase) {
+  const conParens = invSoloNombre_(titulo, false);
+  if (enBase && enBase[invNorm_(conParens)]) return conParens;
+  const sinParens = invSoloNombre_(titulo, true);
+  if (enBase && enBase[invNorm_(sinParens)]) return sinParens;
+  return conParens;
 }
 
 /**
@@ -151,7 +166,7 @@ function inventarioDrive() {
 
       const f = archivos.next();
       const titulo = f.getName();
-      const alumno = invSoloNombre_(titulo);
+      const alumno = invAlumnoDe_(titulo, enBase);
       let carpeta = '';
       try {
         const padres = f.getParents();
