@@ -120,6 +120,15 @@ const semTexto_ = (c) => String(
   (c && (c.formattedValue || (c.effectiveValue && c.effectiveValue.stringValue))) || '')
   .trim().toLowerCase();
 
+/**
+ * Igual que semTexto_ pero sin acentos.
+ *
+ * La celda dice "DIA" con tilde, asi que comparar en minuscula no alcanza:
+ * "dia" nunca es igual a "dia". Los encabezados SERIES y PESO no llevan, pero
+ * se normalizan igual por las dudas.
+ */
+const semPlano_ = (c) => semTexto_(c).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 /** Pide de a diez en paralelo, con reintentos: la API de Sheets tira 429 facil. */
 function semTraer_(pedidos) {
   const salida = [];
@@ -163,7 +172,7 @@ function semLeerGrilla_(datosHoja) {
   if (!datosHoja || datosHoja.length < 3) return { estado: 'no se pudo leer la grilla' };
 
   const colA = ((datosHoja[0].rowData || []).map(function (f) {
-    return f.values && f.values[0] ? semTexto_(f.values[0]) : '';
+    return f.values && f.values[0] ? semPlano_(f.values[0]) : '';
   }));
   // La grilla se da por sentada en las filas 7 y 10, pero se verifica: si "DIA"
   // no esta donde tiene que estar, la planilla tiene otro formato y leer esas
@@ -182,7 +191,7 @@ function semLeerGrilla_(datosHoja) {
   let series = [], peso = [];
   for (let i = 0; i < Math.max(celdasEnc.length, meta.length); i++) {
     if (meta[i] && meta[i].hiddenByUser) continue;
-    const t = semTexto_(celdasEnc[i]);
+    const t = semPlano_(celdasEnc[i]);
     if (t === 'series') series.push(i);
     else if (t === 'peso') peso.push(i);
   }
@@ -397,7 +406,7 @@ function probarUnAlumno() {
 
   const datos = (JSON.parse(res.getContentText()).sheets || [])[0].data;
   const colA = (datos[0].rowData || []).map(function (f) {
-    return f.values && f.values[0] ? semTexto_(f.values[0]) : ''; });
+    return f.values && f.values[0] ? semPlano_(f.values[0]) : ''; });
   lineas.push('DIA en fila: ' + (colA.indexOf('dia') + 1) + '  (se espera ' + SEM.FILA_ENCABEZADOS + ')');
 
   const meta2 = datos[1].columnMetadata || datos[2].columnMetadata || [];
@@ -405,7 +414,7 @@ function probarUnAlumno() {
   const fec = (datos[1].rowData && datos[1].rowData[0] && datos[1].rowData[0].values) || [];
   lineas.push('columnas visibles con encabezado:');
   for (let i = 0; i < enc.length; i++) {
-    const t = semTexto_(enc[i]);
+    const t = semPlano_(enc[i]);
     if (t !== 'series' && t !== 'peso') continue;
     const oculta = meta2[i] && meta2[i].hiddenByUser;
     lineas.push('   col ' + i + '  ' + t + (oculta ? '  (OCULTA)' : '  <- visible, fecha: '
