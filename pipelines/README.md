@@ -63,6 +63,22 @@ Antes de habilitar la escritura conviene un ensayo:
   entran en los 6 minutos de Apps Script. `reiniciarMedicion()` la vuelve a cero.
 - `previewSheetIds()` es la version corta, de una sola pasada.
 
+## Ordenar Drive
+
+`apps-script/InventarioDrive.gs` no es un pipeline: no toca nada y se corre a
+mano cuando hay que limpiar. `inventarioDrive()` vuelca los archivos a una
+planilla nueva con lo que hace falta para decidir cual queda y cual se archiva:
+que alumno se le detecta, si ese alumno esta en la base, que palabras
+sospechosas trae el nombre —vieja, copia, prueba, un año— y **cuantos archivos
+comparten el mismo alumno**. Los repetidos quedan arriba y con sus filas
+pegadas.
+
+Esto es lo que resuelve los duplicados que `sheetIds` reporta y no puede tocar.
+Un `"Fulano - Rutina (Vieja)"` conviviendo con el bueno deja a Fulano sin
+`sheet_id` para siempre, porque los dos nombres resuelven al mismo alumno y el
+script prefiere no elegir. Se arregla moviendo la vieja a "Usuarios
+archivados", que es la carpeta que el barrido saltea.
+
 `apps-script/Dashboard.gs` no es un pipeline: arma la hoja "Dashboard" una sola
 vez, con formulas que despues se recalculan solas.
 
