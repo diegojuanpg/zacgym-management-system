@@ -40,6 +40,20 @@ hijo en una sola persona—.
 Si no engancha, mira con que mails esta compartido el archivo, que cuesta una
 llamada mas a Drive y por eso solo se paga cuando el nombre fallo.
 
+## Como jubilar una rutina vieja
+
+Lo mejor sigue siendo **moverla a "Usuarios archivados"**: el barrido saltea esa
+carpeta entera y no hay nada que recordar.
+
+Si se prefiere renombrar, alcanza con que el nombre diga **archivado** (o
+"no usar", "descartar", "obsoleta"). Esas palabras sacan al archivo del barrido
+aunque siga diciendo "Rutina".
+
+Lo que **no** alcanza es cualquier otro agregado: "Fulano - Rutina (Vieja)",
+"- Rutina 2024" o "- Rutina anterior" siguen resolviendo al mismo alumno,
+porque todo lo que viene despues de "rutina" se corta. El script ve dos rutinas,
+se niega a elegir y el alumno se queda con el id viejo.
+
 Dos reglas que conviene tener presentes:
 
 - **Drive le gana a la base.** Si el alumno ya tenia otro `sheet_id` y aparece
@@ -65,7 +79,7 @@ Antes de habilitar la escritura conviene un ensayo:
   cuantos archivos engancha por nombre y con cuantos por mail, y cuantos ids
   pondria y cuantos **pisaria**. Acumula entre pasadas, porque 1900 archivos no
   entran en los 6 minutos de Apps Script. `reiniciarMedicion()` la vuelve a cero.
-- `previewSheetIds()` es la version corta, de una sola pasada.
+- 
 
 ## Ordenar Drive
 

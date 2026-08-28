@@ -83,7 +83,9 @@ function invSenales_(titulo) {
   if (/\b(copia|copy|copias)\b/.test(t)) s.push('es copia');
   if (/\b(nueva|nuevo|new)\b/.test(t)) s.push('dice nueva');
   if (/\b(prueba|test|borrador|temporal|tmp)\b/.test(t)) s.push('parece prueba');
-  if (/\b(no usar|descartar|obsoleta|obsoleto)\b/.test(t)) s.push('marcada para descartar');
+  // Las mismas palabras que SheetIds saltea: si aparecen, el archivo queda fuera
+  // del barrido aunque diga "Rutina".
+  if (/(archivad|no usar|descartar|obsolet)/.test(t)) s.push('IGNORADA por el barrido');
   if (/\b(19|20)\d{2}\b/.test(t)) s.push('tiene un año');
   if (!/rutina/.test(t)) s.push('no dice rutina');
   else if (!/[-–—]\s*rutina/i.test(titulo)) s.push('sin guion antes de rutina');

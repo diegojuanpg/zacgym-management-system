@@ -23,6 +23,11 @@ const SIDS = {
   SUFIJO: ' - Rutina',
   CARPETA_ARCHIVADOS: 'Usuarios archivados',
   SUPA_URL: 'https://lrjqasglgmcxntuwamow.supabase.co',
+  // Palabras que sacan a un archivo del barrido, este donde este. Mover la
+  // rutina vieja a "Usuarios archivados" sigue siendo lo mejor, pero renombrarla
+  // es lo que sale natural y no siempre alcanza: "Fulano - Rutina (archivado)"
+  // conserva "Rutina", asi que resolvia al mismo alumno y chocaba con la nueva.
+  IGNORAR: ['archivad', 'no usar', 'descartar', 'obsolet'],
   MAX_RUNTIME_MS: 4.5 * 60 * 1000, // corta antes del tope duro de 6 min
   HORA_TRIGGER: 2, // una hora antes que runDaily
 };
@@ -185,6 +190,13 @@ function sidsSoloNombre_(titulo, sacarParentesis) {
  */
 function sidsIdentificar_(archivo, indice) {
   const titulo = archivo.getName();
+
+  const plano = sidsNorm_(titulo);
+  for (let j = 0; j < SIDS.IGNORAR.length; j++) {
+    if (plano.indexOf(SIDS.IGNORAR[j]) !== -1) {
+      return { alumno: null, como: 'ignorado por decir "' + SIDS.IGNORAR[j] + '"' };
+    }
+  }
   // Con los parentesis primero y sin ellos despues. El orden importa: hay tres
   // alumnos cuyo nombre ES el parentesis —"Guillermo (Hijo)", "Hernan (Padre)",
   // "Mariano (grande)"—, cada uno con un homonimo sin el. Sacandolos de entrada,
