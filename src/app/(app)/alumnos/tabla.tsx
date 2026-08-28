@@ -159,6 +159,24 @@ export function TablaAlumnos({
   const estadoDe = (a: FilaAlumno) =>
     a.activo && (alDia(a) || entrenaVencido(a)) ? "Activo" : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
+
+  /**
+   * La columna Entrenamiento, en cuatro categorías que se pueden accionar.
+   *
+   * La fecha suelta no sirve de filtro —serían decenas de opciones— pero lo que
+   * se quiere saber es otra cosa: quién está atrasado y a quién hay que ir a
+   * mirarle la planilla. "Sin leer" son los que quedan fuera del criterio del
+   * pipeline: solo se les mira la planilla a los que entrenaron el último mes o
+   * tienen la cuota al día.
+   */
+  const entrenamientoDe = (a: FilaAlumno) =>
+    a.rutina_estado !== null
+      ? "Revisar"
+      : a.rutina_semana === null
+        ? "Sin leer"
+        : a.rutina_semana >= lunesActual
+          ? "Al día"
+          : "Atrasada";
   // Las cuatro ventanas de vencimiento, todas adentro de Activos y sin pisarse:
   // cada alumno que entrena cae en una sola. Las semanas son calendario porque
   // la cuota vence un día puntual, no en una ventana rodante.
@@ -214,7 +232,11 @@ export function TablaAlumnos({
   const opcionesEstado = ordenar(todos.map(estadoDe));
   const opcionesGenero = ordenar(todos.map(generoDe));
 
+  const opcionesEntrenamiento = ordenar(todos.map(entrenamientoDe));
+
   const filtroApellido = lista_("apellido");
+  const filtroEntrenamiento = lista_("entrenamiento");
+  const rangoSemana = rangoDe(parametros.get("semana") ?? undefined);
   const filtroEstado = lista_("estado");
   const filtroGenero = lista_("genero");
   // Los mismos filtros que en Ventas: un rango para las fechas y una
@@ -233,6 +255,12 @@ export function TablaAlumnos({
         (filtroApellido.length === 0 || filtroApellido.includes(a.apellido)) &&
         (filtroEstado.length === 0 || filtroEstado.includes(estadoDe(a))) &&
         (filtroGenero.length === 0 || filtroGenero.includes(generoDe(a))) &&
+        (filtroEntrenamiento.length === 0 || filtroEntrenamiento.includes(entrenamientoDe(a))) &&
+        // Sin semana no entra en ningún rango: no es "la más vieja", es que no hay dato.
+        (rangoSemana.desde === "" ||
+          (a.rutina_semana !== null && a.rutina_semana >= rangoSemana.desde)) &&
+        (rangoSemana.hasta === "" ||
+          (a.rutina_semana !== null && a.rutina_semana <= rangoSemana.hasta)) &&
         // Sin fecha no entra en ningun rango: no es "antes de todo", es que no hay dato.
         (rangoVence.desde === "" || (a.vence !== null && a.vence >= rangoVence.desde)) &&
         (rangoVence.hasta === "" || (a.vence !== null && a.vence <= rangoVence.hasta)) &&
@@ -265,6 +293,10 @@ export function TablaAlumnos({
           return porFecha(a.ultima_actividad, b.ultima_actividad, true);
         case "act-antiguo":
           return porFecha(a.ultima_actividad, b.ultima_actividad, false);
+        case "semana-vieja":
+          return porFecha(a.rutina_semana, b.rutina_semana, false);
+        case "semana-nueva":
+          return porFecha(a.rutina_semana, b.rutina_semana, true);
         case "vence-cerca":
           return porFecha(a.vence, b.vence, false);
         case "vence-lejos":
@@ -401,7 +433,21 @@ export function TablaAlumnos({
                   {/* Todavía no muestra nada: la columna está reservada y se
                       llena cuando se decida qué guarda. Va antes de Actividad
                       para que se lean juntas, lo planeado contra lo que pasó. */}
-                  <TableHead>Entrenamiento</TableHead>
+                  <TableHead>
+                    <FiltroColumna
+                      etiqueta="Entrenamiento"
+                      param="entrenamiento"
+                      opciones={opcionesEntrenamiento}
+                      orden={{
+                        param: "orden",
+                        opciones: [
+                          { valor: "semana-vieja", label: "Más atrasada" },
+                          { valor: "semana-nueva", label: "Más al día" },
+                        ],
+                      }}
+                      rango={{ param: "semana", tipo: "date" }}
+                    />
+                  </TableHead>
                   <TableHead>
                     <FiltroColumna
                       etiqueta="Actividad"
