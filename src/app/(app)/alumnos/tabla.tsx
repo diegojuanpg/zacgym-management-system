@@ -52,10 +52,10 @@ const vacio = (
 
 const GENERO = { femenino: "Femenino", masculino: "Masculino", otro: "Otro" } as const;
 
-/** Apellido, nombre, género, edad, entrenamiento, actividad, vencimiento, estado, balance [, número, mail], acciones. */
+/** Apellido, nombre, género, edad, entrena, semana, actividad, vencimiento, estado, balance [, número, mail], acciones. */
 const ANCHOS = {
-  conContacto: ["9%", "10%", "7%", "5%", "9%", "8%", "9%", "7%", "8%", "9%", "12%", "7%"],
-  sinContacto: ["12%", "13%", "9%", "6%", "11%", "11%", "11%", "9%", "11%", "7%"],
+  conContacto: ["8%", "9%", "6%", "5%", "6%", "8%", "8%", "8%", "7%", "8%", "8%", "12%", "7%"],
+  sinContacto: ["11%", "12%", "8%", "6%", "7%", "10%", "10%", "10%", "9%", "10%", "7%"],
 };
 
 /** Los días importan más que la fecha exacta: "hace 3 días" se lee de un vistazo. */
@@ -89,6 +89,8 @@ export interface FilaAlumno {
   ultima_actividad: string | null;
   /** La planilla de rutina del alumno en Drive. Solo se usa para linkearla. */
   sheet_id: string | null;
+  /** Cuántos días por semana entrena, contados de su planilla por el pipeline. */
+  dias_entrenamiento: number | null;
   /** La semana que tiene abierta en su planilla, que lee el pipeline. */
   rutina_semana: string | null;
   /** Por qué no hay semana: "Revisar" si quedó con dos bloques visibles. */
@@ -160,8 +162,12 @@ export function TablaAlumnos({
     a.activo && (alDia(a) || entrenaVencido(a)) ? "Activo" : "Inactivo";
   const generoDe = (a: FilaAlumno) => (a.genero ? GENERO[a.genero] : "Sin especificar");
 
+  /** Los días por semana, como texto, para que el filtro los liste ordenados. */
+  const entrenaDe = (a: FilaAlumno) =>
+    a.dias_entrenamiento === null ? "Sin dato" : `${a.dias_entrenamiento} días`;
+
   /**
-   * La columna Entrenamiento, en cuatro categorías que se pueden accionar.
+   * La columna Semana, en cuatro categorías que se pueden accionar.
    *
    * La fecha suelta no sirve de filtro —serían decenas de opciones— pero lo que
    * se quiere saber es otra cosa: quién está atrasado y a quién hay que ir a
@@ -232,9 +238,11 @@ export function TablaAlumnos({
   const opcionesEstado = ordenar(todos.map(estadoDe));
   const opcionesGenero = ordenar(todos.map(generoDe));
 
+  const opcionesEntrena = ordenar(todos.map(entrenaDe));
   const opcionesEntrenamiento = ordenar(todos.map(entrenamientoDe));
 
   const filtroApellido = lista_("apellido");
+  const filtroEntrena = lista_("entrena");
   const filtroEntrenamiento = lista_("entrenamiento");
   const rangoSemana = rangoDe(parametros.get("semana") ?? undefined);
   const filtroEstado = lista_("estado");
@@ -255,6 +263,7 @@ export function TablaAlumnos({
         (filtroApellido.length === 0 || filtroApellido.includes(a.apellido)) &&
         (filtroEstado.length === 0 || filtroEstado.includes(estadoDe(a))) &&
         (filtroGenero.length === 0 || filtroGenero.includes(generoDe(a))) &&
+        (filtroEntrena.length === 0 || filtroEntrena.includes(entrenaDe(a))) &&
         (filtroEntrenamiento.length === 0 || filtroEntrenamiento.includes(entrenamientoDe(a))) &&
         // Sin semana no entra en ningún rango: no es "la más vieja", es que no hay dato.
         (rangoSemana.desde === "" ||
@@ -434,8 +443,11 @@ export function TablaAlumnos({
                       llena cuando se decida qué guarda. Va antes de Actividad
                       para que se lean juntas, lo planeado contra lo que pasó. */}
                   <TableHead>
+                    <FiltroColumna etiqueta="Entrena" param="entrena" opciones={opcionesEntrena} />
+                  </TableHead>
+                  <TableHead>
                     <FiltroColumna
-                      etiqueta="Entrenamiento"
+                      etiqueta="Semana"
                       param="entrenamiento"
                       opciones={opcionesEntrenamiento}
                       orden={{
@@ -526,6 +538,10 @@ export function TablaAlumnos({
 
                     <TableCell>{a.genero ? GENERO[a.genero] : vacio}</TableCell>
                     <TableCell>{a.edad ?? vacio}</TableCell>
+
+                    <TableCell>
+                      {a.dias_entrenamiento ?? vacio}
+                    </TableCell>
 
                     {/* La fecha —o el "Revisar"— linkea a la planilla del alumno:
                         desde el listado se entra a la rutina de un clic, que es
@@ -630,7 +646,7 @@ export function TablaAlumnos({
                   tope={tope}
                   enPagina={visibles.length}
                   total={lista.length}
-                  columnas={verContacto ? 12 : 10}
+                  columnas={verContacto ? 13 : 11}
                 />
               </TableBody>
             </Table>
