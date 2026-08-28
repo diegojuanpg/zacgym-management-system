@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Buscador } from "@/components/buscador";
 import { Torta } from "@/components/torta";
+import { Entrenamiento } from "@/components/alumnos/entrenamiento";
 import {
   BarrasCheckins,
   type DiaConCheckins,
@@ -86,6 +87,12 @@ export interface FilaAlumno {
   saldo: number;
   activo: boolean;
   ultima_actividad: string | null;
+  /** La planilla de rutina del alumno en Drive. Solo se usa para linkearla. */
+  sheet_id: string | null;
+  /** La semana que tiene abierta en su planilla, que lee el pipeline. */
+  rutina_semana: string | null;
+  /** Por qué no hay semana: "Revisar" si quedó con dos bloques visibles. */
+  rutina_estado: string | null;
 }
 
 /**
@@ -474,7 +481,16 @@ export function TablaAlumnos({
                     <TableCell>{a.genero ? GENERO[a.genero] : vacio}</TableCell>
                     <TableCell>{a.edad ?? vacio}</TableCell>
 
-                    <TableCell>{vacio}</TableCell>
+                    {/* La fecha —o el "Revisar"— linkea a la planilla del alumno:
+                        desde el listado se entra a la rutina de un clic, que es
+                        para lo que se mira esta columna. */}
+                    <TableCell>
+                      <Entrenamiento
+                        sheetId={a.sheet_id}
+                        semana={a.rutina_semana}
+                        estado={a.rutina_estado}
+                      />
+                    </TableCell>
 
                     <TableCell>
                       {a.ultima_actividad ? (

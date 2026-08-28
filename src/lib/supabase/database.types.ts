@@ -46,6 +46,9 @@ export type Database = {
           nacimiento: string | null
           nombre: string
           nombre_completo: string | null
+          rutina_estado: string | null
+          rutina_leida_en: string | null
+          rutina_semana: string | null
           sheet_id: string | null
           tracking_id: string | null
           vence: string | null
@@ -61,6 +64,9 @@ export type Database = {
           nacimiento?: string | null
           nombre: string
           nombre_completo?: string | null
+          rutina_estado?: string | null
+          rutina_leida_en?: string | null
+          rutina_semana?: string | null
           sheet_id?: string | null
           tracking_id?: string | null
           vence?: string | null
@@ -76,6 +82,9 @@ export type Database = {
           nacimiento?: string | null
           nombre?: string
           nombre_completo?: string | null
+          rutina_estado?: string | null
+          rutina_leida_en?: string | null
+          rutina_semana?: string | null
           sheet_id?: string | null
           tracking_id?: string | null
           vence?: string | null
@@ -861,6 +870,9 @@ export type Database = {
           nombre: string | null
           nombre_completo: string | null
           pagado: number | null
+          rutina_estado: string | null
+          rutina_leida_en: string | null
+          rutina_semana: string | null
           saldo: number | null
           sheet_id: string | null
           tracking_id: string | null

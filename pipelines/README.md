@@ -19,6 +19,7 @@ Las corridas quedan en la tabla `pipeline_logs`, con el nombre en la columna
 | `syncCheckins` | `apps-script/Code.gs` | Baja los check-ins de la API de PulsoFlow a `check_ins`. |
 | `syncMembers` | `apps-script/Code.gs` | Baja las membresias a `alumnos_pulsoflow`. |
 | `rebuildTracking` | `apps-script/Code.gs` | Rearma `alumnos_tracking` con lo anterior. Es de donde salen el genero y la fecha de nacimiento que muestra `alumnos_cuenta` cuando la ficha no los tiene cargados. |
+| `semanaRutina` | `apps-script/SemanaRutina.gs` | Lee de la planilla de cada alumno que semana de entrenamiento tiene abierta y la guarda en `alumnos.rutina_semana`. Es lo que muestra la columna Entrenamiento del listado. Trigger propio a las 04:00. |
 | `dias` | `apps-script/DiasEntrenamiento.gs` | Para cada alumno con actividad en los ultimos 14 dias, busca su planilla y anota los dias entrenados. |
 | `rutinas` | `apps-script-control/RutinasPorAsistencia.gs` | Avanza las rutinas segun la asistencia de la semana. |
 
@@ -129,3 +130,30 @@ Las tablas que estos pipelines escriben —`check_ins`, `alumnos_pulsoflow`,
 este repo con `create table if not exists`, para no pisar las de produccion. Esa
 carpeta manda: aca no hay copia del esquema a proposito, tener dos era la forma
 segura de que se separaran.
+
+## La semana abierta de cada alumno
+
+`semanaRutina` mira la misma hoja que el script de rutinas —`Entrenamiento` con
+el numero mas alto— y saca la fecha del bloque visible: el primer `SERIES` cuya
+columna no este oculta, con la fecha tres filas mas arriba.
+
+No es lo mismo que `alumnos_tracking.ultima_rutina_semana`, que es la semana que
+el pipeline de rutinas **fijo** al avanzar. Esta es la que la planilla tiene
+abierta **de verdad**, y tenerlas separadas es lo que deja ver cuando se
+separaron.
+
+Solo mira a los que entrenaron en el ultimo mes o tienen la cuota al dia —hoy
+unos 300 de 1912—: el que no entrena hace rato no cambia de semana y leerle el
+archivo todos los dias gasta cuota de Google al pedo.
+
+Dos bloques visibles a la vez no se resuelven eligiendo uno: la planilla quedo a
+medio actualizar y cualquiera de los dos puede ser el equivocado. Guarda
+**"Revisar"** y la columna del listado lo muestra en ambar, linkeado a la
+planilla para ir a mirarla.
+
+No abre las planillas con `SpreadsheetApp`, que cuesta segundos por archivo:
+usa la API de Sheets pidiendo solo tres rangos, de a diez en paralelo.
+
+**Antes de correrlo por primera vez**, `probarUnAlumno()` con un apellido
+cargado a mano dice que hoja eligio, en que fila encontro `DIA`, que columnas vio
+visibles y que fecha saco, sin guardar nada.
