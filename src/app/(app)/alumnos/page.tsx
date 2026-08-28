@@ -19,7 +19,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
     supabase
       .from("alumnos_cuenta")
       .select(
-        "id, apellido, nombre, celular, email, nacimiento, edad, genero, vence, saldo, activo, ultima_actividad",
+        "id, apellido, nombre, celular, email, nacimiento, edad, genero, vence, saldo, activo, ultima_actividad, sheet_id, rutina_semana, rutina_estado",
       )
       .order("apellido")
       .order("nombre"),
