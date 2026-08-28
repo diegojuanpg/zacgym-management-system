@@ -42,8 +42,10 @@ Dos reglas que conviene tener presentes:
   un archivo con su nombre, se pisa. Queda el warn con el valor anterior.
 - **Entre dos archivos de Drive no gana ninguno.** Dos rutinas para el mismo
   alumno son duplicados en Drive, y elegir una al azar es peor que no tocar
-  nada: se avisa y se deja lo que estaba. Sin esto el resultado dependia del
-  orden en que Drive devolviera los archivos y cambiaba de corrida en corrida.
+  nada: se avisa y se deja lo que estaba. Para poder decidir eso hay que
+  conocer todos los archivos de un alumno antes de escribir, asi que el barrido
+  va en dos fases: primero releva Drive entero, despues escribe. Si el relevo no
+  termina, no escribe nada: un mapa a medias no sirve para decidir.
 - **No crea alumnos.** Un archivo que no engancha con nadie solo deja un warn.
   La version vieja agregaba filas sola, y por eso despues tenia que borrar
   duplicados.

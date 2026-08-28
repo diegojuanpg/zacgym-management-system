@@ -24,12 +24,10 @@ const SIDS = {
   CARPETA_ARCHIVADOS: 'Usuarios archivados',
   SUPA_URL: 'https://lrjqasglgmcxntuwamow.supabase.co',
   MAX_RUNTIME_MS: 4.5 * 60 * 1000, // corta antes del tope duro de 6 min
-  RETRASO_TRIGGER_MS: 2 * 60 * 1000,
   HORA_TRIGGER: 2, // una hora antes que runDaily
 };
 
 const PROP_SIDS_SECRET = 'SHEETIDS_SUPABASE_SECRET';
-const PROP_SIDS_TOKEN = 'SHEETIDS_CONTINUATION';
 const PROP_SIDS_RESUMEN = 'SHEETIDS_RESUMEN';
 
 /** Sin acentos, sin puntuacion y en minuscula: "D'Andrea, Dolores" -> "d andrea dolores". */
@@ -210,20 +208,6 @@ function sidsIdentificar_(archivo, indice) {
   return { alumno: null, como: ids.length > 1 ? 'el archivo apunta a varios alumnos' : 'sin match' };
 }
 
-/** El iterador de Drive, arrancando donde quedo la corrida anterior. */
-function sidsArchivos_() {
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty(PROP_SIDS_TOKEN);
-  if (token) return DriveApp.continueFileIterator(token);
-
-  let query = 'title contains "' + SIDS.SUFIJO.trim() + '"';
-  const archivados = DriveApp.getFoldersByName(SIDS.CARPETA_ARCHIVADOS);
-  if (archivados.hasNext()) {
-    query += " and not '" + archivados.next().getId() + "' in parents";
-  }
-  return DriveApp.searchFiles(query);
-}
-
 /**
  * Barre Drive y le pone el sheet_id a cada alumno.
  *
@@ -231,70 +215,99 @@ function sidsArchivos_() {
  * nombre, se pisa. Un archivo que no engancha con nadie no crea nada, solo
  * queda avisado en `pipeline_logs`.
  */
+/**
+ * FASE 1: barre Drive entero y arma el mapa alumno -> archivos que lo reclaman.
+ *
+ * Se junta todo antes de decidir nada. Decidir sobre la marcha era el bug: el
+ * primer archivo de un alumno con dos rutinas ya se escribia, y recien el
+ * segundo delataba el duplicado. Pasaba de "gana el ultimo" a "gana el primero",
+ * las dos igual de arbitrarias.
+ *
+ * No se reanuda entre corridas a proposito: un mapa a medias no sirve para
+ * decidir, y el barrido entero tarda unos 15 segundos contra los 6 minutos que
+ * da Apps Script. Si igual no alcanza, avisa y no escribe nada.
+ */
+function sidsRelevar_(indice) {
+  const porAlumno = {};   // alumnoId -> { alumno, ids: [] }
+  const huerfanos = [];
+  const como = { nombre: 0, mail: 0 };
+  const t0 = Date.now();
+  const archivos = sidsArchivosTodos_();
+  let vistos = 0;
+
+  while (archivos.hasNext()) {
+    if (Date.now() - t0 > SIDS.MAX_RUNTIME_MS) {
+      return { incompleto: true, vistos: vistos, porAlumno: porAlumno, huerfanos: huerfanos, como: como };
+    }
+    const archivo = archivos.next();
+    vistos++;
+    const encontrado = sidsIdentificar_(archivo, indice);
+    if (!encontrado.alumno) {
+      huerfanos.push({ archivo: archivo.getName(), motivo: encontrado.como, id: archivo.getId() });
+      continue;
+    }
+    const a = encontrado.alumno;
+    if (encontrado.como === 'nombre') como.nombre++; else como.mail++;
+    if (!porAlumno[a.id]) porAlumno[a.id] = { alumno: a, ids: [] };
+    if (porAlumno[a.id].ids.indexOf(archivo.getId()) === -1) {
+      porAlumno[a.id].ids.push(archivo.getId());
+    }
+  }
+  return { incompleto: false, vistos: vistos, porAlumno: porAlumno, huerfanos: huerfanos, como: como };
+}
+
+/**
+ * Barre Drive y le pone el sheet_id a cada alumno.
+ *
+ * Drive le gana a la base: si el alumno ya tenia otro id, se pisa. Pero entre
+ * dos archivos de Drive no gana ninguno —son rutinas duplicadas y elegir una al
+ * azar le manda la rutina de otro al alumno—, asi que esos quedan avisados y sin
+ * tocar. Un archivo que no engancha con nadie tampoco crea nada.
+ */
 function syncSheetIds() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return;
-
-  const props = PropertiesService.getScriptProperties();
   const runId = Utilities.getUuid();
-  const t0 = Date.now();
-  const r = JSON.parse(props.getProperty(PROP_SIDS_RESUMEN) || '{"puestos":0,"pisados":0,"iguales":0,"huerfanos":0,"duplicados":0}');
 
   try {
     const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
-    const indice = sidsIndexar_(alumnos);
-    const archivos = sidsArchivos_();
-    // A que alumno ya le reclamo un archivo en esta corrida. Sin esto, dos
-    // rutinas del mismo alumno se pisan una a la otra y gana la que Drive
-    // devuelva ultima: el resultado cambia de corrida en corrida.
-    const reclamado = {};
-    let corto = false;
+    const relevo = sidsRelevar_(sidsIndexar_(alumnos));
 
-    while (archivos.hasNext()) {
-      if (Date.now() - t0 > SIDS.MAX_RUNTIME_MS) {
-        props.setProperty(PROP_SIDS_TOKEN, archivos.getContinuationToken());
-        props.setProperty(PROP_SIDS_RESUMEN, JSON.stringify(r));
-        sidsBorrarTriggers_('syncSheetIds');
-        ScriptApp.newTrigger('syncSheetIds').timeBased().after(SIDS.RETRASO_TRIGGER_MS).create();
-        corto = true;
-        break;
-      }
+    if (relevo.incompleto) {
+      sidsLog_(runId, 'error', 'El barrido de Drive no termino, no se escribio nada',
+        { archivos_vistos: relevo.vistos });
+      Logger.log('sheetIds: barrido incompleto (' + relevo.vistos + ' archivos). No se escribio nada.');
+      return;
+    }
 
-      const archivo = archivos.next();
-      const encontrado = sidsIdentificar_(archivo, indice);
+    const r = { puestos: 0, pisados: 0, iguales: 0, duplicados: 0, huerfanos: relevo.huerfanos.length };
 
-      if (!encontrado.alumno) {
-        r.huerfanos++;
-        sidsLog_(runId, 'warn', 'Rutina sin alumno: ' + encontrado.como,
-          { archivo: archivo.getName(), sheet_id: archivo.getId() });
-        continue;
-      }
+    relevo.huerfanos.forEach(function (h) {
+      sidsLog_(runId, 'warn', 'Rutina sin alumno: ' + h.motivo, { archivo: h.archivo, sheet_id: h.id });
+    });
 
-      const a = encontrado.alumno;
-      const id = archivo.getId();
+    Object.keys(relevo.porAlumno).forEach(function (alumnoId) {
+      const entrada = relevo.porAlumno[alumnoId];
+      const a = entrada.alumno;
 
-      // Drive le gana a la base, pero entre dos archivos de Drive no hay
-      // criterio: son rutinas duplicadas y elegir una al azar es peor que no
-      // tocar nada. Se avisa y se deja el que ya estaba.
-      if (reclamado[a.id] && reclamado[a.id] !== id) {
+      if (entrada.ids.length > 1) {
         r.duplicados++;
-        sidsLog_(runId, 'warn', 'Dos rutinas para el mismo alumno, no se toca ninguna',
-          { alumno: a.apellido + ', ' + a.nombre, una: reclamado[a.id], otra: id });
-        continue;
+        sidsLog_(runId, 'warn', 'Tiene ' + entrada.ids.length + ' rutinas en Drive, no se toca ninguna',
+          { alumno: a.apellido + ', ' + a.nombre, rutinas: entrada.ids });
+        return;
       }
-      reclamado[a.id] = id;
 
-      if (a.sheet_id === id) { r.iguales++; continue; }
+      const id = entrada.ids[0];
+      if (a.sheet_id === id) { r.iguales++; return; }
 
       // El indice unico parcial de `alumnos.sheet_id` no deja que dos fichas
       // compartan la misma rutina: si choca, avisa en vez de romper la corrida.
       try {
         sidsPatch_('alumnos', 'id=eq.' + a.id, { sheet_id: id });
       } catch (e) {
-        r.huerfanos++;
         sidsLog_(runId, 'error', 'No se pudo guardar el sheet_id: ' + e.message,
           { alumno: a.apellido + ', ' + a.nombre, sheet_id: id });
-        continue;
+        return;
       }
 
       if (a.sheet_id) {
@@ -304,18 +317,10 @@ function syncSheetIds() {
       } else {
         r.puestos++;
       }
-      a.sheet_id = id; // el indice en memoria queda al dia para el resto de la corrida
-    }
+    });
 
-    if (!corto) {
-      props.deleteProperty(PROP_SIDS_TOKEN);
-      props.deleteProperty(PROP_SIDS_RESUMEN);
-      sidsBorrarTriggers_('syncSheetIds');
-      sidsLog_(runId, 'info', 'Listo', r);
-      Logger.log('sheetIds: ' + JSON.stringify(r));
-    } else {
-      Logger.log('sheetIds: corte por tiempo, sigue en un rato. ' + JSON.stringify(r));
-    }
+    sidsLog_(runId, 'info', 'Listo', r);
+    Logger.log('sheetIds: ' + JSON.stringify(r));
   } catch (e) {
     sidsLog_(runId, 'error', e.message, null);
     Logger.log('ERROR en syncSheetIds: ' + e.message + ' ' + e.stack);
@@ -324,7 +329,6 @@ function syncSheetIds() {
   }
 }
 
-/** Deja solo el trigger diario, sin los de reanudacion que quedaron colgados. */
 function sidsBorrarTriggers_(nombre) {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === nombre && t.getEventType() === ScriptApp.EventType.CLOCK) {
@@ -346,178 +350,69 @@ function instalarTriggerSheetIds() {
   Logger.log('Trigger diario de syncSheetIds instalado a las ' + SIDS.HORA_TRIGGER + ':00.');
 }
 
-/** Sin tocar nada: dice que haria y con cuantos alumnos no engancha. */
-function previewSheetIds() {
-  const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
-  const indice = sidsIndexar_(alumnos);
-  const archivos = sidsArchivos_();
-  const r = { puestos: 0, pisados: 0, iguales: 0, huerfanos: 0 };
-  const t0 = Date.now();
-
-  while (archivos.hasNext() && Date.now() - t0 < SIDS.MAX_RUNTIME_MS) {
-    const archivo = archivos.next();
-    const encontrado = sidsIdentificar_(archivo, indice);
-    if (!encontrado.alumno) {
-      r.huerfanos++;
-      Logger.log('SIN ALUMNO (' + encontrado.como + '): ' + archivo.getName());
-      continue;
-    }
-    const a = encontrado.alumno;
-    if (a.sheet_id === archivo.getId()) r.iguales++;
-    else if (a.sheet_id) {
-      r.pisados++;
-      Logger.log('PISARIA: ' + a.apellido + ', ' + a.nombre + '  ' + a.sheet_id + ' -> ' + archivo.getId());
-    } else {
-      r.puestos++;
-      Logger.log('PONDRIA: ' + a.apellido + ', ' + a.nombre + ' -> ' + archivo.getId());
-    }
-  }
-  Logger.log('PREVIEW: ' + JSON.stringify(r));
-  return r;
-}
-
-// ============================================================
-// MEDICION - no toca la base
-// ============================================================
-
-const PROP_MEDIR = 'SHEETIDS_MEDICION';
-const PROP_MEDIR_TOKEN = 'SHEETIDS_MEDICION_TOKEN';
-
-/** 0 = barrer todo. Un numero corta antes y sirve para una estimacion rapida. */
-const MEDIR_TOPE = 0;
-
 /**
- * Cuanto tarda el barrido y con cuantos archivos engancha. No escribe nada.
+ * Cuanto tarda el barrido y que haria, sin escribir nada.
  *
- * Acumula entre pasadas: 1900 archivos no entran en los 6 minutos de Apps
- * Script, asi que se reprograma sola y suma el tiempo de cada tramo. El total
- * que informa al final es el de la suma, no el de la ultima pasada.
- *
- * Sirve de ensayo antes de habilitar `syncSheetIds`: dice cuantos archivos
- * cambiarian de dueño y cuantos quedarian huerfanos, sin tocar un solo dato.
+ * Usa el mismo relevo en dos fases que `syncSheetIds`, asi que los numeros son
+ * exactamente los que van a pasar cuando se habilite la escritura. Contar sobre
+ * la marcha daba de mas: un alumno con dos rutinas figuraba como pisada Y como
+ * duplicado, cuando en realidad no se le toca nada.
  */
 function medirSheetIds() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return;
-
-  const props = PropertiesService.getScriptProperties();
   const t0 = Date.now();
-  const m = JSON.parse(props.getProperty(PROP_MEDIR) || JSON.stringify({
-    archivos: 0, msBarrido: 0, msAlumnos: 0, pasadas: 0,
-    porNombre: 0, porMail: 0, huerfanos: 0,
-    yaEstaba: 0, pondria: 0, pisaria: 0, duplicados: 0, ejemplos: [],
-  }));
-  m.pasadas++;
+  const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
+  const indice = sidsIndexar_(alumnos);
+  const msAlumnos = Date.now() - t0;
 
-  try {
-    const tAlumnos = Date.now();
-    const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
-    const indice = sidsIndexar_(alumnos);
-    m.msAlumnos += Date.now() - tAlumnos;
+  const relevo = sidsRelevar_(indice);
+  const seg = (Date.now() - t0) / 1000;
 
-    // El estado que iria quedando, en memoria: sin esto un segundo archivo del
-    // mismo alumno se contaria de nuevo como "pondria".
-    const asignado = {};
-    alumnos.forEach(function (a) { if (a.sheet_id) asignado[a.id] = a.sheet_id; });
-    const reclamado = {};
-
-    const token = props.getProperty(PROP_MEDIR_TOKEN);
-    const archivos = token ? DriveApp.continueFileIterator(token) : sidsArchivosTodos_();
-    let corto = false;
-
-    while (archivos.hasNext()) {
-      if (Date.now() - t0 > SIDS.MAX_RUNTIME_MS ||
-          (MEDIR_TOPE > 0 && m.archivos >= MEDIR_TOPE)) {
-        corto = MEDIR_TOPE === 0 || m.archivos < MEDIR_TOPE;
-        break;
-      }
-
-      const archivo = archivos.next();
-      m.archivos++;
-      const encontrado = sidsIdentificar_(archivo, indice);
-
-      if (!encontrado.alumno) {
-        m.huerfanos++;
-        if (m.ejemplos.length < 25) {
-          m.ejemplos.push('SIN ALUMNO (' + encontrado.como + '): ' + archivo.getName());
-        }
-        continue;
-      }
-
-      if (encontrado.como === 'nombre') m.porNombre++; else m.porMail++;
-
-      const a = encontrado.alumno;
-      const id = archivo.getId();
-
-      if (reclamado[a.id] && reclamado[a.id] !== id) {
-        m.duplicados++;
-        if (m.ejemplos.length < 25) {
-          m.ejemplos.push('DUPLICADO ' + a.apellido + ', ' + a.nombre +
-            ': ' + reclamado[a.id] + ' y ' + id);
-        }
-        continue;
-      }
-      reclamado[a.id] = id;
-
-      const actual = asignado[a.id] || null;
-      if (actual === id) {
-        m.yaEstaba++;
-      } else if (actual) {
-        m.pisaria++;
-        if (m.ejemplos.length < 25) {
-          m.ejemplos.push('PISARIA ' + a.apellido + ', ' + a.nombre + ': ' + actual + ' -> ' + id);
-        }
-        asignado[a.id] = id;
-      } else {
-        m.pondria++;
-        asignado[a.id] = id;
-      }
+  const r = { iguales: 0, pondria: 0, pisaria: 0, duplicados: 0 };
+  const ejemplos = [];
+  Object.keys(relevo.porAlumno).forEach(function (id) {
+    const e = relevo.porAlumno[id];
+    const a = e.alumno;
+    const quien = a.apellido + ', ' + a.nombre;
+    if (e.ids.length > 1) {
+      r.duplicados++;
+      if (ejemplos.length < 40) ejemplos.push('DUPLICADO (' + e.ids.length + ') ' + quien + ': ' + e.ids.join(' y '));
+    } else if (a.sheet_id === e.ids[0]) {
+      r.iguales++;
+    } else if (a.sheet_id) {
+      r.pisaria++;
+      if (ejemplos.length < 40) ejemplos.push('PISARIA ' + quien + ': ' + a.sheet_id + ' -> ' + e.ids[0]);
+    } else {
+      r.pondria++;
+      if (ejemplos.length < 40) ejemplos.push('PONDRIA ' + quien + ' -> ' + e.ids[0]);
     }
+  });
+  relevo.huerfanos.forEach(function (h) {
+    if (ejemplos.length < 40) ejemplos.push('SIN ALUMNO (' + h.motivo + '): ' + h.archivo);
+  });
 
-    m.msBarrido += Date.now() - t0;
-
-    if (corto && archivos.hasNext()) {
-      props.setProperty(PROP_MEDIR_TOKEN, archivos.getContinuationToken());
-      props.setProperty(PROP_MEDIR, JSON.stringify(m));
-      sidsBorrarTriggers_('medirSheetIds');
-      ScriptApp.newTrigger('medirSheetIds').timeBased().after(SIDS.RETRASO_TRIGGER_MS).create();
-      Logger.log('MEDICION pasada ' + m.pasadas + ': ' + m.archivos + ' archivos en ' +
-        Math.round(m.msBarrido / 1000) + 's acumulados. Sigue en ' +
-        (SIDS.RETRASO_TRIGGER_MS / 1000) + 's.');
-      return;
-    }
-
-    props.deleteProperty(PROP_MEDIR_TOKEN);
-    props.deleteProperty(PROP_MEDIR);
-    sidsBorrarTriggers_('medirSheetIds');
-
-    const seg = m.msBarrido / 1000;
-    Logger.log([
-      '================ MEDICION TERMINADA ================',
-      'archivos "- Rutina" en Drive : ' + m.archivos,
-      'pasadas necesarias           : ' + m.pasadas,
-      'tiempo total del barrido     : ' + seg.toFixed(1) + 's  (' + (seg / 60).toFixed(1) + ' min)',
-      'de eso, leer alumnos         : ' + (m.msAlumnos / 1000).toFixed(1) + 's',
-      'ritmo                        : ' + (m.archivos / seg).toFixed(1) + ' archivos/seg',
-      '',
-      'enganchan por nombre         : ' + m.porNombre,
-      'enganchan por mail           : ' + m.porMail,
-      'sin alumno                   : ' + m.huerfanos,
-      '',
-      'ya tenian el id correcto     : ' + m.yaEstaba,
-      'se les pondria el id         : ' + m.pondria,
-      'se les PISARIA otro id       : ' + m.pisaria,
-      'con DOS rutinas, no se tocan : ' + m.duplicados,
-      '',
-      'NO se escribio nada en la base.',
-      '',
-      'Ejemplos:',
-    ].concat(m.ejemplos).join('\n'));
-  } catch (e) {
-    Logger.log('ERROR en medirSheetIds: ' + e.message + ' ' + e.stack);
-  } finally {
-    lock.releaseLock();
-  }
+  Logger.log([
+    '================ MEDICION ================',
+    relevo.incompleto ? '*** BARRIDO INCOMPLETO: no alcanzo el tiempo ***' : '',
+    'archivos "- Rutina" en Drive : ' + relevo.vistos,
+    'tiempo total                 : ' + seg.toFixed(1) + 's',
+    'de eso, leer alumnos         : ' + (msAlumnos / 1000).toFixed(1) + 's',
+    'ritmo                        : ' + (relevo.vistos / seg).toFixed(1) + ' archivos/seg',
+    '',
+    'enganchan por nombre         : ' + relevo.como.nombre,
+    'enganchan por mail           : ' + relevo.como.mail,
+    'archivos sin alumno          : ' + relevo.huerfanos.length,
+    '',
+    'ALUMNOS alcanzados           : ' + Object.keys(relevo.porAlumno).length,
+    '  ya tienen el id correcto   : ' + r.iguales,
+    '  se les pondria el id       : ' + r.pondria,
+    '  se les PISARIA otro id     : ' + r.pisaria,
+    '  con 2+ rutinas, no se tocan: ' + r.duplicados,
+    '',
+    'NO se escribio nada en la base.',
+    '',
+    'Detalle:',
+  ].concat(ejemplos).join('\n'));
+  return r;
 }
 
 /** El iterador sin continuation token: la medicion lleva el suyo aparte. */
@@ -532,11 +427,10 @@ function sidsArchivosTodos_() {
 
 /** Borra el estado acumulado para volver a medir desde cero. */
 function reiniciarMedicion() {
-  const props = PropertiesService.getScriptProperties();
-  props.deleteProperty(PROP_MEDIR);
-  props.deleteProperty(PROP_MEDIR_TOKEN);
+  // Ya no hay estado que limpiar: la medicion es de una sola pasada. Queda la
+  // funcion porque los triggers de reanudacion viejos pueden seguir colgados.
   sidsBorrarTriggers_('medirSheetIds');
-  Logger.log('Medicion reiniciada.');
+  Logger.log('Triggers de medicion viejos borrados. La medicion ya no guarda estado.');
 }
 
 /**
