@@ -57,9 +57,16 @@ function sidsHeaders_() {
   const props = PropertiesService.getScriptProperties();
   // La propia primero; si no esta, la de Code.gs, para no pedir la misma secret
   // dos veces cuando los dos archivos comparten proyecto.
-  const secret = props.getProperty(PROP_SIDS_SECRET) || props.getProperty('DEST_SUPABASE_SECRET');
+  const guardada = props.getProperty(PROP_SIDS_SECRET) || props.getProperty('DEST_SUPABASE_SECRET');
+  // Copiar del panel se trae saltos de linea y espacios sin que se vean, y
+  // Supabase contesta "Invalid API key" sin decir por que.
+  const secret = (guardada || '').replace(/\s+/g, '');
   if (!secret || secret.indexOf('PEGAR_') === 0) {
     throw new Error('Falta la secret. Corre setSecretsSheetIds una vez.');
+  }
+  if (secret.indexOf('eyJ') !== 0) {
+    throw new Error('La secret no es un JWT legacy: arranca con "' + secret.slice(0, 3) +
+      '" y tiene que arrancar con "eyJ". Corre diagnosticarSecret.');
   }
   return { apikey: secret, authorization: 'Bearer ' + secret };
 }
@@ -480,4 +487,45 @@ function reiniciarMedicion() {
   props.deleteProperty(PROP_MEDIR_TOKEN);
   sidsBorrarTriggers_('medirSheetIds');
   Logger.log('Medicion reiniciada.');
+}
+
+/**
+ * Que hay guardado y si sirve. No imprime la key, solo con que arranca y
+ * cuanto mide: alcanza para ver si se copio cortada o con espacios de mas.
+ */
+function diagnosticarSecret() {
+  const props = PropertiesService.getScriptProperties();
+  const propia = props.getProperty(PROP_SIDS_SECRET);
+  const deCode = props.getProperty('DEST_SUPABASE_SECRET');
+  const cual = propia ? PROP_SIDS_SECRET : (deCode ? 'DEST_SUPABASE_SECRET' : null);
+  const cruda = propia || deCode || '';
+  const limpia = cruda.replace(/\s+/g, '');
+
+  const lineas = [
+    'propiedad usada     : ' + (cual || 'NINGUNA, no hay secret guardada'),
+    'arranca con         : ' + (limpia.slice(0, 3) || '(vacia)'),
+    'largo               : ' + limpia.length + (cruda.length !== limpia.length
+      ? '  (tenia ' + (cruda.length - limpia.length) + ' espacios o saltos de linea)' : ''),
+    'esperado            : arranca con "eyJ" y mide ~219',
+  ];
+
+  if (limpia && limpia.indexOf('eyJ') === 0) {
+    // Un JWT trae el rol adentro: sirve para ver si pegaron la anon por error.
+    try {
+      const cuerpo = JSON.parse(Utilities.newBlob(
+        Utilities.base64DecodeWebSafe(limpia.split('.')[1])).getDataAsString());
+      lineas.push('rol que declara     : ' + cuerpo.role);
+    } catch (e) {
+      lineas.push('rol que declara     : no se pudo leer, el JWT parece cortado');
+    }
+  }
+
+  try {
+    const n = sidsGet_('alumnos?select=id&limit=1').length;
+    lineas.push('prueba contra la base: OK, contesto con ' + n + ' fila');
+  } catch (e) {
+    lineas.push('prueba contra la base: FALLA -> ' + e.message.slice(0, 120));
+  }
+
+  Logger.log(lineas.join('\n'));
 }
