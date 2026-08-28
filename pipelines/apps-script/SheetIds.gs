@@ -13,18 +13,22 @@
  * comia los 6 minutos que necesitan syncCheckins y los demas. Se programa una
  * hora antes con `instalarTriggerSheetIds`, asi sigue siendo lo primero del dia.
  *
- * Vive en el mismo proyecto de Apps Script que Code.gs y le usa los helpers
- * (sbGet_, sbHeaders_, log_, CONFIG). No copiarlo a otro proyecto sin eso.
+ * Es autonomo: trae sus propios helpers de Supabase, con nombres prefijados
+ * para no chocar con los de Code.gs. Se puede pegar en el proyecto del pipeline
+ * o en uno nuevo; en cualquiera de los dos anda solo. Lo unico que necesita es
+ * la secret, una vez, con `setSecretsSheetIds`.
  */
 
 const SIDS = {
   SUFIJO: ' - Rutina',
   CARPETA_ARCHIVADOS: 'Usuarios archivados',
+  SUPA_URL: 'https://lrjqasglgmcxntuwamow.supabase.co',
   MAX_RUNTIME_MS: 4.5 * 60 * 1000, // corta antes del tope duro de 6 min
   RETRASO_TRIGGER_MS: 2 * 60 * 1000,
   HORA_TRIGGER: 2, // una hora antes que runDaily
 };
 
+const PROP_SIDS_SECRET = 'SHEETIDS_SUPABASE_SECRET';
 const PROP_SIDS_TOKEN = 'SHEETIDS_CONTINUATION';
 const PROP_SIDS_RESUMEN = 'SHEETIDS_RESUMEN';
 
@@ -39,20 +43,71 @@ function sidsNorm_(texto) {
 }
 
 /**
- * Un PATCH por id. `sbUpsert_` no sirve para esto: mandaria la fila entera y
- * pisaria con null todo lo que no viaje en el payload.
+ * Correr UNA vez si este archivo esta en un proyecto propio. Si esta en el
+ * mismo que Code.gs no hace falta: reusa la secret que ese ya tiene guardada.
+ * Tiene que ser la key legacy service_role (un JWT largo "eyJ..."): la
+ * sb_secret_... la bloquea Supabase desde Apps Script.
  */
-function sbPatch_(table, filtro, cambios) {
-  const url = CONFIG.DEST_URL + '/rest/v1/' + table + '?' + filtro;
+function setSecretsSheetIds() {
+  PropertiesService.getScriptProperties().setProperty(PROP_SIDS_SECRET, 'PEGAR_SERVICE_ROLE_JWT_ACA');
+  Logger.log('Secret guardada. Borra el valor del codigo por seguridad.');
+}
+
+function sidsHeaders_() {
+  const props = PropertiesService.getScriptProperties();
+  // La propia primero; si no esta, la de Code.gs, para no pedir la misma secret
+  // dos veces cuando los dos archivos comparten proyecto.
+  const secret = props.getProperty(PROP_SIDS_SECRET) || props.getProperty('DEST_SUPABASE_SECRET');
+  if (!secret || secret.indexOf('PEGAR_') === 0) {
+    throw new Error('Falta la secret. Corre setSecretsSheetIds una vez.');
+  }
+  return { apikey: secret, authorization: 'Bearer ' + secret };
+}
+
+function sidsGet_(pathQuery) {
+  const res = UrlFetchApp.fetch(SIDS.SUPA_URL + '/rest/v1/' + pathQuery, {
+    headers: sidsHeaders_(),
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) {
+    throw new Error('Supabase GET ' + pathQuery + ': ' + res.getContentText());
+  }
+  return JSON.parse(res.getContentText());
+}
+
+/**
+ * Un PATCH por id. Un upsert no sirve: mandaria la fila entera y pisaria con
+ * null todo lo que no viaje en el payload.
+ */
+function sidsPatch_(table, filtro, cambios) {
+  const url = SIDS.SUPA_URL + '/rest/v1/' + table + '?' + filtro;
   const res = UrlFetchApp.fetch(url, {
     method: 'patch',
     contentType: 'application/json',
-    headers: Object.assign(sbHeaders_(), { Prefer: 'return=minimal' }),
+    headers: Object.assign(sidsHeaders_(), { Prefer: 'return=minimal' }),
     payload: JSON.stringify(cambios),
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() >= 300) {
     throw new Error('Supabase PATCH ' + table + ': ' + res.getContentText());
+  }
+}
+
+/** Deja la corrida en pipeline_logs, igual que el resto del pipeline. */
+function sidsLog_(runId, nivel, mensaje, contexto) {
+  try {
+    UrlFetchApp.fetch(SIDS.SUPA_URL + '/rest/v1/pipeline_logs', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: Object.assign(sidsHeaders_(), { Prefer: 'return=minimal' }),
+      payload: JSON.stringify([{
+        run_id: runId, pipeline: 'sheetIds', nivel: nivel,
+        mensaje: mensaje, contexto: contexto || null,
+      }]),
+      muteHttpExceptions: true,
+    });
+  } catch (e) {
+    Logger.log('No se pudo loguear: ' + e);
   }
 }
 
@@ -158,7 +213,7 @@ function syncSheetIds() {
   const r = JSON.parse(props.getProperty(PROP_SIDS_RESUMEN) || '{"puestos":0,"pisados":0,"iguales":0,"huerfanos":0}');
 
   try {
-    const alumnos = sbGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
+    const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
     const indice = sidsIndexar_(alumnos);
     const archivos = sidsArchivos_();
     let corto = false;
@@ -178,7 +233,7 @@ function syncSheetIds() {
 
       if (!encontrado.alumno) {
         r.huerfanos++;
-        log_(runId, 'sheetIds', 'warn', 'Rutina sin alumno: ' + encontrado.como,
+        sidsLog_(runId, 'warn', 'Rutina sin alumno: ' + encontrado.como,
           { archivo: archivo.getName(), sheet_id: archivo.getId() });
         continue;
       }
@@ -190,17 +245,17 @@ function syncSheetIds() {
       // El indice unico parcial de `alumnos.sheet_id` no deja que dos fichas
       // compartan la misma rutina: si choca, avisa en vez de romper la corrida.
       try {
-        sbPatch_('alumnos', 'id=eq.' + a.id, { sheet_id: id });
+        sidsPatch_('alumnos', 'id=eq.' + a.id, { sheet_id: id });
       } catch (e) {
         r.huerfanos++;
-        log_(runId, 'sheetIds', 'error', 'No se pudo guardar el sheet_id: ' + e.message,
+        sidsLog_(runId, 'error', 'No se pudo guardar el sheet_id: ' + e.message,
           { alumno: a.apellido + ', ' + a.nombre, sheet_id: id });
         continue;
       }
 
       if (a.sheet_id) {
         r.pisados++;
-        log_(runId, 'sheetIds', 'warn', 'Tenia otra rutina y se piso con la de Drive',
+        sidsLog_(runId, 'warn', 'Tenia otra rutina y se piso con la de Drive',
           { alumno: a.apellido + ', ' + a.nombre, antes: a.sheet_id, ahora: id });
       } else {
         r.puestos++;
@@ -212,13 +267,13 @@ function syncSheetIds() {
       props.deleteProperty(PROP_SIDS_TOKEN);
       props.deleteProperty(PROP_SIDS_RESUMEN);
       sidsBorrarTriggers_('syncSheetIds');
-      log_(runId, 'sheetIds', 'info', 'Listo', r);
+      sidsLog_(runId, 'info', 'Listo', r);
       Logger.log('sheetIds: ' + JSON.stringify(r));
     } else {
       Logger.log('sheetIds: corte por tiempo, sigue en un rato. ' + JSON.stringify(r));
     }
   } catch (e) {
-    log_(runId, 'sheetIds', 'error', e.message, null);
+    sidsLog_(runId, 'error', e.message, null);
     Logger.log('ERROR en syncSheetIds: ' + e.message + ' ' + e.stack);
   } finally {
     lock.releaseLock();
@@ -249,7 +304,7 @@ function instalarTriggerSheetIds() {
 
 /** Sin tocar nada: dice que haria y con cuantos alumnos no engancha. */
 function previewSheetIds() {
-  const alumnos = sbGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
+  const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
   const indice = sidsIndexar_(alumnos);
   const archivos = sidsArchivos_();
   const r = { puestos: 0, pisados: 0, iguales: 0, huerfanos: 0 };
@@ -312,7 +367,7 @@ function medirSheetIds() {
 
   try {
     const tAlumnos = Date.now();
-    const alumnos = sbGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
+    const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
     const indice = sidsIndexar_(alumnos);
     m.msAlumnos += Date.now() - tAlumnos;
 
