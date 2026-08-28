@@ -156,6 +156,28 @@ function sidsIndexar_(alumnos) {
 }
 
 /**
+ * El nombre del alumno adentro del nombre del archivo.
+ *
+ * Cortar por " - Rutina" a secas no alcanza: hay archivos que se llaman
+ * "Fulano- Rutina" sin el espacio, y otros que ni siquiera terminan asi
+ * ("Fulano (nueva rutina)"). Los dos existen y quedaban huerfanos.
+ *
+ * Tambien saca los parentesis, que se usan para anotaciones como "(nueva)".
+ * Lo que no toca es el texto suelto al final —"Fulano TENGO QUE PASAR LOS
+ * DATOS"—: recortar palabra por palabra hasta que enganche podria pegarle al
+ * alumno equivocado, y ese nombre lo tiene que arreglar una persona en Drive.
+ */
+function sidsSoloNombre_(titulo) {
+  return String(titulo)
+    // Los parentesis primero: en "Fulano (nueva rutina)" el corte por "rutina"
+    // dispararia adentro del parentesis y dejaria "Fulano (nueva".
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[-–—]?\s*rutina.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * A quien pertenece el archivo.
  *
  * Primero el nombre, que es la señal del archivo mismo. Si no engancha, con que
@@ -163,8 +185,7 @@ function sidsIndexar_(alumnos) {
  * cuando el nombre fallo.
  */
 function sidsIdentificar_(archivo, indice) {
-  const nombre = archivo.getName().split(SIDS.SUFIJO)[0];
-  const porNombre = indice.porNombre[sidsNorm_(nombre)];
+  const porNombre = indice.porNombre[sidsNorm_(sidsSoloNombre_(archivo.getName()))];
   if (porNombre) return { alumno: porNombre, como: 'nombre' };
 
   const mails = {};
@@ -217,12 +238,16 @@ function syncSheetIds() {
   const props = PropertiesService.getScriptProperties();
   const runId = Utilities.getUuid();
   const t0 = Date.now();
-  const r = JSON.parse(props.getProperty(PROP_SIDS_RESUMEN) || '{"puestos":0,"pisados":0,"iguales":0,"huerfanos":0}');
+  const r = JSON.parse(props.getProperty(PROP_SIDS_RESUMEN) || '{"puestos":0,"pisados":0,"iguales":0,"huerfanos":0,"duplicados":0}');
 
   try {
     const alumnos = sidsGet_('alumnos?select=id,apellido,nombre,email,sheet_id');
     const indice = sidsIndexar_(alumnos);
     const archivos = sidsArchivos_();
+    // A que alumno ya le reclamo un archivo en esta corrida. Sin esto, dos
+    // rutinas del mismo alumno se pisan una a la otra y gana la que Drive
+    // devuelva ultima: el resultado cambia de corrida en corrida.
+    const reclamado = {};
     let corto = false;
 
     while (archivos.hasNext()) {
@@ -247,6 +272,18 @@ function syncSheetIds() {
 
       const a = encontrado.alumno;
       const id = archivo.getId();
+
+      // Drive le gana a la base, pero entre dos archivos de Drive no hay
+      // criterio: son rutinas duplicadas y elegir una al azar es peor que no
+      // tocar nada. Se avisa y se deja el que ya estaba.
+      if (reclamado[a.id] && reclamado[a.id] !== id) {
+        r.duplicados++;
+        sidsLog_(runId, 'warn', 'Dos rutinas para el mismo alumno, no se toca ninguna',
+          { alumno: a.apellido + ', ' + a.nombre, una: reclamado[a.id], otra: id });
+        continue;
+      }
+      reclamado[a.id] = id;
+
       if (a.sheet_id === id) { r.iguales++; continue; }
 
       // El indice unico parcial de `alumnos.sheet_id` no deja que dos fichas
@@ -368,7 +405,7 @@ function medirSheetIds() {
   const m = JSON.parse(props.getProperty(PROP_MEDIR) || JSON.stringify({
     archivos: 0, msBarrido: 0, msAlumnos: 0, pasadas: 0,
     porNombre: 0, porMail: 0, huerfanos: 0,
-    yaEstaba: 0, pondria: 0, pisaria: 0, ejemplos: [],
+    yaEstaba: 0, pondria: 0, pisaria: 0, duplicados: 0, ejemplos: [],
   }));
   m.pasadas++;
 
@@ -382,6 +419,7 @@ function medirSheetIds() {
     // mismo alumno se contaria de nuevo como "pondria".
     const asignado = {};
     alumnos.forEach(function (a) { if (a.sheet_id) asignado[a.id] = a.sheet_id; });
+    const reclamado = {};
 
     const token = props.getProperty(PROP_MEDIR_TOKEN);
     const archivos = token ? DriveApp.continueFileIterator(token) : sidsArchivosTodos_();
@@ -410,6 +448,17 @@ function medirSheetIds() {
 
       const a = encontrado.alumno;
       const id = archivo.getId();
+
+      if (reclamado[a.id] && reclamado[a.id] !== id) {
+        m.duplicados++;
+        if (m.ejemplos.length < 25) {
+          m.ejemplos.push('DUPLICADO ' + a.apellido + ', ' + a.nombre +
+            ': ' + reclamado[a.id] + ' y ' + id);
+        }
+        continue;
+      }
+      reclamado[a.id] = id;
+
       const actual = asignado[a.id] || null;
       if (actual === id) {
         m.yaEstaba++;
@@ -458,6 +507,7 @@ function medirSheetIds() {
       'ya tenian el id correcto     : ' + m.yaEstaba,
       'se les pondria el id         : ' + m.pondria,
       'se les PISARIA otro id       : ' + m.pisaria,
+      'con DOS rutinas, no se tocan : ' + m.duplicados,
       '',
       'NO se escribio nada en la base.',
       '',
