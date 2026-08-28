@@ -8,20 +8,47 @@ copia pasa a ser la fuente de verdad**: editar aca y pegar en el editor de Apps
 Script, no al reves, o las dos versiones se separan y no hay forma de saber cual
 esta corriendo.
 
-## Que escribe cada uno
+## Los pipelines
 
-Las corridas quedan en la tabla `pipeline_logs`, con el nombre en la columna
-`pipeline`. Sirve para ver si algo dejo de correr.
+Todos viven en `apps-script/Pipelines.gs`, un solo archivo. Antes eran cuatro,
+cada uno con su propio cliente de Supabase: quince funciones haciendo lo mismo y
+la URL escrita en cinco lugares. Ahora hay un nucleo compartido —`supaGet_`,
+`supaPatch_`, `supaUpsert_`, `supaRpc_`, `supaLog_`— y todos lo usan.
 
-| pipeline | archivo | que hace |
-|---|---|---|
-| `sheetIds` | `apps-script/SheetIds.gs` | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno en `alumnos`. Es el paso 0: de aca sacan el id todos los que abren la planilla de un alumno. Trigger propio a las 02:00, una hora antes que el resto. |
-| `syncCheckins` | `apps-script/Code.gs` | Baja los check-ins de la API de PulsoFlow a `check_ins`. |
-| `syncMembers` | `apps-script/Code.gs` | Baja las membresias a `alumnos_pulsoflow`. |
-| `rebuildTracking` | `apps-script/Code.gs` | Rearma `alumnos_tracking` con lo anterior. Es de donde salen el genero y la fecha de nacimiento que muestra `alumnos_cuenta` cuando la ficha no los tiene cargados. |
-| `semanaRutina` | `apps-script/SemanaRutina.gs` | Lee de la planilla de cada alumno que semana de entrenamiento tiene abierta y la guarda en `alumnos.rutina_semana`. Es lo que muestra la columna Entrenamiento del listado. Trigger propio a las 04:00. |
-| `dias` | `apps-script/DiasEntrenamiento.gs` | Para cada alumno con actividad en los ultimos 14 dias, busca su planilla y anota los dias entrenados. |
-| `rutinas` | `apps-script-control/RutinasPorAsistencia.gs` | Avanza las rutinas segun la asistencia de la semana. |
+Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
+
+| # | pipeline | hora | frecuencia | que hace |
+|---|---|---|---|---|
+| 1 | `syncSheetIds` | 02:00 | diaria | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno. |
+| 2 | `syncCheckins` | cada hora, 5 a 23 | 19x dia | Baja los check-ins de PulsoFlow a `check_ins`. |
+| 3 | `syncMembers` | cada hora, 5 a 23 | 19x dia | Baja las membresias a `alumnos_pulsoflow`. |
+| 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno con actividad reciente y cuenta los dias programados. |
+| 5 | `rebuildTracking` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
+| 6 | `semanaRutina` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
+| — | `rutinas` | lunes | semanal | Avanza el bloque segun la asistencia. Sigue en `apps-script-control/`. |
+
+Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
+del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por
+script y no entrarian.
+
+`dias` va antes que `rebuildTracking` y no es opcional: rebuild hace un
+`left join` contra `dias_entrenamiento` y copia de ahi los dias **y el
+sheet_id**. Corriendo a las 3, el rebuild de las 4 lo levanta.
+
+Fuera de `runHorario` porque tarda minutos y no tiene por que frenar al resto
+diecinueve veces por dia.
+
+## Puesta en marcha
+
+1. Pegar `Pipelines.gs` en el proyecto de Apps Script.
+2. Servicios (+) > **Google Sheets API**. Habilita la API y el permiso que
+   necesita `semanaRutina`.
+3. Configuracion del proyecto > Zona horaria > **America/Argentina/Buenos_Aires**.
+   Los triggers usan el huso del proyecto, no el de la cuenta.
+4. `setSecrets` con la legacy `service_role`, y borrar el valor del codigo.
+5. `chequeo` — verifica secret, lectura, sesion de PulsoFlow, Drive y Sheets sin
+   escribir nada.
+6. `instalarTodo`, y `verTriggers` para confirmar.
 
 ## De donde saca el sheet_id
 
