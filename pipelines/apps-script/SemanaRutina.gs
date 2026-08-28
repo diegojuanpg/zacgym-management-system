@@ -412,14 +412,19 @@ function probarUnAlumno() {
   const meta2 = datos[1].columnMetadata || datos[2].columnMetadata || [];
   const enc = (datos[2].rowData && datos[2].rowData[0] && datos[2].rowData[0].values) || [];
   const fec = (datos[1].rowData && datos[1].rowData[0] && datos[1].rowData[0].values) || [];
-  lineas.push('columnas visibles con encabezado:');
+  // Solo las visibles: las ocultas son cientos y no dicen nada. El total va
+  // aparte, que alcanza para ver que la planilla se leyo entera.
+  let ocultas = 0;
+  const visibles = [];
   for (let i = 0; i < enc.length; i++) {
     const t = semPlano_(enc[i]);
     if (t !== 'series' && t !== 'peso') continue;
-    const oculta = meta2[i] && meta2[i].hiddenByUser;
-    lineas.push('   col ' + i + '  ' + t + (oculta ? '  (OCULTA)' : '  <- visible, fecha: '
-      + (semFecha_(fec[i]) || 'sin fecha')));
+    if (meta2[i] && meta2[i].hiddenByUser) { ocultas++; continue; }
+    visibles.push('   col ' + i + '  ' + t + '  fecha: ' + (semFecha_(fec[i]) || 'sin fecha'));
   }
+  lineas.push('bloques ocultos    : ' + ocultas);
+  lineas.push('bloques VISIBLES   : ' + visibles.length + (visibles.length > 1 ? '  <- por eso Revisar' : ''));
+  visibles.forEach(function (v) { lineas.push(v); });
   lineas.push('');
   lineas.push('RESULTADO: ' + JSON.stringify(semLeerGrilla_(datos)));
   lineas.push('(no se guardo nada)');
