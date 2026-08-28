@@ -44,7 +44,18 @@ Dos reglas que conviene tener presentes:
   La version vieja agregaba filas sola, y por eso despues tenia que borrar
   duplicados.
 
-`previewSheetIds()` dice que haria sin tocar nada.
+`SheetIds.gs` es autonomo: trae sus propios helpers de Supabase, con nombres
+prefijados para no chocar con los de `Code.gs`. Va en el proyecto del pipeline o
+en uno nuevo, da igual. Si comparte proyecto con `Code.gs` reusa la secret que
+ese ya tiene; si esta solo, se corre `setSecretsSheetIds` una vez.
+
+Antes de habilitar la escritura conviene un ensayo:
+
+- `medirSheetIds()` barre todo Drive sin tocar la base y dice cuanto tarda, con
+  cuantos archivos engancha por nombre y con cuantos por mail, y cuantos ids
+  pondria y cuantos **pisaria**. Acumula entre pasadas, porque 1900 archivos no
+  entran en los 6 minutos de Apps Script. `reiniciarMedicion()` la vuelve a cero.
+- `previewSheetIds()` es la version corta, de una sola pasada.
 
 `apps-script/Dashboard.gs` no es un pipeline: arma la hoja "Dashboard" una sola
 vez, con formulas que despues se recalculan solas.
