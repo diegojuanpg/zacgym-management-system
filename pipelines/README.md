@@ -15,11 +15,36 @@ Las corridas quedan en la tabla `pipeline_logs`, con el nombre en la columna
 
 | pipeline | archivo | que hace |
 |---|---|---|
+| `sheetIds` | `apps-script/SheetIds.gs` | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno en `alumnos`. Es el paso 0: de aca sacan el id todos los que abren la planilla de un alumno. Trigger propio a las 02:00, una hora antes que el resto. |
 | `syncCheckins` | `apps-script/Code.gs` | Baja los check-ins de la API de PulsoFlow a `check_ins`. |
 | `syncMembers` | `apps-script/Code.gs` | Baja las membresias a `alumnos_pulsoflow`. |
 | `rebuildTracking` | `apps-script/Code.gs` | Rearma `alumnos_tracking` con lo anterior. Es de donde salen el genero y la fecha de nacimiento que muestra `alumnos_cuenta` cuando la ficha no los tiene cargados. |
 | `dias` | `apps-script/DiasEntrenamiento.gs` | Para cada alumno con actividad en los ultimos 14 dias, busca su planilla y anota los dias entrenados. |
 | `rutinas` | `apps-script-control/RutinasPorAsistencia.gs` | Avanza las rutinas segun la asistencia de la semana. |
+
+## De donde saca el sheet_id
+
+Antes de `sheetIds`, el `sheet_id` vivia en una columna de la planilla "Control
+de usuarios", mantenida a mano. Cuatro scripts dependian de ella y un alumno que
+faltara ahi quedaba invisible para todos sin que nada fallara: en los logs quedan
+los `sin sheet_id en Control de usuarios`.
+
+Ahora la fuente es `alumnos.sheet_id`, que ya existia en el esquema y esta
+poblada. `sheetIds` la mantiene al dia: busca en Drive los archivos que terminan
+en " - Rutina" —salteando la carpeta "Usuarios archivados"— y busca de quien es.
+Primero por el nombre del archivo contra apellido y nombre, en los dos ordenes.
+Si no engancha, mira con que mails esta compartido el archivo, que cuesta una
+llamada mas a Drive y por eso solo se paga cuando el nombre fallo.
+
+Dos reglas que conviene tener presentes:
+
+- **Drive manda.** Si el alumno ya tenia otro `sheet_id` y aparece un archivo con
+  su nombre, se pisa. Queda el warn con el valor anterior por si hay que volver.
+- **No crea alumnos.** Un archivo que no engancha con nadie solo deja un warn.
+  La version vieja agregaba filas sola, y por eso despues tenia que borrar
+  duplicados.
+
+`previewSheetIds()` dice que haria sin tocar nada.
 
 `apps-script/Dashboard.gs` no es un pipeline: arma la hoja "Dashboard" una sola
 vez, con formulas que despues se recalculan solas.
