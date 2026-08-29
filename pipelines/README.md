@@ -25,7 +25,7 @@ Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
 | 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno con actividad reciente y cuenta los dias programados. |
 | 5 | `rebuildTracking` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
 | 6 | `semanaRutina` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
-| — | `rutinas` | lunes | semanal | Avanza el bloque segun la asistencia. Sigue en `apps-script-control/`. |
+| — | `rutinas` | — | a mano | Avanzar y repetir semana, de a un alumno. En `apps-script-control/Rutinas.gs`. Todavia sin automatizar. |
 
 Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
 del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por
@@ -128,11 +128,15 @@ archivados", que es la carpeta que el barrido saltea.
 `apps-script/Dashboard.gs` no es un pipeline: arma la hoja "Dashboard" una sola
 vez, con formulas que despues se recalculan solas.
 
-`apps-script-control/` es el resto de la operatoria de rutinas, de corrida
-manual: `AvanzarRutinas.gs` (adelanta un bloque a todos, se uso una vez para
-ponerse al dia), `ListadoPlan.gs` (junta el plan de cada alumno desde la hoja
-Pagos de su planilla) y `ShareRutinas.gs` (comparte y descomparte planillas en
-masa).
+`apps-script-control/` es la operatoria de rutinas:
+
+- **`Rutinas.gs`** avanza al bloque siguiente o repite la semana, de a un alumno
+  por vez. Se pone el apellido en `APELLIDO` y se corre `verUno` (no escribe),
+  `avanzarUno` o `repetirUno`. Trae adentro el motor que mueve el bloque, que
+  antes vivia en el Code.gs de "Control de usuarios": `RutinasPorAsistencia.gs`
+  lo llamaba sin definirlo y fallaba si los dos no estaban en el mismo proyecto.
+- `ListadoPlan.gs` junta el plan de cada alumno desde su hoja Pagos.
+- `ShareRutinas.gs` comparte y descomparte planillas en masa.
 
 `backfill/fetch_checkins.py` es aparte: baja el historico completo de check-ins
 de la API de PulsoFlow a un CSV, con un token sacado del browser. Se corre a
