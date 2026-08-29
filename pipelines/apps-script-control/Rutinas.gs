@@ -135,9 +135,10 @@ function buscarSemanasDeTest() {
       const r = rutBloqueVisibleRapido_(a.sheet_id, hoja.getName(), clave.headerRow);
       mirados++;
       if (!r) continue;
-      if (r.t1 === 'TEST RM' || r.t2 === 'TEST RM' || r.t2 === 'AL MÁXIMO (RM)') {
-        encontrados.push('  ' + _pad_(a.apellido + ', ' + a.nombre, 34)
-          + (r.t2 === 'AL MÁXIMO (RM)' ? 'AL MAXIMO (RM)' : 'TEST RM'));
+      if (rutEsDeTest_(r.t1, r.t2)) {
+        const cual = (r.t1 === 'AL MÁXIMO (RM)' || r.t2 === 'AL MÁXIMO (RM)')
+          ? 'AL MAXIMO (RM)' : 'TEST RM';
+        encontrados.push('  ' + _pad_(a.apellido + ', ' + a.nombre, 34) + cual);
       }
     } catch (e) { /* una planilla rota no frena la busqueda */ }
   }
@@ -674,6 +675,18 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
  *
  * Devuelve null si no se puede determinar, y ahi el llamador cae al camino lento.
  */
+/**
+ * Si el bloque que se cierra es de test, mirando los dos titulos de arriba.
+ *
+ * Se mira en las dos filas —la del titulo y la de la fecha— porque no todas las
+ * planillas lo escriben en la misma. El original buscaba "AL MÁXIMO (RM)" solo
+ * en la de fechas, donde un titulo no puede estar: esa rama nunca se ejecuto.
+ */
+function rutEsDeTest_(t1, t2) {
+  return t1 === 'TEST RM' || t2 === 'TEST RM'
+      || t1 === 'AL MÁXIMO (RM)' || t2 === 'AL MÁXIMO (RM)';
+}
+
 function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
   try {
     const rangos = ['A1:A30', (headerRow - 3) + ':' + headerRow]
@@ -727,8 +740,10 @@ function realizarTareasPreActualizacion_(hojaOId, plan) {
     if (!clave) return;
 
     const rapido = rutBloqueVisibleRapido_(ss.getId(), hoja.getName(), clave.headerRow);
-    if (rapido && rapido.t1 !== 'TEST RM' && rapido.t2 !== 'TEST RM'
-        && rapido.t2 !== 'AL MÁXIMO (RM)') {
+    // Los dos titulos se miran en las DOS filas. El original buscaba
+    // "AL MÁXIMO (RM)" solo en t2, que es la fila de las fechas: un titulo
+    // nunca esta ahi, asi que esa rama no corrio nunca.
+    if (rapido && !rutEsDeTest_(rapido.t1, rapido.t2)) {
       if (plan) plan.push({ titulos: 'arriba del bloque dice: "' + rapido.t2 + '" / "'
         + rapido.t1 + '" — no es semana de test, no hay nada que hacer' });
       return;
@@ -753,7 +768,7 @@ function realizarTareasPreActualizacion_(hojaOId, plan) {
       cargarRMs_(hoja, prog1, datos, filasClave, analisis, plan);
       return;
     }
-    if (t2 === 'AL MÁXIMO (RM)') {
+    if (t1 === 'AL MÁXIMO (RM)' || t2 === 'AL MÁXIMO (RM)') {
       const ultimaFilaDia = encontrarUltimaFilaDia_(datos, 11);
       // Se congelan las formulas antes de copiar: si no, al mover el bloque
       // apuntan a celdas que dejaron de ser las de esa semana.
