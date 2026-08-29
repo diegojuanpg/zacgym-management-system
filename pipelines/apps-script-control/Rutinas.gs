@@ -78,6 +78,77 @@ function repetirUno() {
   rutCorrerUno_('repetir');
 }
 
+/**
+ * Que haria el paso de RMs en la planilla de APELLIDO, SIN escribir nada.
+ *
+ * Recorre el mismo camino que la corrida real —la unica diferencia es que los
+ * valores se anotan en vez de guardarse— asi que lo que informa es exactamente
+ * lo que pasaria al avanzar.
+ */
+function probarRMs() {
+  const a = rutBuscarAlumno_(APELLIDO);
+  if (!a) return;
+  const plan = [];
+  realizarTareasPreActualizacion_(a.sheet_id, plan);
+
+  const lineas = ['RMs — ' + a.apellido + ', ' + a.nombre,
+                  'https://docs.google.com/spreadsheets/d/' + a.sheet_id, ''];
+  if (!plan.length) {
+    lineas.push('No haria nada (y no llego a mirar los titulos: revisa que la hoja');
+    lineas.push('tenga Prog1 y que la columna A tenga el "DIA").');
+  }
+  plan.forEach(function (x) {
+    if (x.titulos) lineas.push(x.titulos);
+    else if (x.aborta) lineas.push('SE DETIENE: ' + x.aborta);
+    else if (x.aviso) lineas.push('AVISO: ' + x.aviso);
+    else lineas.push('  escribiria  ' + _pad_(x.hoja + '!' + x.celda, 24) + ' = ' + x.valor
+      + (x.ejercicio ? '   (' + x.ejercicio + ')' : ''));
+  });
+  lineas.push('');
+  lineas.push('(no se escribio nada)');
+  Logger.log(lineas.join('\n'));
+}
+
+/**
+ * Quienes estan hoy en semana de test. Solo lee.
+ *
+ * Sin esto no hay a quien probarle el paso de RMs: son la excepcion, y buscarlos
+ * a mano es abrir planillas de a una.
+ */
+function buscarSemanasDeTest() {
+  const alumnos = rutGet_('alumnos_cuenta?select=apellido,nombre,sheet_id'
+    + '&sheet_id=not.is.null&ultima_actividad=gte.'
+    + new Date(Date.now() - 30 * 86400000).toISOString());
+  Logger.log('Revisando ' + alumnos.length + ' alumnos con actividad reciente...');
+
+  const encontrados = [];
+  const t0 = Date.now();
+  let mirados = 0;
+  for (let i = 0; i < alumnos.length; i++) {
+    if (Date.now() - t0 > 4.5 * 60 * 1000) break;
+    const a = alumnos[i];
+    try {
+      const hoja = rutHoja_(a.sheet_id);
+      const colA = hoja.getRange(1, 1, Math.min(hoja.getLastRow(), 30), 1).getValues();
+      const clave = encontrarFilasClave_(colA);
+      if (!clave) continue;
+      const r = rutBloqueVisibleRapido_(a.sheet_id, hoja.getName(), clave.headerRow);
+      mirados++;
+      if (!r) continue;
+      if (r.t1 === 'TEST RM' || r.t2 === 'TEST RM' || r.t2 === 'AL MÁXIMO (RM)') {
+        encontrados.push('  ' + _pad_(a.apellido + ', ' + a.nombre, 34)
+          + (r.t2 === 'AL MÁXIMO (RM)' ? 'AL MAXIMO (RM)' : 'TEST RM'));
+      }
+    } catch (e) { /* una planilla rota no frena la busqueda */ }
+  }
+
+  Logger.log(['Mirados: ' + mirados + ' de ' + alumnos.length
+    + '  (' + ((Date.now() - t0) / 1000).toFixed(0) + 's)', '',
+    encontrados.length ? 'EN SEMANA DE TEST:' : 'Ninguno esta en semana de test ahora mismo.',
+    encontrados.join('\n'), '',
+    'Pone uno de estos en APELLIDO y corre probarRMs.'].join('\n'));
+}
+
 function rutCorrerUno_(accion) {
   const t0 = Date.now();
   const a = rutBuscarAlumno_(APELLIDO);
@@ -153,6 +224,13 @@ function rutBuscarAlumno_(apellido) {
 // ============================================================
 // FECHAS
 // ============================================================
+
+/** Rellena a la derecha, para alinear las columnas de los informes. */
+function _pad_(s, n) {
+  s = String(s);
+  while (s.length < n) s += ' ';
+  return s;
+}
 
 function _ymd_(d) {
   return Utilities.formatDate(new Date(d), RUT.TZ, 'yyyy-MM-dd');
@@ -466,7 +544,22 @@ function copiarBloqueAnterior_(hoja, filasClave, analisis, ultimaFilaDia) {
  * Un RM es la fila con SERIES=1 y REPES=1. Si un dia tiene mas de uno no se
  * toca nada: no se puede saber cual es el bueno.
  */
-function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
+/**
+ * Escribe, o anota lo que escribiria.
+ *
+ * `plan` es null en una corrida normal y un arreglo en modo seco. Asi el modo
+ * de prueba recorre EXACTAMENTE el mismo camino que el real —no una copia que
+ * se puede desincronizar— y lo unico que cambia es el destino del valor.
+ */
+function rutEscribir_(plan, hoja, celda, valor) {
+  if (plan) {
+    plan.push({ hoja: hoja.getName(), celda: celda, valor: valor });
+    return;
+  }
+  hoja.getRange(celda).setValue(valor);
+}
+
+function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, plan) {
   const bloque = analisis.visible;
   const completos = hojaEntrenamiento.getDataRange().getValues();
   const mapa = {};
@@ -488,7 +581,14 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
       });
     }
   }
-  for (const dia in rmsPorDia) if (rmsPorDia[dia].length > 1) return;
+  for (const dia in rmsPorDia) {
+    if (rmsPorDia[dia].length > 1) {
+      if (plan) plan.push({ aborta: 'el ' + dia + ' tiene ' + rmsPorDia[dia].length
+        + ' RMs: no se puede saber cual vale' });
+      return;
+    }
+  }
+  if (plan && !Object.keys(rmsPorDia).length) plan.push({ aborta: 'no hay ninguna fila con SERIES=1 y REPES=1' });
 
   const celdas = {
     'Lunes':     { peso: 'B8',  ejercicio: 'A1'  },
@@ -505,8 +605,8 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
     if (isNaN(peso)) continue;
     const redondeado = Math.round(peso / 2.5) * 2.5;
     const nombre = rm.ejercicio.replace(/\(Programa\)/i, '').trim().toUpperCase();
-    hojaProg1.getRange(celdas[dia].peso).setValue(redondeado);
-    hojaProg1.getRange(celdas[dia].ejercicio).setValue('PROGRAMA DE ' + nombre);
+    rutEscribir_(plan, hojaProg1, celdas[dia].peso, redondeado);
+    rutEscribir_(plan, hojaProg1, celdas[dia].ejercicio, 'PROGRAMA DE ' + nombre);
   }
 
   // Y ademas quedan registrados en "Avances", con la fecha del bloque.
@@ -527,7 +627,9 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
     if (filaDestino === -1) {
       filaDestino = colC.findIndex(function (r) { return r[0] === ''; }) + 1;
       if (filaDestino === 0) filaDestino = avances.getLastRow() + 1;
-      avances.getRange(filaDestino, 3).setValue(fechaBloque);
+      if (plan) plan.push({ hoja: 'Avances', celda: 'C' + filaDestino,
+        valor: _ymd_(fechaBloque) + '  (fila nueva)' });
+      else avances.getRange(filaDestino, 3).setValue(fechaBloque);
     }
 
     const datosAv = avances.getDataRange().getValues();
@@ -545,7 +647,12 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
       const col = mapaEnc[nombre];
       const peso = parseFloat(rm.peso);
       if (col && !isNaN(peso)) {
-        avances.getRange(filaDestino, col).setValue(Math.round(peso / 2.5) * 2.5);
+        if (plan) plan.push({ hoja: 'Avances', celda: 'fila ' + filaDestino + ', col ' + col,
+          valor: Math.round(peso / 2.5) * 2.5, ejercicio: rm.ejercicio });
+        else avances.getRange(filaDestino, col).setValue(Math.round(peso / 2.5) * 2.5);
+      } else if (plan) {
+        plan.push({ aviso: 'el ejercicio "' + rm.ejercicio
+          + '" no tiene columna en Avances: ese RM no se registra' });
       }
     }
   } catch (e) {
@@ -606,7 +713,7 @@ function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
   }
 }
 
-function realizarTareasPreActualizacion_(hojaOId) {
+function realizarTareasPreActualizacion_(hojaOId, plan) {
   try {
     const hoja = rutHoja_(hojaOId);
     const ss = hoja.getParent();
@@ -622,7 +729,9 @@ function realizarTareasPreActualizacion_(hojaOId) {
     const rapido = rutBloqueVisibleRapido_(ss.getId(), hoja.getName(), clave.headerRow);
     if (rapido && rapido.t1 !== 'TEST RM' && rapido.t2 !== 'TEST RM'
         && rapido.t2 !== 'AL MÁXIMO (RM)') {
-      return;   // no hay nada que hacer antes de avanzar
+      if (plan) plan.push({ titulos: 'arriba del bloque dice: "' + rapido.t2 + '" / "'
+        + rapido.t1 + '" — no es semana de test, no hay nada que hacer' });
+      return;
     }
 
     // Es semana de test —o no se pudo determinar—: recien aca se paga la
@@ -638,8 +747,10 @@ function realizarTareasPreActualizacion_(hojaOId) {
     const t1 = datos[fila - 2][col] ? datos[fila - 2][col].toString().trim().toUpperCase() : '';
     const t2 = datos[fila - 3][col] ? datos[fila - 3][col].toString().trim().toUpperCase() : '';
 
+    if (plan) plan.push({ titulos: 'arriba del bloque dice: "' + t2 + '" / "' + t1 + '"' });
+
     if (t1 === 'TEST RM' || t2 === 'TEST RM') {
-      cargarRMs_(hoja, prog1, datos, filasClave, analisis);
+      cargarRMs_(hoja, prog1, datos, filasClave, analisis, plan);
       return;
     }
     if (t2 === 'AL MÁXIMO (RM)') {
@@ -647,8 +758,9 @@ function realizarTareasPreActualizacion_(hojaOId) {
       // Se congelan las formulas antes de copiar: si no, al mover el bloque
       // apuntan a celdas que dejaron de ser las de esa semana.
       const rango = hoja.getRange(11, 4, ultimaFilaDia - 10, col - 3);
-      rango.setValues(rango.getValues());
-      cargarRMs_(hoja, prog1, datos, filasClave, analisis);
+      if (plan) plan.push({ aviso: 'congelaria las formulas de ' + rango.getA1Notation() });
+      else rango.setValues(rango.getValues());
+      cargarRMs_(hoja, prog1, datos, filasClave, analisis, plan);
 
       const headers = datos[filasClave.headerRow - 1];
       let colPeso = -1;
@@ -656,7 +768,8 @@ function realizarTareasPreActualizacion_(hojaOId) {
         if (headers[i] && headers[i].toString().trim().toUpperCase() === 'PESO') { colPeso = i; break; }
       }
       if (colPeso !== -1 && !hoja.getRange(14, colPeso + 2).getFormula()) {
-        copiarBloqueAnterior_(hoja, filasClave, analisis, ultimaFilaDia);
+        if (plan) plan.push({ aviso: 'copiaria el bloque de dos semanas atras al siguiente' });
+        else copiarBloqueAnterior_(hoja, filasClave, analisis, ultimaFilaDia);
       }
     }
   } catch (e) {

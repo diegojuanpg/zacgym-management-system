@@ -93,13 +93,6 @@ function comparar() {
   ].join('\n'));
 }
 
-/** Rellena a la derecha, para que las columnas del informe queden alineadas. */
-function _pad_(s, n) {
-  s = String(s);
-  while (s.length < n) s += ' ';
-  return s;
-}
-
 /** La fecha del bloque visible ahora mismo. Es lo que hace falta para volver. */
 function cmpFechaVisible_(hoja, clave) {
   const lastCol = hoja.getLastColumn();
