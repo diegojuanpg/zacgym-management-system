@@ -25,6 +25,20 @@ const RUT = {
   TZ: 'America/Argentina/Buenos_Aires',
 };
 
+/**
+ * Acepta una hoja ya abierta o el id de la planilla.
+ *
+ * Abrir un spreadsheet y enumerarle las hojas cuesta cerca de un segundo, y
+ * avanzar lo hacia dos veces: una para revisar los RMs y otra para mover el
+ * bloque. Pasando la hoja ya abierta se paga una sola vez.
+ */
+function rutHoja_(hojaOId) {
+  if (typeof hojaOId !== 'string') return hojaOId;
+  const hoja = encontrarHojaEntrenamiento_(SpreadsheetApp.openById(hojaOId));
+  if (!hoja) throw new Error('Hoja de entrenamiento no encontrada');
+  return hoja;
+}
+
 /** El alumno a probar. Alcanza con parte del apellido. */
 const APELLIDO = 'CAMBIAR_APELLIDO_ACA';
 
@@ -85,7 +99,7 @@ function rutCorrerUno_(accion) {
     } else {
       // Repetir toma el bloque de ESTA semana y le reescribe la fecha a la que
       // viene: el alumno ve el mismo trabajo, fechado adelante.
-      r = procesarYExtraerEntrenamiento_(a.sheet_id, f.lunesEsta, true, f.lunesProx);
+      r = procesarYExtraerEntrenamiento_(hoja, f.lunesEsta, true, f.lunesProx);
     }
 
     if (r.rutinaStatus !== 'Actualizada') {
@@ -344,12 +358,9 @@ function analizarEstructuraDeBloques_(sheet, headerRow) {
  * El titulo, la fecha y la semana que devuelve salen de esas mismas cuatro
  * filas, sin volver a leer y sin recorrer las columnas una por una.
  */
-function procesarYExtraerEntrenamiento_(userId, fechaABuscar, esRepetirSemana, fechaElegida) {
+function procesarYExtraerEntrenamiento_(hojaOId, fechaABuscar, esRepetirSemana, fechaElegida) {
   try {
-    const ss = SpreadsheetApp.openById(userId);
-    const hoja = encontrarHojaEntrenamiento_(ss);
-    if (!hoja) throw new Error('Hoja de entrenamiento no encontrada');
-
+    const hoja = rutHoja_(hojaOId);
     const lastCol = hoja.getLastColumn();
     if (lastCol < 4) throw new Error('La hoja no tiene bloques de entrenamiento');
 
@@ -595,12 +606,12 @@ function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
   }
 }
 
-function realizarTareasPreActualizacion_(userId) {
+function realizarTareasPreActualizacion_(hojaOId) {
   try {
-    const ss = SpreadsheetApp.openById(userId);
-    const hoja = encontrarHojaEntrenamiento_(ss);
+    const hoja = rutHoja_(hojaOId);
+    const ss = hoja.getParent();
     const prog1 = ss.getSheetByName('Prog1');
-    if (!hoja || !prog1) return;
+    if (!prog1) return;
 
     // Atajo: la mayoria de las semanas NO son de test, y averiguarlo no
     // justifica leer la hoja entera ni recorrerle las columnas de a una.
@@ -608,7 +619,7 @@ function realizarTareasPreActualizacion_(userId) {
     const clave = encontrarFilasClave_(colA);
     if (!clave) return;
 
-    const rapido = rutBloqueVisibleRapido_(userId, hoja.getName(), clave.headerRow);
+    const rapido = rutBloqueVisibleRapido_(ss.getId(), hoja.getName(), clave.headerRow);
     if (rapido && rapido.t1 !== 'TEST RM' && rapido.t2 !== 'TEST RM'
         && rapido.t2 !== 'AL MÁXIMO (RM)') {
       return;   // no hay nada que hacer antes de avanzar
