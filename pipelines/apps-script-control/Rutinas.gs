@@ -100,7 +100,9 @@ function probarRMs() {
   plan.forEach(function (x) {
     if (x.detectado) lineas.push('  RM detectado  ' + _pad_(x.dia, 12)
       + _pad_(String(x.peso), 8) + _pad_(x.esNumero ? '' : 'PESO NO NUMERICO', 18)
-      + _pad_(x.tieneCelda ? '' : 'DIA SIN CELDA EN PROG1', 24) + x.ejercicio);
+      + _pad_(x.tieneCelda ? '' : 'DIA SIN CELDA EN PROG1', 24) + x.ejercicio
+      + '\n                fila ' + x.nroFila + ': [' + (x.fila || []).map(String).join('] [') + ']');
+    else if (x.encBloque) lineas.push('  columnas del bloque: ' + x.encBloque.map(String).join(' | '));
     else if (x.encabezados) lineas.push('  columnas de Avances: ' + x.encabezados.join(' | '));
     else if (x.titulos) lineas.push(x.titulos);
     else if (x.aborta) lineas.push('SE DETIENE: ' + x.aborta);
@@ -588,6 +590,9 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
     .forEach(function (h, i) { mapa[h.toString().toUpperCase().trim()] = i; });
   if (mapa['SERIES'] === undefined || mapa['REPES'] === undefined || mapa['PESO'] === undefined) return;
 
+  const encBloque = datos[filasClave.headerRow - 1].slice(bloque.startCol, bloque.endCol + 1);
+  if (plan) plan.push({ encBloque: encBloque });
+
   const rmsPorDia = {};
   for (let i = filasClave.headerRow; i < completos.length; i++) {
     const dia = completos[i][0] ? completos[i][0].toString().trim() : '';
@@ -598,6 +603,8 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
       rmsPorDia[dia].push({
         peso: completos[i][bloque.startCol + mapa['PESO']],
         ejercicio: completos[i][2],
+        fila: completos[i].slice(bloque.startCol, bloque.endCol + 1),
+        nroFila: i + 1,
       });
     }
   }
@@ -618,7 +625,8 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
       const rm = rmsPorDia[dia][0];
       plan.push({ detectado: true, dia: dia, ejercicio: rm.ejercicio, peso: rm.peso,
                   esNumero: !isNaN(parseFloat(rm.peso)),
-                  tieneCelda: !!celdasSiExiste_(dia) });
+                  tieneCelda: !!celdasSiExiste_(dia),
+                  fila: rm.fila, nroFila: rm.nroFila });
     }
   }
 
@@ -677,8 +685,9 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
           valor: Math.round(peso / 2.5) * 2.5, ejercicio: rm.ejercicio });
         else avances.getRange(filaDestino, col).setValue(Math.round(peso / 2.5) * 2.5);
       } else if (plan) {
-        plan.push({ aviso: 'buscando "' + nombre + '" (de "' + rm.ejercicio
-          + '") no hay columna en Avances: ese RM no se registra' });
+        plan.push({ aviso: !col
+          ? 'el ejercicio "' + nombre + '" (de "' + rm.ejercicio + '") no tiene columna en Avances'
+          : 'el peso "' + rm.peso + '" del ' + dia + ' no es un numero: ese RM no se registra' });
       }
     }
   } catch (e) {
