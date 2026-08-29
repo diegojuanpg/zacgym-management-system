@@ -98,7 +98,11 @@ function probarRMs() {
     lineas.push('tenga Prog1 y que la columna A tenga el "DIA").');
   }
   plan.forEach(function (x) {
-    if (x.titulos) lineas.push(x.titulos);
+    if (x.detectado) lineas.push('  RM detectado  ' + _pad_(x.dia, 12)
+      + _pad_(String(x.peso), 8) + _pad_(x.esNumero ? '' : 'PESO NO NUMERICO', 18)
+      + _pad_(x.tieneCelda ? '' : 'DIA SIN CELDA EN PROG1', 24) + x.ejercicio);
+    else if (x.encabezados) lineas.push('  columnas de Avances: ' + x.encabezados.join(' | '));
+    else if (x.titulos) lineas.push(x.titulos);
     else if (x.aborta) lineas.push('SE DETIENE: ' + x.aborta);
     else if (x.aviso) lineas.push('AVISO: ' + x.aviso);
     else lineas.push('  escribiria  ' + _pad_(x.hoja + '!' + x.celda, 24) + ' = ' + x.valor
@@ -545,6 +549,21 @@ function copiarBloqueAnterior_(hoja, filasClave, analisis, ultimaFilaDia) {
  * Un RM es la fila con SERIES=1 y REPES=1. Si un dia tiene mas de uno no se
  * toca nada: no se puede saber cual es el bueno.
  */
+/** Donde va el RM de cada dia en Prog1. */
+const CELDAS_PROG1 = {
+  'Lunes':     { peso: 'B8',  ejercicio: 'A1'  },
+  'Martes':    { peso: 'B18', ejercicio: 'A11' },
+  'Miércoles': { peso: 'B28', ejercicio: 'A21' },
+  'Jueves':    { peso: 'G8',  ejercicio: 'F1'  },
+  'Viernes':   { peso: 'G18', ejercicio: 'F11' },
+  'Sábado':    { peso: 'G28', ejercicio: 'F21' },
+};
+
+/** La celda de ese dia, o null si el nombre no coincide con ninguno esperado. */
+function celdasSiExiste_(dia) {
+  return CELDAS_PROG1[dia] || null;
+}
+
 /**
  * Escribe, o anota lo que escribiria.
  *
@@ -591,14 +610,19 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
   }
   if (plan && !Object.keys(rmsPorDia).length) plan.push({ aborta: 'no hay ninguna fila con SERIES=1 y REPES=1' });
 
-  const celdas = {
-    'Lunes':     { peso: 'B8',  ejercicio: 'A1'  },
-    'Martes':    { peso: 'B18', ejercicio: 'A11' },
-    'Miércoles': { peso: 'B28', ejercicio: 'A21' },
-    'Jueves':    { peso: 'G8',  ejercicio: 'F1'  },
-    'Viernes':   { peso: 'G18', ejercicio: 'F11' },
-    'Sábado':    { peso: 'G28', ejercicio: 'F21' },
-  };
+  // Lo detectado, tal cual salio de la hoja. Sin esto no hay forma de saber por
+  // que un RM no se escribio: si el dia no coincide, si el peso no es numero, o
+  // si el ejercicio no tiene columna.
+  if (plan) {
+    for (const dia in rmsPorDia) {
+      const rm = rmsPorDia[dia][0];
+      plan.push({ detectado: true, dia: dia, ejercicio: rm.ejercicio, peso: rm.peso,
+                  esNumero: !isNaN(parseFloat(rm.peso)),
+                  tieneCelda: !!celdasSiExiste_(dia) });
+    }
+  }
+
+  const celdas = CELDAS_PROG1;
   for (const dia in rmsPorDia) {
     if (!celdas[dia]) continue;
     const rm = rmsPorDia[dia][0];
@@ -640,6 +664,7 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
     if (filaEnc === -1) return;
     const mapaEnc = {};
     datosAv[filaEnc].forEach(function (h, i) { if (h) mapaEnc[normalizarTexto_(h)] = i + 1; });
+    if (plan) plan.push({ encabezados: Object.keys(mapaEnc) });
 
     for (const dia in rmsPorDia) {
       const rm = rmsPorDia[dia][0];
@@ -652,8 +677,8 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
           valor: Math.round(peso / 2.5) * 2.5, ejercicio: rm.ejercicio });
         else avances.getRange(filaDestino, col).setValue(Math.round(peso / 2.5) * 2.5);
       } else if (plan) {
-        plan.push({ aviso: 'el ejercicio "' + rm.ejercicio
-          + '" no tiene columna en Avances: ese RM no se registra' });
+        plan.push({ aviso: 'buscando "' + nombre + '" (de "' + rm.ejercicio
+          + '") no hay columna en Avances: ese RM no se registra' });
       }
     }
   } catch (e) {
@@ -676,15 +701,15 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis, p
  * Devuelve null si no se puede determinar, y ahi el llamador cae al camino lento.
  */
 /**
- * Si el bloque que se cierra es de test, mirando los dos titulos de arriba.
+ * Si el bloque que se cierra es de test. t2 es blockTitleRow y t1 weekRow.
  *
- * Se mira en las dos filas —la del titulo y la de la fecha— porque no todas las
- * planillas lo escriben en la misma. El original buscaba "AL MÁXIMO (RM)" solo
- * en la de fechas, donde un titulo no puede estar: esa rama nunca se ejecuto.
+ * "TEST RM" puede estar en cualquiera de las dos; "AL MÁXIMO (RM)" es un titulo
+ * y solo se busca en t2. Compartido entre el atajo y el camino lento para que
+ * no se separen: cuando se separaron, el atajo leia una fila de mas arriba y
+ * daba que ninguna semana era de test.
  */
 function rutEsDeTest_(t1, t2) {
-  return t1 === 'TEST RM' || t2 === 'TEST RM'
-      || t1 === 'AL MÁXIMO (RM)' || t2 === 'AL MÁXIMO (RM)';
+  return t1 === 'TEST RM' || t2 === 'TEST RM' || t2 === 'AL MÁXIMO (RM)';
 }
 
 function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
@@ -714,10 +739,15 @@ function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
     for (let i = 0; i < enc.length; i++) {
       if (txt(enc[i]).toUpperCase() !== 'SERIES') continue;
       if (meta[i] && meta[i].hiddenByUser) continue;
+      // Las MISMAS filas que mira el camino lento. Ahi los indices son
+      // datos[headerRow-2] y datos[headerRow-3] sobre un arreglo 0-indexado,
+      // que caen en las filas headerRow-1 (weekRow) y headerRow-2
+      // (blockTitleRow). Leer una fila mas arriba daba la de fechas, y el
+      // titulo nunca aparecia.
       return {
         startCol: i,
-        t1: txt((filas[1] || [])[i]).toUpperCase(),   // headerRow - 2
-        t2: txt((filas[0] || [])[i]).toUpperCase(),   // headerRow - 3
+        t1: txt((filas[2] || [])[i]).toUpperCase(),   // weekRow
+        t2: txt((filas[1] || [])[i]).toUpperCase(),   // blockTitleRow
       };
     }
     return null;
@@ -740,9 +770,6 @@ function realizarTareasPreActualizacion_(hojaOId, plan) {
     if (!clave) return;
 
     const rapido = rutBloqueVisibleRapido_(ss.getId(), hoja.getName(), clave.headerRow);
-    // Los dos titulos se miran en las DOS filas. El original buscaba
-    // "AL MÁXIMO (RM)" solo en t2, que es la fila de las fechas: un titulo
-    // nunca esta ahi, asi que esa rama no corrio nunca.
     if (rapido && !rutEsDeTest_(rapido.t1, rapido.t2)) {
       if (plan) plan.push({ titulos: 'arriba del bloque dice: "' + rapido.t2 + '" / "'
         + rapido.t1 + '" — no es semana de test, no hay nada que hacer' });
@@ -768,7 +795,7 @@ function realizarTareasPreActualizacion_(hojaOId, plan) {
       cargarRMs_(hoja, prog1, datos, filasClave, analisis, plan);
       return;
     }
-    if (t1 === 'AL MÁXIMO (RM)' || t2 === 'AL MÁXIMO (RM)') {
+    if (t2 === 'AL MÁXIMO (RM)') {
       const ultimaFilaDia = encontrarUltimaFilaDia_(datos, 11);
       // Se congelan las formulas antes de copiar: si no, al mover el bloque
       // apuntan a celdas que dejaron de ser las de esa semana.
