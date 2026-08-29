@@ -65,18 +65,22 @@ function repetirUno() {
 }
 
 function rutCorrerUno_(accion) {
+  const t0 = Date.now();
   const a = rutBuscarAlumno_(APELLIDO);
   if (!a) return;
   const f = rutFechas_();
   const runId = Utilities.getUuid();
   const quien = a.apellido + ', ' + a.nombre;
+  let tPre = 0;
 
   try {
     let r;
     if (accion === 'avanzar') {
       // Los RMs se cargan antes de mover el bloque: despues, la semana de test
       // ya no esta visible y no hay de donde leerlos.
+      const tp = Date.now();
       realizarTareasPreActualizacion_(a.sheet_id);
+      tPre = Date.now() - tp;
       r = procesarYExtraerEntrenamiento_(a.sheet_id, f.lunesProx, false, f.lunesProx);
     } else {
       // Repetir toma el bloque de ESTA semana y le reescribe la fecha a la que
@@ -91,11 +95,15 @@ function rutCorrerUno_(accion) {
     }
 
     const info = r.entrenamientoInfo;
+    const total = Date.now() - t0;
     Logger.log([
       accion.toUpperCase() + ' OK — ' + quien,
       '  bloque : ' + info.bloque,
       '  fecha  : ' + (info.fecha instanceof Date ? _ymd_(info.fecha) : info.fecha),
       '  semana : ' + info.semana,
+      '',
+      '  tardo  : ' + (total / 1000).toFixed(1) + 's'
+        + (tPre ? '   (de eso, RMs: ' + (tPre / 1000).toFixed(1) + 's)' : ''),
       '',
       'Abri la planilla y confirma que quedo visible el bloque correcto:',
       'https://docs.google.com/spreadsheets/d/' + a.sheet_id,
@@ -319,40 +327,22 @@ function analizarEstructuraDeBloques_(sheet, headerRow) {
   return { error: 'No se encontro ningun bloque visible.' };
 }
 
-function extraerTitulo_(datos, analisis, fila) {
-  for (let i = analisis.visibleIndex; i >= 0; i--) {
-    const t = datos[fila][analisis.todos[i].index];
-    if (t) return t;
-  }
-  return 'Sin Titulo';
-}
 
-function extraerFecha_(datos, infoBloque, filaHeader, filaFecha) {
-  let fecha = null, columna = -1;
-  for (let i = infoBloque.startCol; i <= infoBloque.endCol; i++) {
-    if (String(datos[filaHeader][i]).toUpperCase() === 'PESO' && datos[filaFecha][i] instanceof Date) {
-      if (!fecha || datos[filaFecha][i] > fecha) { fecha = datos[filaFecha][i]; columna = i; }
-    }
-  }
-  if (fecha) return { fecha: fecha, columna: columna };
-  if (datos[filaFecha][infoBloque.startCol] instanceof Date) {
-    return { fecha: datos[filaFecha][infoBloque.startCol], columna: infoBloque.startCol };
-  }
-  throw new Error('Fecha no encontrada.');
-}
 
-function extraerDatosDelBloque_(datos, analisis, filasClave) {
-  const titulo = extraerTitulo_(datos, analisis, filasClave.blockTitleRow - 1);
-  const f = extraerFecha_(datos, analisis.visible, filasClave.headerRow - 1, filasClave.dateRow - 1);
-  const semana = f.columna !== -1 ? (datos[filasClave.weekRow - 1][f.columna] || '') : '';
-  return { bloque: titulo, fecha: f.fecha, semana: semana };
-}
 
 /**
  * El corazon: deja visible el bloque de `fechaABuscar` y oculta el resto.
  *
  * `esRepetirSemana` reescribe la fecha del bloque encontrado con `fechaElegida`:
  * asi el alumno repite el mismo trabajo, pero fechado a la semana que viene.
+ *
+ * NO lee la planilla entera. Antes hacia dos `getDataRange().getValues()` —una
+ * antes y otra despues de mover— y en estas hojas eso son cientos de columnas
+ * por decenas de filas, dos veces. Ahora lee la columna A para ubicar el "DIA"
+ * y despues solo las cuatro filas de la grilla, que es todo lo que se usa.
+ *
+ * El titulo, la fecha y la semana que devuelve salen de esas mismas cuatro
+ * filas, sin volver a leer y sin recorrer las columnas una por una.
  */
 function procesarYExtraerEntrenamiento_(userId, fechaABuscar, esRepetirSemana, fechaElegida) {
   try {
@@ -360,11 +350,19 @@ function procesarYExtraerEntrenamiento_(userId, fechaABuscar, esRepetirSemana, f
     const hoja = encontrarHojaEntrenamiento_(ss);
     if (!hoja) throw new Error('Hoja de entrenamiento no encontrada');
 
-    const datos = hoja.getDataRange().getValues();
-    if (!datos.length) throw new Error('Hoja de entrenamiento vacia');
+    const lastCol = hoja.getLastColumn();
+    if (lastCol < 4) throw new Error('La hoja no tiene bloques de entrenamiento');
 
-    const filasClave = encontrarFilasClave_(datos);
+    // 1) Solo la columna A, para ubicar la fila del "DIA".
+    const colA = hoja.getRange(1, 1, Math.min(hoja.getLastRow(), 30), 1).getValues();
+    const filasClave = encontrarFilasClave_(colA);
     if (!filasClave) throw new Error("No se encontro 'DIA' en la columna A");
+
+    // 2) Las cuatro filas de la grilla, de una. Se arma un arreglo ralo indexado
+    //    por fila absoluta para que los helpers sigan andando sin tocarlos.
+    const cuatro = hoja.getRange(filasClave.dateRow, 1, 4, lastCol).getValues();
+    const datos = [];
+    for (let k = 0; k < 4; k++) datos[filasClave.dateRow - 1 + k] = cuatro[k];
 
     const enc = encontrarColumnaDeFecha_(datos, filasClave.dateRow, fechaABuscar);
     if (enc.colIndex === -1) {
@@ -379,20 +377,30 @@ function procesarYExtraerEntrenamiento_(userId, fechaABuscar, esRepetirSemana, f
       hoja.getRange(filasClave.dateRow, enc.colIndex).setValue(fechaElegida);
     }
 
+    const filaHeaders = datos[filasClave.headerRow - 1];
     const visibles = (enc.header === 'SERIES')
-      ? determinarBloqueSeries_(datos[filasClave.headerRow - 1], enc.colIndex)
-      : determinarBloquePeso_(datos[filasClave.headerRow - 1], enc.colIndex);
+      ? determinarBloqueSeries_(filaHeaders, enc.colIndex)
+      : determinarBloquePeso_(filaHeaders, enc.colIndex);
 
-    if (hoja.getLastColumn() > 3) hoja.hideColumns(4, hoja.getLastColumn() - 3);
+    hoja.hideColumns(4, lastCol - 3);
     visibles.forEach(function (c) { hoja.showColumns(c.start, c.count || 1); });
-    SpreadsheetApp.flush();
 
-    const analisis = analizarEstructuraDeBloques_(hoja, filasClave.headerRow);
-    if (analisis.error) throw new Error(analisis.error);
+    // El titulo es el ultimo no vacio hacia la izquierda: los bloques comparten
+    // encabezado y solo el primero de cada tanda lo lleva escrito.
+    const col0 = enc.colIndex - 1;
+    const filaTitulo = datos[filasClave.blockTitleRow - 1];
+    let bloque = 'Sin Titulo';
+    for (let i = col0; i >= 0; i--) {
+      if (filaTitulo[i]) { bloque = filaTitulo[i]; break; }
+    }
 
     return {
       rutinaStatus: 'Actualizada',
-      entrenamientoInfo: extraerDatosDelBloque_(hoja.getDataRange().getValues(), analisis, filasClave),
+      entrenamientoInfo: {
+        bloque: bloque,
+        fecha: esRepetirSemana ? fechaElegida : datos[filasClave.dateRow - 1][col0],
+        semana: datos[filasClave.weekRow - 1][col0] || '',
+      },
     };
   } catch (e) {
     return { rutinaStatus: 'Fallo total', entrenamientoInfo: { error: e.message } };
@@ -538,6 +546,55 @@ function cargarRMs_(hojaEntrenamiento, hojaProg1, datos, filasClave, analisis) {
  * Lo que hay que hacer antes de avanzar, cuando la semana que se cierra era de
  * test: levantar los RMs. Si no lo es, no hace nada.
  */
+/**
+ * Cual es el bloque visible y que dicen los dos titulos de arriba, en UNA sola
+ * llamada a la API de Sheets.
+ *
+ * `analizarEstructuraDeBloques_` preguntaba `isColumnHiddenByUser` columna por
+ * columna: en una hoja con cien bloques son cien idas y vueltas. La API devuelve
+ * el estado de todas las columnas y las filas que hacen falta de un saque.
+ *
+ * Devuelve null si no se puede determinar, y ahi el llamador cae al camino lento.
+ */
+function rutBloqueVisibleRapido_(sheetId, nombreHoja, headerRow) {
+  try {
+    const rangos = ['A1:A30', (headerRow - 3) + ':' + headerRow]
+      .map(function (r) { return 'ranges=' + encodeURIComponent("'" + nombreHoja + "'!" + r); })
+      .join('&');
+    const res = UrlFetchApp.fetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '?' + rangos
+      + '&includeGridData=true&fields=sheets(data(columnMetadata(hiddenByUser),'
+      + 'rowData(values(formattedValue,effectiveValue))))',
+      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+        muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return null;
+
+    const data = (JSON.parse(res.getContentText()).sheets || [])[0].data;
+    const grilla = data[1];
+    const meta = grilla.columnMetadata || [];
+    const filas = (grilla.rowData || []).map(function (f) { return f.values || []; });
+    const enc = filas[3] || [];   // headerRow es la cuarta del rango
+
+    const txt = function (c) {
+      return String((c && (c.formattedValue
+        || (c.effectiveValue && c.effectiveValue.stringValue))) || '').trim();
+    };
+
+    for (let i = 0; i < enc.length; i++) {
+      if (txt(enc[i]).toUpperCase() !== 'SERIES') continue;
+      if (meta[i] && meta[i].hiddenByUser) continue;
+      return {
+        startCol: i,
+        t1: txt((filas[1] || [])[i]).toUpperCase(),   // headerRow - 2
+        t2: txt((filas[0] || [])[i]).toUpperCase(),   // headerRow - 3
+      };
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function realizarTareasPreActualizacion_(userId) {
   try {
     const ss = SpreadsheetApp.openById(userId);
@@ -545,6 +602,20 @@ function realizarTareasPreActualizacion_(userId) {
     const prog1 = ss.getSheetByName('Prog1');
     if (!hoja || !prog1) return;
 
+    // Atajo: la mayoria de las semanas NO son de test, y averiguarlo no
+    // justifica leer la hoja entera ni recorrerle las columnas de a una.
+    const colA = hoja.getRange(1, 1, Math.min(hoja.getLastRow(), 30), 1).getValues();
+    const clave = encontrarFilasClave_(colA);
+    if (!clave) return;
+
+    const rapido = rutBloqueVisibleRapido_(userId, hoja.getName(), clave.headerRow);
+    if (rapido && rapido.t1 !== 'TEST RM' && rapido.t2 !== 'TEST RM'
+        && rapido.t2 !== 'AL MÁXIMO (RM)') {
+      return;   // no hay nada que hacer antes de avanzar
+    }
+
+    // Es semana de test —o no se pudo determinar—: recien aca se paga la
+    // lectura completa, que cargarRMs_ necesita entera.
     const datos = hoja.getDataRange().getValues();
     const filasClave = encontrarFilasClave_(datos);
     if (!filasClave) return;
