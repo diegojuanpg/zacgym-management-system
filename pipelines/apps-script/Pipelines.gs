@@ -675,13 +675,24 @@ function rebuildTracking() {
 // ==========================================================
 
 const DIAS = {
-  CONTROL_SPREADSHEET_ID: '1AJ7rleF-zHcBpKnV5UPbQe04ZABQOw3Kk8UOuxy9ryg',
-  CONTROL_TAB: 'Control de usuarios',
-  COL_SHEETID: 1,   // A
-  COL_GMAIL: 21,    // U
-  ACTIVITY_DAYS: 14,
   MAX_RUNTIME_MS: 5 * 60 * 1000, // corta antes del limite duro de 6 min
 };
+
+/**
+ * Los alumnos a los que hay que contarles los dias: los de membresia ACTIVE.
+ *
+ * Antes eran los que tenian un check-in en los ultimos 14 dias, y el sheet_id
+ * salia de la planilla "Control de usuarios" cruzando por mail. Las dos cosas
+ * dejaban gente afuera: el filtro de 14 dias no es lo mismo que estar activo, y
+ * un alumno que faltara en esa planilla quedaba invisible sin que nada fallara.
+ * Hoy el sheet_id vive en alumnos.sheet_id, que sheetIds mantiene solo.
+ */
+function alumnosActivos_() {
+  // ponytail: sin paginar. PostgREST corta en 1000 filas y hoy hay 231 activos;
+  // si alguna vez se acerca, paginar como hace syncCheckins.
+  return supaGet_('alumnos_cuenta?select=email,sheet_id'
+    + '&estado_membresia=eq.ACTIVE&sheet_id=not.is.null&email=not.is.null');
+}
 
 // deadline (opcional): timestamp absoluto en ms para cortar. Si no se pasa
 // (corrida suelta), usa su propio tope de 5 min. Dentro de runDaily se le pasa
@@ -690,26 +701,19 @@ function syncDiasEntrenamiento(deadline) {
   const runId = Utilities.getUuid();
   const limit = deadline || (Date.now() + DIAS.MAX_RUNTIME_MS);
 
-  const control = loadControlMap_();            // email -> sheetId
-  const activos = getActiveEmails_();           // emails con actividad <=14 dias
+  const activos = alumnosActivos_();            // membresia ACTIVE, con planilla
   const yaGuardado = loadDiasState_();          // email -> sheet_last_modified (ISO)
 
-  let procesados = 0, saltados = 0, errores = 0, pendientes = 0, sinPlanilla = 0;
+  let procesados = 0, saltados = 0, errores = 0, pendientes = 0;
 
   for (let i = 0; i < activos.length; i++) {
     if (Date.now() > limit) {
       pendientes = activos.length - i;
       break;
     }
-    const email = activos[i];
+    const email = normEmail_(activos[i].email);
+    const sheetId = activos[i].sheet_id;
     try {
-      const sheetId = control[email];
-      if (!sheetId) {
-        sinPlanilla++;
-        supaLog_(runId, 'dias', 'warn', 'sin sheet_id en Control de usuarios', { email: email });
-        continue;
-      }
-
       const driveMod = DriveApp.getFileById(sheetId).getLastUpdated();
       const prev = yaGuardado[email];
       if (prev && new Date(prev) >= driveMod) { saltados++; continue; } // no cambio
@@ -730,8 +734,9 @@ function syncDiasEntrenamiento(deadline) {
     }
   }
 
-  Logger.log('dias -> procesados: ' + procesados + ', saltados (sin cambio): ' + saltados
-    + ', sin planilla: ' + sinPlanilla + ', errores: ' + errores + ', pendientes: ' + pendientes);
+  Logger.log('dias -> activos: ' + activos.length + ', procesados: ' + procesados
+    + ', saltados (sin cambio): ' + saltados
+    + ', errores: ' + errores + ', pendientes: ' + pendientes);
 }
 
 /**
@@ -741,38 +746,13 @@ function syncDiasEntrenamiento(deadline) {
  */
 function debugDiasUnAlumno() {
   const email = normEmail_('CAMBIAR_EMAIL_ACA@gmail.com');
-  const control = loadControlMap_();
-  const sheetId = control[email];
-  if (!sheetId) { Logger.log('No hay sheet_id para ' + email + ' en Control de usuarios.'); return; }
+  const fila = supaGet_('alumnos_cuenta?select=sheet_id&email=eq.' + encodeURIComponent(email))[0];
+  const sheetId = fila && fila.sheet_id;
+  if (!sheetId) { Logger.log('No hay sheet_id para ' + email + ' en alumnos.'); return; }
   const ss = SpreadsheetApp.openById(sheetId);
   const r = computeDias_(ss);
   Logger.log('email: ' + email + '\nsheet_id: ' + sheetId
     + '\nhoja usada: ' + r.hoja + '\nDIAS contados: ' + r.dias);
-}
-
-function loadControlMap_() {
-  const ss = SpreadsheetApp.openById(DIAS.CONTROL_SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(DIAS.CONTROL_TAB);
-  if (!sheet) throw new Error('No existe la hoja "' + DIAS.CONTROL_TAB + '".');
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return {};
-  const values = sheet.getRange(1, 1, lastRow, DIAS.COL_GMAIL).getValues();
-  const map = {};
-  values.forEach(function (row) {
-    const sheetId = String(row[DIAS.COL_SHEETID - 1] || '').trim();
-    const email = normEmail_(row[DIAS.COL_GMAIL - 1]);
-    if (sheetId && email) map[email] = sheetId;
-  });
-  return map;
-}
-
-function getActiveEmails_() {
-  const desde = new Date(Date.now() - DIAS.ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const rows = supaGet_('alumnos_tracking?select=gmail&gmail=not.is.null&ultimo_checkin=gte.'
-    + encodeURIComponent(desde));
-  const set = {};
-  rows.forEach(function (r) { const e = normEmail_(r.gmail); if (e) set[e] = true; });
-  return Object.keys(set);
 }
 
 function loadDiasState_() {

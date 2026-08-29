@@ -22,7 +22,7 @@ Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
 | 1 | `syncSheetIds` | 02:00 | diaria | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno. |
 | 2 | `syncCheckins` | cada hora, 5 a 23 | 19x dia | Baja los check-ins de PulsoFlow a `check_ins`. |
 | 3 | `syncMembers` | cada hora, 5 a 23 | 19x dia | Baja las membresias a `alumnos_pulsoflow`. |
-| 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno con actividad reciente y cuenta los dias programados. |
+| 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno **con membresia ACTIVE** y cuenta los dias programados. |
 | 5 | `rebuildTracking` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
 | 6 | `semanaRutina` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
 | — | `rutinas` | — | a mano | Avanzar y repetir semana, de a un alumno. En `apps-script-control/Rutinas.gs`. Todavia sin automatizar. |
@@ -30,6 +30,19 @@ Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
 Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
 del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por
 script y no entrarian.
+
+A quien mira `dias`: los de `estado_membresia = 'ACTIVE'`, y el `sheet_id` sale
+de `alumnos.sheet_id`. Antes eran los que tenian un check-in en los ultimos 14
+dias, cruzados por mail contra "Control de usuarios", y las dos cosas dejaban
+gente afuera: el filtro de 14 dias no es lo mismo que estar activo, y el que
+faltara en esa planilla quedaba invisible sin que nada fallara. Con la fuente
+vieja, 48 de los 49 activos sin dias no tenian fila ahi.
+
+Salta al alumno cuya planilla no se modifico desde la ultima corrida, asi que
+la primera pasada es la cara: 231 planillas no entran en los 5 minutos y quedan
+`pendientes`. No se reintenta sola —la corrida del dia siguiente sigue donde
+quedo, porque las ya hechas se saltean—, asi que converge en dos o tres dias.
+Para terminarla antes, correr `syncDiasEntrenamiento` a mano unas veces.
 
 `dias` va antes que `rebuildTracking` y no es opcional: rebuild hace un
 `left join` contra `dias_entrenamiento` y copia de ahi los dias **y el
