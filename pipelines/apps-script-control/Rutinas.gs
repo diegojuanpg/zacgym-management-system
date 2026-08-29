@@ -836,3 +836,251 @@ function realizarTareasPreActualizacion_(hojaOId, plan) {
     Logger.log('ERROR en tareas de pre-actualizacion: ' + e.message);
   }
 }
+
+// ==========================================================
+// CORRIDA SEMANAL — domingos 3am
+// ==========================================================
+
+const RUTS = {
+  MAX_RUNTIME_MS: 5 * 60 * 1000,   // corta antes del limite duro de 6 min
+  RETRASO_TRIGGER_MS: 60 * 1000,
+};
+const PROP_RUT_SEMANA = 'RUTINAS_SEMANA';
+const PROP_RUT_FALLADOS = 'RUTINAS_FALLADOS';
+
+/**
+ * Cuantos dias tiene que haber entrenado para pasar de bloque.
+ * 1 o 2 dias -> 1 | 3 o 4 -> 2 | 5 o 6 -> 3. Es la mitad, redondeando arriba.
+ */
+function umbralAvance_(dias) {
+  return Math.ceil(dias / 2);
+}
+
+function rutMail_(m) {
+  return String(m || '').trim().toLowerCase();
+}
+
+/** GET paginado: PostgREST corta en 1000 filas y hay 1900 alumnos. */
+function rutGetAll_(pathQuery) {
+  const out = [];
+  let offset = 0;
+  for (;;) {
+    const page = rutGet_(pathQuery + '&limit=1000&offset=' + offset);
+    Array.prototype.push.apply(out, page);
+    if (page.length < 1000) return out;
+    offset += 1000;
+  }
+}
+
+function rutPatch_(pathQuery, body) {
+  const res = UrlFetchApp.fetch(RUT.SUPA_URL + '/rest/v1/' + pathQuery, {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: rutHeaders_(),
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) {
+    throw new Error('Supabase PATCH ' + pathQuery + ': ' + res.getContentText());
+  }
+}
+
+/**
+ * A quien le toca esta semana y que hay que hacerle.
+ *
+ * Entra el que hizo al menos un check-in desde el lunes. Avanza el que llego al
+ * umbral de sus dias; el resto repite, que es el mismo trabajo con la fecha
+ * corrida una semana.
+ *
+ * Los dias salen de `dias_entrenamiento` y no de la vista `alumnos_cuenta`: la
+ * vista los toma de `alumnos_tracking`, que recien los tiene despues de un
+ * rebuildTracking. Leer la tabla directo saca esa dependencia del medio.
+ *
+ * El que ya quedo en la semana que viene no vuelve a entrar. Ahi esta el
+ * progreso entre ejecuciones, y de paso hace imposible avanzarlo dos veces.
+ */
+function colaRutinas_(f) {
+  const semana = _ymd_(f.lunesProx);
+  const desde = _ymd_(f.lunesEsta) + 'T00:00:00-03:00';
+
+  // Dias distintos, no check-ins: dos entradas el mismo dia son un dia.
+  const fue = {};
+  rutGetAll_('check_ins?select=user_email,check_in_time&check_in_time=gte.'
+    + encodeURIComponent(desde)).forEach(function (c) {
+    const mail = rutMail_(c.user_email);
+    if (!mail) return;
+    if (!fue[mail]) fue[mail] = {};
+    fue[mail][Utilities.formatDate(new Date(c.check_in_time), RUT.TZ, 'yyyy-MM-dd')] = true;
+  });
+
+  const dias = {};
+  rutGetAll_('dias_entrenamiento?select=gmail,dias').forEach(function (d) {
+    const m = rutMail_(d.gmail);
+    if (m && d.dias) dias[m] = d.dias;
+  });
+
+  const cola = [];
+  rutGetAll_('alumnos?select=id,apellido,nombre,email,sheet_id,rutina_semana'
+    + '&sheet_id=not.is.null').forEach(function (a) {
+    const mail = rutMail_(a.email);
+    const entreno = (mail && fue[mail]) ? Object.keys(fue[mail]).length : 0;
+    if (!entreno) return;                    // no vino esta semana
+    if (a.rutina_semana === semana) return;  // ya procesado
+
+    const suyos = dias[mail] || 0;
+    cola.push({
+      id: a.id,
+      quien: a.apellido + ', ' + a.nombre,
+      sheet_id: a.sheet_id,
+      entreno: entreno,
+      dias: suyos,
+      // Sin dias cargados no hay umbral que aplicar. Repetir es lo conservador:
+      // nunca le saltea trabajo que no hizo.
+      accion: (suyos && entreno >= umbralAvance_(suyos)) ? 'avanzar' : 'repetir',
+      sinDias: !suyos,
+    });
+  });
+  return cola;
+}
+
+/**
+ * Avanza o repite la semana de todos los que entrenaron. Trigger: domingos 3am.
+ *
+ * Si se queda sin tiempo se reprograma sola a los 60 segundos y sigue donde
+ * quedo, porque la cola se rearma mirando quien todavia no tiene la semana
+ * nueva. El que falla queda anotado y no se reintenta en la misma corrida: sin
+ * eso, un alumno con la planilla rota trabaria la cola para siempre.
+ */
+function rutinasSemanales() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+
+  const t0 = Date.now();
+  const props = PropertiesService.getScriptProperties();
+  const runId = Utilities.getUuid();
+
+  try {
+    const f = rutFechas_();
+    const semana = _ymd_(f.lunesProx);
+
+    if (props.getProperty(PROP_RUT_SEMANA) !== semana) {
+      props.setProperty(PROP_RUT_SEMANA, semana);
+      props.deleteProperty(PROP_RUT_FALLADOS);
+    }
+    const fallados = JSON.parse(props.getProperty(PROP_RUT_FALLADOS) || '{}');
+
+    const cola = colaRutinas_(f).filter(function (a) { return !fallados[a.id]; });
+    let avanzados = 0, repetidos = 0, errores = 0, pendientes = 0;
+
+    for (let i = 0; i < cola.length; i++) {
+      if (Date.now() - t0 > RUTS.MAX_RUNTIME_MS) { pendientes = cola.length - i; break; }
+      const a = cola[i];
+      try {
+        let r;
+        if (a.accion === 'avanzar') {
+          // Los RMs se leen antes de mover el bloque: despues la semana de test
+          // ya no esta visible.
+          realizarTareasPreActualizacion_(a.sheet_id);
+          r = procesarYExtraerEntrenamiento_(a.sheet_id, f.lunesProx, false, f.lunesProx);
+        } else {
+          r = procesarYExtraerEntrenamiento_(a.sheet_id, f.lunesEsta, true, f.lunesProx);
+        }
+        if (r.rutinaStatus !== 'Actualizada') {
+          throw new Error((r.entrenamientoInfo && r.entrenamientoInfo.error) || 'no se actualizo');
+        }
+        rutPatch_('alumnos?id=eq.' + a.id, {
+          rutina_semana: semana,
+          rutina_estado: null,
+          rutina_leida_en: new Date().toISOString(),
+        });
+        if (a.accion === 'avanzar') avanzados++; else repetidos++;
+      } catch (e) {
+        errores++;
+        fallados[a.id] = e.message;
+        props.setProperty(PROP_RUT_FALLADOS, JSON.stringify(fallados));
+        rutLog_(runId, 'error', 'rutinas: ' + e.message, { alumno: a.quien, accion: a.accion });
+      }
+    }
+
+    rutBorrarSeguir_();
+    if (pendientes) {
+      ScriptApp.newTrigger('rutinasSemanalesSeguir').timeBased()
+        .after(RUTS.RETRASO_TRIGGER_MS).create();
+      Logger.log('rutinas -> avanzados: ' + avanzados + ', repetidos: ' + repetidos
+        + ', errores: ' + errores + ', pendientes: ' + pendientes + '. Sigue en un minuto.');
+      return;
+    }
+
+    const fallaron = Object.keys(fallados).length;
+    Logger.log('================ RUTINAS DE LA SEMANA ' + semana + ' ================\n'
+      + 'avanzados : ' + avanzados + '\nrepetidos : ' + repetidos
+      + '\nfallaron  : ' + fallaron);
+    rutLog_(runId, fallaron ? 'warn' : 'info', 'rutinas semanales ok',
+      { semana: semana, avanzados: avanzados, repetidos: repetidos, fallaron: fallaron });
+    if (fallaron) {
+      MailApp.sendEmail('diegojp2005@gmail.com', 'ZAC rutinas - ' + fallaron + ' fallaron',
+        Object.keys(fallados).map(function (id) { return id + ': ' + fallados[id]; }).join('\n'));
+    }
+  } catch (e) {
+    Logger.log('ERROR en rutinasSemanales: ' + e.message + '\n' + e.stack);
+    rutLog_(runId, 'error', 'rutinas semanales: ' + e.message);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** La continuacion. Handler aparte para poder borrarla sin tocar el semanal. */
+function rutinasSemanalesSeguir() {
+  rutinasSemanales();
+}
+
+function rutBorrarSeguir_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'rutinasSemanalesSeguir') ScriptApp.deleteTrigger(t);
+  });
+}
+
+/** Que haria la corrida semanal, sin tocar ninguna planilla. */
+function verRutinasSemanales() {
+  const f = rutFechas_();
+  const cola = colaRutinas_(f);
+  const avanzan = cola.filter(function (a) { return a.accion === 'avanzar'; });
+  const repiten = cola.filter(function (a) { return a.accion === 'repetir'; });
+  const sinDias = cola.filter(function (a) { return a.sinDias; });
+
+  Logger.log(['RUTINAS — ensayo, no se escribe nada',
+    'semana que se cierra : ' + _ymd_(f.lunesEsta),
+    'semana que se abre   : ' + _ymd_(f.lunesProx),
+    '',
+    'en la cola : ' + cola.length,
+    '  avanzan  : ' + avanzan.length,
+    '  repiten  : ' + repiten.length + '   (de esos, ' + sinDias.length + ' sin dias cargados)',
+    '',
+    cola.slice(0, 40).map(function (a) {
+      return '  ' + _pad_(a.accion.toUpperCase(), 9) + _pad_(a.quien, 34)
+        + 'entreno ' + a.entreno + ' de ' + (a.dias || '?') + ' dias'
+        + (a.sinDias ? '   SIN DIAS CARGADOS' : '   umbral ' + umbralAvance_(a.dias));
+    }).join('\n'),
+    cola.length > 40 ? '  ... y ' + (cola.length - 40) + ' mas' : '',
+  ].join('\n'));
+}
+
+/** Deja el trigger semanal de los domingos a las 3. Idempotente. */
+function instalarRutinasSemanales() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'rutinasSemanales') ScriptApp.deleteTrigger(t);
+  });
+  rutBorrarSeguir_();
+  ScriptApp.newTrigger('rutinasSemanales').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  Logger.log('Trigger instalado: rutinasSemanales, domingos a las 3 (huso del PROYECTO).');
+}
+
+/** Borra el estado a medias, para volver a empezar la corrida de la semana. */
+function reiniciarRutinasSemanales() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty(PROP_RUT_SEMANA);
+  props.deleteProperty(PROP_RUT_FALLADOS);
+  rutBorrarSeguir_();
+  Logger.log('Estado borrado. Ojo: los que ya tienen la semana nueva no vuelven a entrar.');
+}
