@@ -842,6 +842,7 @@ const SEM = {
 };
 
 const PROP_SEM_PENDIENTES = 'SEMANA_PENDIENTES';
+const PROP_SEM_RESUMEN = 'SEMANA_RESUMEN';
 
 /** Dos bloques visibles a la vez: la planilla quedo a medio actualizar. */
 const SEM_REVISAR = 'Revisar';
