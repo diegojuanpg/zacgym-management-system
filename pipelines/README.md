@@ -132,7 +132,8 @@ vez, con formulas que despues se recalculan solas.
 
 - **`Rutinas.gs`** avanza al bloque siguiente o repite la semana, de a un alumno
   por vez. Se pone el apellido en `APELLIDO` y se corre `verUno` (no escribe),
-  `avanzarUno` o `repetirUno`. Trae adentro el motor que mueve el bloque, que
+  `avanzarUno` o `repetirUno`. Va en el mismo proyecto que `Pipelines.gs` y le
+  reusa la secret: las Script Properties son del proyecto, no del archivo. Trae adentro el motor que mueve el bloque, que
   antes vivia en el Code.gs de "Control de usuarios": `RutinasPorAsistencia.gs`
   lo llamaba sin definirlo y fallaba si los dos no estaban en el mismo proyecto.
 - `ListadoPlan.gs` junta el plan de cada alumno desde su hoja Pagos.

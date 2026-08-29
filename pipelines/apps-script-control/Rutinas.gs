@@ -12,6 +12,8 @@
  * definirlo: si los dos no estaban en el mismo proyecto, fallaba con
  * "procesarYExtraerEntrenamiento_ is not defined". Aca no depende de nadie.
  *
+ * Va en el mismo proyecto de Apps Script que Pipelines.gs: le reusa la secret.
+ *
  * ESTA VERSION ES PARA PROBAR, DE A UN ALUMNO. Pone el apellido en APELLIDO y
  * corre `avanzarUno` o `repetirUno`. Antes conviene `verUno`, que no escribe.
  *
@@ -23,16 +25,8 @@ const RUT = {
   TZ: 'America/Argentina/Buenos_Aires',
 };
 
-const PROP_RUT_SECRET = 'RUTINAS_SUPABASE_SECRET';
-
 /** El alumno a probar. Alcanza con parte del apellido. */
 const APELLIDO = 'CAMBIAR_APELLIDO_ACA';
-
-/** Correr una vez si este archivo esta en un proyecto propio. */
-function setSecretsRutinas() {
-  PropertiesService.getScriptProperties().setProperty(PROP_RUT_SECRET, 'PEGAR_SERVICE_ROLE_JWT_ACA');
-  Logger.log('Secret guardada. Borra el valor del codigo por seguridad.');
-}
 
 // ============================================================
 // ENTRADAS — lo que se ejecuta a mano
@@ -164,13 +158,24 @@ function rutFechas_() {
 // SUPABASE
 // ============================================================
 
+/**
+ * Usa la misma secret que Pipelines.gs, no una propia.
+ *
+ * Las Script Properties son del proyecto, no del archivo: si los dos comparten
+ * proyecto, la que cargo `setSecrets` sirve para los dos. Tener una clave
+ * aparte solo agregaba una forma de romperlo —guardar el placeholder por error
+ * y que tapara a la buena—.
+ *
+ * En un proyecto donde no este Pipelines.gs, hay que cargar a mano la propiedad
+ * DEST_SUPABASE_SECRET con la legacy service_role.
+ */
 function rutHeaders_() {
-  const props = PropertiesService.getScriptProperties();
-  const cruda = props.getProperty(PROP_RUT_SECRET)
-    || props.getProperty('DEST_SUPABASE_SECRET') || '';
+  const cruda = PropertiesService.getScriptProperties()
+    .getProperty('DEST_SUPABASE_SECRET') || '';
   const secret = cruda.replace(/\s+/g, '');
   if (!secret || secret.indexOf('eyJ') !== 0) {
-    throw new Error('Falta la secret legacy service_role. Corre setSecretsRutinas.');
+    throw new Error('Falta la secret legacy service_role en DEST_SUPABASE_SECRET. '
+      + 'La carga setSecrets, en Pipelines.gs.');
   }
   return { apikey: secret, authorization: 'Bearer ' + secret };
 }
