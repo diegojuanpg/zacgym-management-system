@@ -42,6 +42,11 @@ function rutHoja_(hojaOId) {
 /** El alumno a probar. Alcanza con parte del apellido. */
 const APELLIDO = 'CAMBIAR_APELLIDO_ACA';
 
+// Para ensayar sobre una copia: con un id aca, se ignora APELLIDO y se trabaja
+// sobre esa planilla. Sirve para ver escribir a avanzarUno sin arriesgar la
+// planilla de un alumno. Vaciar cuando se termina de probar.
+const SHEET_ID_PRUEBA = '';
+
 // ============================================================
 // ENTRADAS — lo que se ejecuta a mano
 // ============================================================
@@ -177,7 +182,7 @@ function rutCorrerUno_(accion) {
     } else {
       // Repetir toma el bloque de ESTA semana y le reescribe la fecha a la que
       // viene: el alumno ve el mismo trabajo, fechado adelante.
-      r = procesarYExtraerEntrenamiento_(hoja, f.lunesEsta, true, f.lunesProx);
+      r = procesarYExtraerEntrenamiento_(a.sheet_id, f.lunesEsta, true, f.lunesProx);
     }
 
     if (r.rutinaStatus !== 'Actualizada') {
@@ -209,6 +214,10 @@ function rutCorrerUno_(accion) {
 
 /** El alumno, buscado por apellido. Avisa si hay mas de uno. */
 function rutBuscarAlumno_(apellido) {
+  if (SHEET_ID_PRUEBA) {
+    Logger.log('OJO: SHEET_ID_PRUEBA esta puesto, se ignora APELLIDO.');
+    return { apellido: '(copia', nombre: 'de prueba)', sheet_id: SHEET_ID_PRUEBA };
+  }
   if (!apellido || apellido.indexOf('CAMBIAR_') === 0) {
     Logger.log('Pone un apellido en la constante APELLIDO, arriba del archivo.');
     return null;
