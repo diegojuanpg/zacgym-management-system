@@ -25,7 +25,7 @@ Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
 | 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno **con membresia ACTIVE** y cuenta los dias programados. |
 | 5 | `rebuildTracking` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
 | 6 | `semanaRutina` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
-| — | `rutinas` | — | a mano | Avanzar y repetir semana, de a un alumno. En `apps-script-control/Rutinas.gs`. Todavia sin automatizar. |
+| 7 | `rutinasSemanales` | domingos 03:00 | semanal | Avanza o repite el bloque de todo el que entreno esa semana. En `apps-script-control/Rutinas.gs`. Trigger propio: `instalarRutinasSemanales`. |
 
 Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
 del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por
@@ -121,6 +121,48 @@ Antes de habilitar la escritura conviene un ensayo:
   pondria y cuantos **pisaria**. Acumula entre pasadas, porque 1900 archivos no
   entran en los 6 minutos de Apps Script. `reiniciarMedicion()` la vuelve a cero.
 - 
+
+## La corrida semanal de rutinas
+
+Domingos a las 3. Entra el que hizo **al menos un check-in desde el lunes**, y
+pasa de bloque el que llego al umbral de sus dias:
+
+| entrena | tiene que haber entrenado |
+|---|---|
+| 1 o 2 dias | 1 dia |
+| 3 o 4 dias | 2 dias |
+| 5 o 6 dias | 3 dias |
+
+Es `Math.ceil(dias / 2)`. El que no llega **repite**: el mismo trabajo con la
+fecha corrida una semana. El que no tiene dias cargados tambien repite —sin
+umbral no hay con que juzgarlo, y repetir nunca le saltea trabajo que no hizo—.
+
+Cuenta **dias distintos**, no check-ins: entrar dos veces el mismo dia es un
+dia.
+
+El domingo cierra la semana en vez de abrirla (`rutFechas_`), asi que a las 3am
+del domingo "esta semana" es el lunes anterior. Los check-ins del domingo
+cuentan: a esa hora `runHorario` todavia no corre (arranca a las 5).
+
+### Como sobrevive a los 6 minutos
+
+No guarda la cola. Cada ejecucion la rearma y saltea al que ya tiene
+`rutina_semana` en el lunes que viene, que es lo que escribe al terminar con
+cada alumno. El progreso vive en la base, no en Script Properties —229 UUIDs
+son 8.5KB y el tope por propiedad es 9KB, quedaba al filo—. De paso, avanzar
+dos veces al mismo alumno se vuelve imposible.
+
+Si corta por tiempo se reprograma a los 60 segundos con
+`rutinasSemanalesSeguir`, un handler aparte para poder borrar la continuacion
+sin tocar el trigger semanal.
+
+El que falla queda anotado en `RUTINAS_FALLADOS` y no se reintenta en esa
+corrida: sin eso, una planilla rota traba la cola para siempre. Al terminar
+llega un mail con los que fallaron. `reiniciarRutinasSemanales()` borra el
+estado.
+
+**Antes de la primera corrida**, `verRutinasSemanales()` lista la cola entera
+con que le haria a cada uno, sin tocar ninguna planilla.
 
 ## Ordenar Drive
 
