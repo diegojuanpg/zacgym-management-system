@@ -50,11 +50,15 @@ export function AppSidebar({
   fijoInicial,
   pendientes,
   enProceso,
+  sinCargar,
+  revisar,
 }: {
   pie: React.ReactNode;
   fijoInicial: boolean;
   pendientes: number;
   enProceso: number;
+  sinCargar: number;
+  revisar: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -79,6 +83,16 @@ export function AppSidebar({
   }
 
   const abierto = fijo || encima;
+
+  // Lo que le falta a cada sección. Rojo lo que no empezó, ámbar lo empezado.
+  const avisos: Record<string, { n: number; color: "red" | "amber"; que: string }[]> = {
+    "/tareas": [
+      { n: pendientes, color: "red", que: "pendientes" },
+      { n: enProceso, color: "amber", que: "en proceso" },
+    ],
+    "/ventas": [{ n: sinCargar, color: "red", que: "mensualidades sin cargar" }],
+    "/alumnos": [{ n: revisar, color: "red", que: "rutinas para revisar" }],
+  };
 
   return (
     <>
@@ -144,6 +158,8 @@ export function AppSidebar({
               const activa = [href, ...incluye].some(
                 (ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`),
               );
+              // En cero no va nada, que un 0 rojo alarma sin motivo.
+              const marcas = (avisos[href] ?? []).filter((a) => a.n > 0);
               return (
                 <div key={href} className="flex items-center gap-1">
                 <Link
@@ -172,21 +188,20 @@ export function AppSidebar({
                   <span className={cn("md:hidden")}>{nombre}</span>
                   <span className="hidden md:inline">{abierto ? nombre : null}</span>
 
-                  {/* Cuántas tareas esperan: rojo las pendientes, ámbar las
-                      empezadas. En cero no va nada, que un 0 rojo alarma sin
-                      motivo. Plegado tampoco: en 56px no entran. */}
-                  {href === "/tareas" && (pendientes > 0 || enProceso > 0) && (
+                  {/* Plegado tampoco: en 56px no entran. */}
+                  {marcas.length > 0 && (
                     <span className={cn("ml-auto flex items-center gap-1", !abierto && "md:hidden")}>
-                      {pendientes > 0 && (
-                        <Badge variant="red" size="sm" className="min-w-5 px-1" title={`${pendientes} pendientes`}>
-                          {pendientes}
+                      {marcas.map((a) => (
+                        <Badge
+                          key={a.que}
+                          variant={a.color}
+                          size="sm"
+                          className="min-w-5 px-1"
+                          title={`${a.n} ${a.que}`}
+                        >
+                          {a.n}
                         </Badge>
-                      )}
-                      {enProceso > 0 && (
-                        <Badge variant="amber" size="sm" className="min-w-5 px-1" title={`${enProceso} en proceso`}>
-                          {enProceso}
-                        </Badge>
-                      )}
+                      ))}
                     </span>
                   )}
                 </Link>

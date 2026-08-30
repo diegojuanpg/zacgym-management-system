@@ -487,6 +487,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos_revisar_rutina"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "promo_integrantes_promo_id_fkey"
             columns: ["promo_id"]
             isOneToOne: false
@@ -603,6 +610,13 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: false
+            referencedRelation: "alumnos_revisar_rutina"
             referencedColumns: ["id"]
           },
           {
@@ -787,6 +801,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ventas_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: false
+            referencedRelation: "alumnos_revisar_rutina"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ventas_producto_id_fkey"
             columns: ["producto_id"]
             isOneToOne: false
@@ -843,6 +864,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promo_integrantes_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: true
+            referencedRelation: "alumnos_revisar_rutina"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "promos_producto_id_fkey"
             columns: ["producto_id"]
             isOneToOne: false
@@ -879,6 +907,12 @@ export type Database = {
           ultima_actividad: string | null
           ultimo_checkin: string | null
           vence: string | null
+        }
+        Relationships: []
+      }
+      alumnos_revisar_rutina: {
+        Row: {
+          id: string | null
         }
         Relationships: []
       }
@@ -1102,6 +1136,13 @@ export type Database = {
             referencedRelation: "alumnos_cuenta"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ventas_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: false
+            referencedRelation: "alumnos_revisar_rutina"
+            referencedColumns: ["id"]
+          },
         ]
       }
       promos_detalle: {
@@ -1152,6 +1193,13 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: false
+            referencedRelation: "alumnos_revisar_rutina"
             referencedColumns: ["id"]
           },
           {
@@ -1257,6 +1305,13 @@ export type Database = {
             columns: ["alumno_id"]
             isOneToOne: false
             referencedRelation: "alumnos_cuenta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventas_alumno_id_fkey"
+            columns: ["alumno_id"]
+            isOneToOne: false
+            referencedRelation: "alumnos_revisar_rutina"
             referencedColumns: ["id"]
           },
           {
@@ -1417,6 +1472,7 @@ export type Database = {
           nombres: string[]
         }[]
       }
+      rutina_semana_esperada: { Args: { ahora?: string }; Returns: string }
       set_staff_role: {
         Args: { p_email: string; p_role: string }
         Returns: undefined
