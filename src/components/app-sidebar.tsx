@@ -17,6 +17,7 @@ import {
   UsersIcon,
   XIcon,
 } from "@/components/icons";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { COOKIE_MENU } from "@/lib/menu";
 import { cn } from "@/lib/utils";
@@ -24,10 +25,10 @@ import { cn } from "@/lib/utils";
 const SECCIONES = [
   // Productos no tiene item propio: es parte del mostrador y lo deja marcado.
   { href: "/mostrador", nombre: "Mostrador", icono: StoreIcon, incluye: ["/productos"] },
-  { href: "/ventas", nombre: "Ventas", icono: DollarIcon, incluye: [] },
-  { href: "/turnos", nombre: "Turnos", icono: ClockIcon, incluye: [] },
   { href: "/alumnos", nombre: "Alumnos", icono: UsersIcon, incluye: [] },
   { href: "/tareas", nombre: "Tareas", icono: ClipboardIcon, incluye: [] },
+  { href: "/ventas", nombre: "Ventas", icono: DollarIcon, incluye: [] },
+  { href: "/turnos", nombre: "Turnos", icono: ClockIcon, incluye: [] },
 ];
 
 /**
@@ -41,14 +42,19 @@ const SECCIONES = [
  * no dejan lugar a la tabla: ahí el menú es un cajón que se abre desde la barra
  * de arriba y se cierra al elegir.
  *
- * El pie (cuenta y salir) lo pone el layout, que es server.
+ * El pie (cuenta y salir) lo pone el layout, que es server, y los conteos de
+ * tareas también: acá no hay dónde consultarlos.
  */
 export function AppSidebar({
   pie,
   fijoInicial,
+  pendientes,
+  enProceso,
 }: {
   pie: React.ReactNode;
   fijoInicial: boolean;
+  pendientes: number;
+  enProceso: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -165,6 +171,24 @@ export function AppSidebar({
                   {/* Plegado no hace falta tooltip: acercar el mouse ya abre el menú. */}
                   <span className={cn("md:hidden")}>{nombre}</span>
                   <span className="hidden md:inline">{abierto ? nombre : null}</span>
+
+                  {/* Cuántas tareas esperan: rojo las pendientes, ámbar las
+                      empezadas. En cero no va nada, que un 0 rojo alarma sin
+                      motivo. Plegado tampoco: en 56px no entran. */}
+                  {href === "/tareas" && (pendientes > 0 || enProceso > 0) && (
+                    <span className={cn("ml-auto flex items-center gap-1", !abierto && "md:hidden")}>
+                      {pendientes > 0 && (
+                        <Badge variant="red" size="sm" className="min-w-5 px-1" title={`${pendientes} pendientes`}>
+                          {pendientes}
+                        </Badge>
+                      )}
+                      {enProceso > 0 && (
+                        <Badge variant="amber" size="sm" className="min-w-5 px-1" title={`${enProceso} en proceso`}>
+                          {enProceso}
+                        </Badge>
+                      )}
+                    </span>
+                  )}
                 </Link>
 
                 {/* La X vive al lado de la primera sección: sin el nombre del

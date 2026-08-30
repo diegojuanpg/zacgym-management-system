@@ -12,6 +12,15 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Por defecto fijo: solo se pliega si el usuario lo pidió.
   const fijo = (await cookies()).get(COOKIE_MENU)?.value !== "no";
 
+  // Lo que le falta a tareas, para los circulitos del menú. Una sola vuelta y
+  // el reparto acá: son dos números sobre las que no están terminadas, y las
+  // terminadas —que son las que crecen sin techo— ni se traen.
+  const supabase = await createClient();
+  const { data: abiertas } = await supabase
+    .from("tareas")
+    .select("estado")
+    .neq("estado", "terminada");
+
   async function cerrarSesion() {
     "use server";
     const supabase = await createClient();
@@ -26,6 +35,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <Toaster />
       <AppSidebar
         fijoInicial={fijo}
+        pendientes={abiertas?.filter((t) => t.estado === "pendiente").length ?? 0}
+        enProceso={abiertas?.filter((t) => t.estado === "en_proceso").length ?? 0}
         pie={
           <div className="flex flex-col gap-2">
             {/* Solo el mail: el rol no cambia nada de lo que se ve, asi que
