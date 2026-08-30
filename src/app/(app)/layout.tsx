@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { traerTodo } from "@/lib/traer-todo";
+import { DESDE_CARGA, MENSUALIDADES, pendienteDeCarga, type CargaDeVenta } from "@/lib/mensualidades";
 import { AppSidebar } from "@/components/app-sidebar";
 import { COOKIE_MENU } from "@/lib/menu";
 import { Button } from "@/components/ui/button";
@@ -12,14 +14,28 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Por defecto fijo: solo se pliega si el usuario lo pidió.
   const fijo = (await cookies()).get(COOKIE_MENU)?.value !== "no";
 
-  // Lo que le falta a tareas, para los circulitos del menú. Una sola vuelta y
-  // el reparto acá: son dos números sobre las que no están terminadas, y las
-  // terminadas —que son las que crecen sin techo— ni se traen.
+  // Lo que falta hacer, para los circulitos del menú. El reparto se hace acá:
+  // de tareas son dos números sobre las que no están terminadas —las terminadas,
+  // que son las que crecen sin techo, ni se traen—, y de ventas las mensualidades
+  // que todavía no se replicaron afuera.
+  //
+  // El or() de las mensualidades trae de más a propósito: es el conjunto que
+  // `pendienteDeCarga` puede llegar a contar —falta un acuse, o está anulada
+  // después de haberse cargado—, así no se traen las miles ya resueltas.
   const supabase = await createClient();
-  const { data: abiertas } = await supabase
-    .from("tareas")
-    .select("estado")
-    .neq("estado", "terminada");
+  const [{ data: abiertas }, mensualidades, { count: revisar }] = await Promise.all([
+    supabase.from("tareas").select("estado").neq("estado", "terminada"),
+    traerTodo<CargaDeVenta>(
+      supabase
+        .from("ventas_saldo")
+        .select("categoria, creado_en, anulada_en, cargada_sheet_en, cargada_app_en")
+        .eq("categoria", MENSUALIDADES)
+        .gte("creado_en", new Date(DESDE_CARGA).toISOString())
+        .or("cargada_sheet_en.is.null,cargada_app_en.is.null,anulada_en.not.is.null"),
+    ),
+    // La vista ya decide quiénes son; acá solo hace falta cuántos.
+    supabase.from("alumnos_revisar_rutina").select("id", { count: "exact", head: true }),
+  ]);
 
   async function cerrarSesion() {
     "use server";
@@ -37,6 +53,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         fijoInicial={fijo}
         pendientes={abiertas?.filter((t) => t.estado === "pendiente").length ?? 0}
         enProceso={abiertas?.filter((t) => t.estado === "en_proceso").length ?? 0}
+        sinCargar={mensualidades.filter(pendienteDeCarga).length}
+        revisar={revisar ?? 0}
         pie={
           <div className="flex flex-col gap-2">
             {/* Solo el mail: el rol no cambia nada de lo que se ve, asi que

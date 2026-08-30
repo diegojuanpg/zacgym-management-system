@@ -108,10 +108,13 @@ export function TablaAlumnos({
   alumnos: todos,
   dias,
   semanas,
+  revisar,
 }: {
   alumnos: FilaAlumno[];
   dias: DiaConCheckins[];
   semanas: SemanaConCheckins[];
+  /** Los que la corrida del domingo dejó sin la semana que corresponde. */
+  revisar: string[];
 }) {
   const parametros = useParametros();
   const params = comoObjeto(parametros);
@@ -224,12 +227,24 @@ export function TablaAlumnos({
     },
   ];
 
+  // La corrida de rutinas de los domingos a las 3 los tenía que dejar en la
+  // semana que viene y no lo hizo: la planilla no se movió o se movió mal.
+  // Quiénes son lo decide la base, que es donde están los check-ins de esa
+  // semana. Van en rojo porque es trabajo pendiente, no una vista más.
+  const paraRevisar = new Set(revisar);
+
   const vistas = [
     { valor: "todos", nombre: "Todos", filtro: () => true },
     { valor: "activos", nombre: "Activos", filtro: esActivo },
     { valor: "vence", nombre: "Vence esta semana", filtro: venceEstaSemana },
     { valor: "vencio", nombre: "Venció la semana pasada", filtro: vencioLaPasada },
     { valor: "notificar", nombre: "Notificar", filtro: notificar },
+    {
+      valor: "revisar",
+      nombre: "Revisar rutina",
+      filtro: (a: FilaAlumno) => paraRevisar.has(a.id),
+      rojo: true,
+    },
   ].map((v) => ({ ...v, cuantos: todos.filter(v.filtro).length }));
   const vistaActual = vistas.find((v) => v.valor === vista) ?? vistas[0];
 
@@ -353,7 +368,11 @@ export function TablaAlumnos({
           <TabsUrl
             param="ver"
             valor={vistaActual.valor}
-            vistas={vistas.map(({ valor, nombre, cuantos }) => ({ valor, nombre, cuantos }))}
+            vistas={vistas.map(({ valor, nombre, cuantos, rojo }) =>
+              rojo
+                ? { valor, nombre, alerta: cuantos, alertaTitulo: "Rutinas para revisar" }
+                : { valor, nombre, cuantos },
+            )}
           />
         </div>
 
