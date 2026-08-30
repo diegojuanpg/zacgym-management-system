@@ -85,10 +85,11 @@ export function AppSidebar({
   const abierto = fijo || encima;
 
   // Lo que le falta a cada sección. Rojo lo que no empezó, ámbar lo empezado.
+  // El rojo va último, contra el borde derecho, y siempre en el mismo lugar.
   const avisos: Record<string, { n: number; color: "red" | "amber"; que: string }[]> = {
     "/tareas": [
-      { n: pendientes, color: "red", que: "pendientes" },
       { n: enProceso, color: "amber", que: "en proceso" },
+      { n: pendientes, color: "red", que: "pendientes" },
     ],
     "/ventas": [{ n: sinCargar, color: "red", que: "mensualidades sin cargar" }],
     "/alumnos": [{ n: revisar, color: "red", que: "rutinas para revisar" }],
