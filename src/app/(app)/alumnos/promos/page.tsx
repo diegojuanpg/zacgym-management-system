@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { comoQuery } from "@/lib/query";
 import { FiltrosLocales } from "@/hooks/use-navegacion";
 import type { OpcionAlumno, OpcionProducto } from "@/components/alumnos/promo-modal";
-import { PromoModal } from "@/components/alumnos/promo-modal";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon } from "@/components/icons";
 import { TablaPromos, type PromoFila } from "./tabla";
@@ -63,10 +62,6 @@ export default async function PromosPage({ searchParams }: PageProps<"/alumnos/p
           <ArrowLeftIcon className="size-4" />
         </Button>
         <h1 className="text-heading-20">Promos</h1>
-
-        <div className="ml-auto">
-          <PromoModal alumnos={alumnos ?? []} productos={productos ?? []} />
-        </div>
       </div>
 
       <FiltrosLocales key={query} inicial={query}>

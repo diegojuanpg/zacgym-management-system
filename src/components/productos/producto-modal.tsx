@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { PlusIcon } from "@/components/icons";
+import { capitalizar } from "@/lib/utils";
 
 export interface Producto {
   id: string;
@@ -162,16 +163,19 @@ export function ProductoModal({
                 onChange={(e) => setCategoria(e.target.value)}
               >
                 <option value="">Sin categoría</option>
+                {/* El texto va capitalizado a mano: `text-transform` no corre
+                    dentro de un <option> en casi ningún navegador. El value
+                    queda como está en la base, que es lo que se guarda. */}
                 {categorias.map((c) => (
-                  <option key={c} value={c} className="capitalize">
-                    {c}
+                  <option key={c} value={c}>
+                    {capitalizar(c)}
                   </option>
                 ))}
                 {/* El rubro del producto que se está editando puede haber sido
                     el último de su clase: sin esto el select no lo encuentra y
                     se muestra vacío. */}
                 {producto?.categoria && !categorias.includes(producto.categoria) && (
-                  <option value={producto.categoria}>{producto.categoria}</option>
+                  <option value={producto.categoria}>{capitalizar(producto.categoria)}</option>
                 )}
                 <option value={NUEVA}>Nueva categoría…</option>
               </Select>

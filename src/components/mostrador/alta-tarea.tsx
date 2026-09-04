@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Note } from "@/components/ui/note";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { PlusIcon, XIcon } from "@/components/icons";
 import type { Empleado } from "@/lib/turnos";
 
@@ -96,7 +97,7 @@ export function AltaTarea({
 
   return (
     <form onSubmit={guardar} onKeyDown={enterAvanza} className="flex flex-col gap-3 pb-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <Label>Alumno</Label>
           <Combobox
@@ -113,6 +114,31 @@ export function AltaTarea({
             clearable
             autoFocus
           />
+        </div>
+
+        <div>
+          <Label htmlFor="tarea-anoto">Anotó</Label>
+          <Select
+            id="tarea-anoto"
+            size="large"
+            required
+            value={anotadoPor}
+            onChange={(e) => setAnotadoPor(e.target.value)}
+          >
+            <option value="" disabled>
+              Elegir
+            </option>
+            {empleados.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nombre}
+              </option>
+            ))}
+          </Select>
+          {empleados.length === 0 && (
+            <span className="text-copy-13 text-muted-foreground">
+              No hay empleados cargados. Se agregan desde Check-in.
+            </span>
+          )}
         </div>
 
         <div>
@@ -206,42 +232,17 @@ export function AltaTarea({
         </div>
       )}
 
-      {/* La tarea se lleva el ancho: es texto libre y lo demás son desplegables. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Input
-          label="Tarea"
+      {/* La tarea se lleva todo el ancho: es texto libre y lo demás son desplegables. */}
+      <div>
+        <Label htmlFor="tarea-detalle">Tarea</Label>
+        <Textarea
+          id="tarea-detalle"
           size="large"
           required
-          className="sm:col-span-2"
           placeholder="Qué hay que hacer"
           value={detalle}
           onChange={(e) => setDetalle(e.target.value)}
         />
-
-        <div>
-          <Label htmlFor="tarea-anoto">Anotó</Label>
-          <Select
-            id="tarea-anoto"
-            size="large"
-            required
-            value={anotadoPor}
-            onChange={(e) => setAnotadoPor(e.target.value)}
-          >
-            <option value="" disabled>
-              Elegir
-            </option>
-            {empleados.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre}
-              </option>
-            ))}
-          </Select>
-          {empleados.length === 0 && (
-            <span className="text-copy-13 text-muted-foreground">
-              No hay empleados cargados. Se agregan desde Check-in.
-            </span>
-          )}
-        </div>
       </div>
 
       <div className="mt-1 flex items-center justify-end gap-3 border-t border-border pt-4">
