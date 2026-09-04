@@ -369,7 +369,6 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
                 <CerrarTurnoModal
                   esperadoGrande={turno.caja_grande_esperada}
                   esperadoChica={turno.caja_chica_esperada}
-                  responsables={turno.responsables}
                   productos={aContar}
                 />
               ) : (
