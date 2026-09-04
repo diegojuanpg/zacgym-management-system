@@ -17,6 +17,19 @@ import { Note } from "@/components/ui/note";
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
 const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 
+/** Lo que hay que escribir para poder cerrar con diferencias. */
+const FRASE = "Soy consciente y avisé por el grupo";
+
+/** Sin tildes, sin mayúsculas y sin espacios de más: el cierre es a las once de
+ *  la noche y pelearse con un acento no hace a nadie más consciente. */
+const normalizar = (v: string) =>
+  v
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ");
+
 /**
  * Cierre de turno. El turno termina cuando se cierra: la hora no se elige,
  * igual que al abrir.
@@ -27,13 +40,10 @@ const pesos = (n: number) => `$${Math.abs(n).toLocaleString("es-AR")}`;
 export function CerrarTurnoModal({
   esperadoGrande,
   esperadoChica,
-  responsables,
   productos,
 }: {
   esperadoGrande: number;
   esperadoChica: number;
-  /** Quienes ficharon dentro del turno. Sale del cruce, no se elige. */
-  responsables: string[];
   productos: ProductoConStock[];
 }) {
   const router = useRouter();
@@ -44,11 +54,13 @@ export function CerrarTurnoModal({
   const [cajaGrande, setCajaGrande] = React.useState("");
   const [cajaChica, setCajaChica] = React.useState("");
   const [contados, setContados] = React.useState<Map<string, string>>(new Map());
+  const [confirmacion, setConfirmacion] = React.useState("");
 
   function abrirModal() {
     setCajaGrande("");
     setCajaChica("");
     setContados(new Map());
+    setConfirmacion("");
     setError(null);
     setAbierto(true);
   }
@@ -70,7 +82,13 @@ export function CerrarTurnoModal({
     (difChica !== null && difChica !== 0) ||
     stockQueDifiere.length > 0;
 
+  // Con diferencias el cierre no se bloquea, pero deja de ser un clic: hay que
+  // escribir la frase, que es lo que convierte "le doy a cerrar igual" en un
+  // acto deliberado y deja constancia de que el aviso salió.
+  const confirmado = !hayDescuadre || normalizar(confirmacion) === normalizar(FRASE);
+
   const listo = cajaGrande !== "" && cajaChica !== "" && todoContado(productos, contados);
+  const puedeCerrar = listo && confirmado;
 
   async function guardar() {
     setGuardando(true);
@@ -103,9 +121,11 @@ export function CerrarTurnoModal({
             <span className="text-copy-13 text-[var(--ds-gray-900)]">
               {!listo
                 ? "Falta contar alguna caja o algún producto"
-                : hayDescuadre
-                  ? "Cierra con diferencia"
-                  : "Todo cuadra"}
+                : !confirmado
+                  ? "Escribí la confirmación para poder cerrar"
+                  : hayDescuadre
+                    ? "Cierra con diferencia"
+                    : "Todo cuadra"}
             </span>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setAbierto(false)}>
@@ -113,7 +133,7 @@ export function CerrarTurnoModal({
               </Button>
               <Button
                 onClick={guardar}
-                disabled={!listo}
+                disabled={!puedeCerrar}
                 loading={guardando}
                 variant={hayDescuadre ? "warning" : "primary"}
               >
@@ -180,13 +200,22 @@ export function CerrarTurnoModal({
                   </span>
                 ))}
                 <span className="mt-1">
-                  Podés cerrar igual. Por el fichaje, la diferencia queda a nombre de{" "}
-                  {responsables.length === 0
-                    ? "nadie: no fichó ninguno"
-                    : responsables.join(" y ")}.
+                  Estás por cerrar el turno con inconsistencias. Vas a poder cerrarlo, pero
+                  tenés que avisar.
                 </span>
               </div>
             </Note>
+          )}
+
+          {hayDescuadre && (
+            <Input
+              label={`Para cerrar, escribí: ${FRASE}`}
+              size="large"
+              autoComplete="off"
+              placeholder={FRASE}
+              value={confirmacion}
+              onChange={(e) => setConfirmacion(e.target.value)}
+            />
           )}
 
           {error && (

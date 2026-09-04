@@ -137,10 +137,9 @@ export function TurnoModal({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-heading-16">Stock inicial</h3>
+            <h3 className="text-heading-16">Controlá el stock</h3>
             <p className="text-copy-13 text-[var(--ds-gray-900)]">
-              Contá todos los que están marcados en el catálogo. Si querés cambiar la lista,
-              se marca desde Productos.
+              Controlá atentamente todos los productos del listado.
             </p>
             <ConteoStock productos={productos} contados={contados} onCambio={setContados} />
           </section>
