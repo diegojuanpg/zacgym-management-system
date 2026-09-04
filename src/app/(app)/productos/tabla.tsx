@@ -47,10 +47,18 @@ export function TablaProductos({
   // el filtro compara contra el texto que se ve, no contra el valor de la base.
   const categoriaDe = (p: Producto) => (p.categoria === null ? "Sin categoría" : capitalizar(p.categoria));
   const cajaDe = (p: Producto) => (p.caja === null ? "Sin asignar" : capitalizar(p.caja));
+  // Sin vendedor el producto es del GYM, que es el caso normal. `vendedores`
+  // trae solo los activos: al que se dio de baja se lo nombra igual, si no el
+  // producto aparecería como del GYM y la plata no es del GYM.
+  const vendedorDe = (p: Producto) =>
+    p.vendedor_id === null
+      ? "GYM"
+      : (vendedores.find((v) => v.id === p.vendedor_id)?.nombre ?? "Vendedor dado de baja");
   const conteoDe = (p: Producto) => (p.contar_en_turno ? "En turno" : "No se cuenta");
   const estadoDe = (p: Producto) => (p.activo ? "Activo" : "Oculto");
 
   const filtroCategoria = parametros.getAll("categoria");
+  const filtroVendedor = parametros.getAll("vendedor");
   const filtroCaja = parametros.getAll("caja");
   const filtroConteo = parametros.getAll("conteo");
   const filtroEstado = parametros.getAll("estado");
@@ -61,6 +69,7 @@ export function TablaProductos({
       esDe(p, rubro) &&
       p.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
       (filtroCategoria.length === 0 || filtroCategoria.includes(categoriaDe(p))) &&
+      (filtroVendedor.length === 0 || filtroVendedor.includes(vendedorDe(p))) &&
       (filtroCaja.length === 0 || filtroCaja.includes(cajaDe(p))) &&
       (filtroConteo.length === 0 || filtroConteo.includes(conteoDe(p))) &&
       (filtroEstado.length === 0 || filtroEstado.includes(estadoDe(p))),
@@ -70,6 +79,7 @@ export function TablaProductos({
   // de lo filtrado, destildar una opción la haría desaparecer de su propio panel.
   const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
   const opcionesCategoria = ordenar(todos.map(categoriaDe));
+  const opcionesVendedor = ordenar(todos.map(vendedorDe));
   const opcionesCaja = ordenar(todos.map(cajaDe));
   const opcionesConteo = ordenar(todos.map(conteoDe));
   const opcionesEstado = ordenar(todos.map(estadoDe));
@@ -148,6 +158,13 @@ export function TablaProductos({
                       />
                     </TableHead>
                     <TableHead>
+                      <FiltroColumna
+                        etiqueta="Vendedor"
+                        param="vendedor"
+                        opciones={opcionesVendedor}
+                      />
+                    </TableHead>
+                    <TableHead>
                       <FiltroColumna etiqueta="Caja" param="caja" opciones={opcionesCaja} />
                     </TableHead>
                     <TableHead>Stock</TableHead>
@@ -170,6 +187,15 @@ export function TablaProductos({
                           <span className="text-muted-foreground">—</span>
                         ) : (
                           <span className="capitalize">{p.categoria}</span>
+                        )}
+                      </TableCell>
+                      {/* El GYM va apagado: es el caso normal y son casi todas
+                          las filas. El nombre resalta porque es la excepción. */}
+                      <TableCell>
+                        {p.vendedor_id === null ? (
+                          <span className="text-[var(--ds-gray-900)]">GYM</span>
+                        ) : (
+                          vendedorDe(p)
                         )}
                       </TableCell>
                       {/* Sin caja lo tienen los 60 productos viejos: un badge por

@@ -11,7 +11,7 @@ export interface DeudaVendedor {
 /**
  * Lo que hay que entregarle a cada dueño de mercadería.
  *
- * Hay productos que no son del gimnasio: alguien los deja, el mostrador los
+ * Hay productos que no son del GYM: alguien los deja, el mostrador los
  * cobra y después le pasa la plata. Eso se marca en el producto y acá se suma
  * lo que se cobró de los suyos.
  *
