@@ -14,17 +14,20 @@ export default async function ProductosPage({ searchParams }: PageProps<"/produc
   const params = await searchParams;
 
   const supabase = await createClient();
-  const { data: productos } = await supabase
-    .from("productos")
-    .select("id, nombre, precio, categoria, caja, stock, activo, contar_en_turno")
-    .order("nombre")
-    .overrideTypes<Producto[]>();
+  const [{ data: productos }, { data: vendedores }] = await Promise.all([
+    supabase
+      .from("productos")
+      .select("id, nombre, precio, categoria, caja, stock, activo, contar_en_turno, vendedor_id")
+      .order("nombre")
+      .overrideTypes<Producto[]>(),
+    supabase.from("empleados").select("id, nombre").eq("activo", true).order("nombre"),
+  ]);
 
   const query = comoQuery(params);
 
   return (
     <FiltrosLocales key={query} inicial={query}>
-      <TablaProductos productos={productos ?? []} />
+      <TablaProductos productos={productos ?? []} vendedores={vendedores ?? []} />
     </FiltrosLocales>
   );
 }

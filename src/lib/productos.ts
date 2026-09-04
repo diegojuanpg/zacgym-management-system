@@ -14,6 +14,8 @@ export interface DatosProducto {
   stock: number | null;
   /** Si entra al conteo obligatorio de apertura y cierre de turno. */
   contar_en_turno: boolean;
+  /** Empleado dueño de la mercadería: lo cobrado se le entrega. null = del gimnasio. */
+  vendedor_id: string | null;
 }
 
 function refrescar() {
@@ -60,6 +62,7 @@ export async function crearProducto(datos: DatosProducto): Promise<{ error?: str
     caja: datos.caja,
     stock: datos.stock,
     contar_en_turno: datos.contar_en_turno,
+    vendedor_id: datos.vendedor_id,
   });
   // El nombre es unique: el choque es lo único que se puede tocar sin querer.
   if (error) {
@@ -87,6 +90,7 @@ export async function editarProducto(
       stock: datos.stock,
       activo: datos.activo,
       contar_en_turno: datos.contar_en_turno,
+      vendedor_id: datos.vendedor_id,
     })
     .eq("id", id);
   if (error) {
