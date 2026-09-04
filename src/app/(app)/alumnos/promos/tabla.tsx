@@ -98,7 +98,10 @@ export function TablaPromos({
               } · ${alcanzados} ${alcanzados === 1 ? "alumno" : "alumnos"}`}
         </p>
 
-        <Buscador inicial={q} placeholder="Buscar grupo, promo o integrante..." />
+        <div className="flex items-center gap-3">
+          <PromoModal alumnos={alumnos} productos={productos} />
+          <Buscador inicial={q} placeholder="Buscar grupo, promo o integrante..." />
+        </div>
       </div>
 
       {promos.length === 0 ? (

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Buscador } from "@/components/buscador";
+import { DotsMenu } from "@/components/ui/dots-menu";
 import { Torta } from "@/components/torta";
 import { Entrenamiento } from "@/components/alumnos/entrenamiento";
 import {
@@ -10,13 +12,11 @@ import {
   type SemanaConCheckins,
 } from "@/components/barras-checkins";
 import { TabsUrl } from "@/components/tabs-url";
-import { ToggleUrl } from "@/components/toggle-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { MostrarMas } from "@/components/mostrar-mas";
 import { recortar } from "@/lib/recorte";
 import { AlumnoModal } from "@/components/alumnos/alumno-modal";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RelativeTimeCard } from "@/components/ui/relative-time-card";
 import { UsersIcon } from "@/components/icons";
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { fechaCorta } from "@/lib/utils";
 import { rangoDe, comparador, lunes } from "@/lib/filtros";
-import { comoObjeto, useParametros } from "@/hooks/use-navegacion";
+import { comoObjeto, useNavegacion, useParametros } from "@/hooks/use-navegacion";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 
@@ -117,11 +117,20 @@ export function TablaAlumnos({
   revisar: string[];
 }) {
   const parametros = useParametros();
+  const router = useRouter();
+  const { irA } = useNavegacion();
   const params = comoObjeto(parametros);
   const busqueda = (parametros.get("q") ?? "").trim();
   // El contacto viene oculto: son dos columnas que casi nunca se miran y que
   // corren el resto de la tabla fuera de la pantalla. Se pide con ?contacto=si.
   const verContacto = parametros.get("contacto") === "si";
+  // Oculto es el estado normal, así que la URL limpia es sin contacto.
+  function alternarContacto() {
+    const nuevos = new URLSearchParams(parametros.toString());
+    if (verContacto) nuevos.delete("contacto");
+    else nuevos.set("contacto", "si");
+    irA(nuevos);
+  }
   const vista = parametros.get("ver") ?? "todos";
   const criterio = parametros.get("orden") ?? "";
   const filas = parametros.get("filas") ?? undefined;
@@ -376,19 +385,21 @@ export function TablaAlumnos({
           />
         </div>
 
-        {/* Contacto va de este lado y no con las solapas: las solapas eligen qué
-            filas ves, y esto —como el buscador— cambia cómo mirás las mismas.
-            Entre las pastillas era un interruptor suelto en una fila de botones. */}
+        {/* Promos y Contacto se usan de vez en cuando: guardados en el menú de
+            los tres puntos, el renglón queda para el buscador, que se usa todo
+            el tiempo. Contacto sigue siendo un parámetro de la URL, así que el
+            link con las columnas abiertas se puede compartir igual. */}
         <div className="flex items-center gap-3">
-          <ToggleUrl
-            param="contacto"
-            etiqueta="Contacto"
-            encendido={verContacto}
-            predeterminado={false}
+          <DotsMenu
+            align="start"
+            items={[
+              { label: "Ver promos", onSelect: () => router.push("/alumnos/promos") },
+              {
+                label: verContacto ? "Ocultar contacto" : "Mostrar contacto",
+                onSelect: alternarContacto,
+              },
+            ]}
           />
-          <Button variant="secondary" nativeButton={false} render={<Link href="/alumnos/promos" />}>
-            Promos
-          </Button>
           <Buscador inicial={busqueda} placeholder="Buscar por nombre, mail o teléfono..." />
         </div>
       </div>

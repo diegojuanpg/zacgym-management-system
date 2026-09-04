@@ -6,9 +6,10 @@ import { useParametros } from "@/hooks/use-navegacion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Buscador } from "@/components/buscador";
+import { FiltroColumna } from "@/components/filtro-columna";
 import { TabsUrl } from "@/components/tabs-url";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CartIcon, InvoiceIcon } from "@/components/icons";
+import { ArrowLeftIcon, CartIcon } from "@/components/icons";
 import { capitalizar } from "@/lib/utils";
 import {
   TableRoot,
@@ -32,11 +33,36 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
   const esDe = (p: Producto, r: string) =>
     r === "todos" || (r === "sin" ? p.categoria === null : p.categoria === r);
 
+  // Lo que muestra cada columna, que es también lo que se tilda en su filtro:
+  // el filtro compara contra el texto que se ve, no contra el valor de la base.
+  const categoriaDe = (p: Producto) => (p.categoria === null ? "Sin categoría" : capitalizar(p.categoria));
+  const cajaDe = (p: Producto) => (p.caja === null ? "Sin asignar" : capitalizar(p.caja));
+  const conteoDe = (p: Producto) => (p.contar_en_turno ? "En turno" : "No se cuenta");
+  const estadoDe = (p: Producto) => (p.activo ? "Activo" : "Oculto");
+
+  const filtroCategoria = parametros.getAll("categoria");
+  const filtroCaja = parametros.getAll("caja");
+  const filtroConteo = parametros.getAll("conteo");
+  const filtroEstado = parametros.getAll("estado");
+
   // 60 filas: filtrar acá sale más barato que ir de nuevo a la base por cada rubro.
   const catalogo = todos.filter(
-    (p) => esDe(p, rubro) && p.nombre.toLowerCase().includes(busqueda.toLowerCase()),
+    (p) =>
+      esDe(p, rubro) &&
+      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
+      (filtroCategoria.length === 0 || filtroCategoria.includes(categoriaDe(p))) &&
+      (filtroCaja.length === 0 || filtroCaja.includes(cajaDe(p))) &&
+      (filtroConteo.length === 0 || filtroConteo.includes(conteoDe(p))) &&
+      (filtroEstado.length === 0 || filtroEstado.includes(estadoDe(p))),
   );
-  const sinCaja = catalogo.filter((p) => p.caja === null).length;
+
+  // Las opciones salen del catálogo entero y no de lo ya filtrado: si salieran
+  // de lo filtrado, destildar una opción la haría desaparecer de su propio panel.
+  const ordenar = (vs: string[]) => [...new Set(vs)].sort((a, b) => a.localeCompare(b, "es"));
+  const opcionesCategoria = ordenar(todos.map(categoriaDe));
+  const opcionesCaja = ordenar(todos.map(cajaDe));
+  const opcionesConteo = ordenar(todos.map(conteoDe));
+  const opcionesEstado = ordenar(todos.map(estadoDe));
 
   // Los rubros salen del catálogo y no de una lista fija: se cargan desde el
   // alta, así que el que inventaron ayer tiene que tener su solapa hoy.
@@ -50,71 +76,49 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
     { valor: "sin", nombre: "Sin categoría" },
   ].map((r) => ({ ...r, cuantos: todos.filter((p) => esDe(p, r.valor)).length }));
 
-  const enNegativo = catalogo.filter((p) => p.stock !== null && p.stock < 0).length;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="flex items-center gap-2">
+          {/* render: el botón del sistema se dibuja como link, sin anidar <a><button>.
+              nativeButton en false para que Base UI no espere un <button> real. */}
+          <Button
+            variant="tertiary"
+            size="icon-sm"
+            aria-label="Volver al mostrador"
+            title="Volver al mostrador"
+            nativeButton={false}
+            render={<Link href="/mostrador" />}
+          >
+            <ArrowLeftIcon />
+          </Button>
           <h1 className="text-heading-20">Productos</h1>
-          <p className="text-copy-14 text-[var(--ds-gray-900)]">
-            {catalogo.length === todos.length
-              ? `${todos.length} en el catálogo`
-              : `${catalogo.length} de ${todos.length} en el catálogo`}
-          </p>
         </div>
 
+        {/* El rubro vive en la URL, igual que la búsqueda. Solapas a la
+            izquierda; alta y buscador a la derecha, en el mismo renglón. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Buscador inicial={busqueda} placeholder="Buscar producto..." />
-
-          <div className="flex items-center gap-2">
-            {/* render: el botón del sistema se dibuja como link, sin anidar <a><button>.
-                nativeButton en false para que Base UI no espere un <button> real. */}
-            <Button
-              variant="secondary"
-              prefix={<InvoiceIcon />}
-              nativeButton={false}
-              render={<Link href="/mostrador" />}
-            >
-              Mostrador
-            </Button>
+          <div className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <TabsUrl
+              param="cat"
+              valor={rubro}
+              vistas={rubros.map((r) => ({ ...r, nombre: capitalizar(r.nombre) }))}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <ProductoModal categorias={categorias} />
+            <Buscador inicial={busqueda} placeholder="Buscar producto..." />
           </div>
         </div>
-
-        {/* El rubro vive en la URL, igual que la búsqueda. */}
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <TabsUrl
-            param="cat"
-            valor={rubro}
-            vistas={rubros.map((r) => ({ ...r, nombre: capitalizar(r.nombre) }))}
-          />
-        </div>
-
-        {(sinCaja > 0 || enNegativo > 0) && busqueda === "" && (
-          <div className="flex flex-col gap-1 text-copy-14 text-[var(--ds-gray-900)]">
-            {sinCaja > 0 && (
-              <p>
-                {sinCaja} {sinCaja === 1 ? "producto sigue" : "productos siguen"} sin caja
-                asignada. Su efectivo se cuenta en la caja grande hasta que los edites.
-              </p>
-            )}
-            {enNegativo > 0 && (
-              <p className="text-[var(--ds-red-900)]">
-                {enNegativo} {enNegativo === 1 ? "producto quedó" : "productos quedaron"} con stock
-                en negativo: se vendieron más unidades de las que había cargadas.
-              </p>
-            )}
-          </div>
-        )}
 
         {catalogo.length === 0 ? (
           <EmptyState
             icon={<CartIcon />}
-            title={busqueda === "" ? "El catálogo está vacío" : "Ningún producto coincide"}
+            title={todos.length === 0 ? "El catálogo está vacío" : "Ningún producto coincide"}
             description={
-              busqueda === ""
+              todos.length === 0
                 ? "Cargá el primer producto con el botón de arriba."
-                : "Probá con otro nombre."
+                : "Probá con otro nombre o sacá los filtros de los encabezados."
             }
           />
         ) : (
@@ -126,11 +130,23 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
                 <TableHeader className="sticky top-0 z-10 bg-[var(--ds-background-100)] [&_th]:font-bold">
                   <TableRow>
                     <TableHead>Producto</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Caja</TableHead>
+                    <TableHead>
+                      <FiltroColumna
+                        etiqueta="Categoría"
+                        param="categoria"
+                        opciones={opcionesCategoria}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="Caja" param="caja" opciones={opcionesCaja} />
+                    </TableHead>
                     <TableHead>Stock</TableHead>
-                    <TableHead>Conteo</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="Conteo" param="conteo" opciones={opcionesConteo} />
+                    </TableHead>
+                    <TableHead>
+                      <FiltroColumna etiqueta="Estado" param="estado" opciones={opcionesEstado} />
+                    </TableHead>
                     <TableHead numeric>Precio</TableHead>
                     <TableHead className="text-center" />
                   </TableRow>
@@ -148,7 +164,7 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
                       </TableCell>
                       {/* Sin caja lo tienen los 60 productos viejos: un badge por
                           fila pintaba la tabla entera de ámbar y dejaba de avisar
-                          nada. El aviso está arriba, una sola vez. */}
+                          nada. Para juntarlos está el filtro del encabezado. */}
                       <TableCell>
                         {p.caja === null ? (
                           <span className="text-[var(--ds-gray-900)]">Sin asignar</span>
