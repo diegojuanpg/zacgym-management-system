@@ -72,6 +72,8 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
 
   return (
     <div ref={ref} className="relative">
+      {/* El size de los iconos va explícito: el `md` del botón no le pone medida
+          a los svg, y sin width/height el icono se estira a lo que le dé la caja. */}
       <Button
         variant="secondary"
         onClick={() => {
@@ -79,9 +81,9 @@ export function SelectorDia({ dia, dias }: { dia: string; dias: string[] }) {
           setTipeada(dia);
           setError(null);
         }}
-        prefix={<CalendarIcon />}
+        prefix={<CalendarIcon className="size-4" />}
         loading={cargando}
-        suffix={<ChevronDownIcon />}
+        suffix={<ChevronDownIcon className="size-4" />}
         aria-haspopup="dialog"
         aria-expanded={abierto}
       >
