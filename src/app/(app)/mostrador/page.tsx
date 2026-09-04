@@ -291,7 +291,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     };
   };
 
-  // Lo cobrado de productos que no son del gimnasio, por dueño. Del mismo
+  // Lo cobrado de productos que no son del GYM, por dueño. Del mismo
   // recorte que las cajas: con un turno abierto, ese turno; si no, el día.
   // Entra lo efectivamente cobrado —`no_paga` no y `a_favor` tampoco, que es
   // plata que ya se cobró antes— y no entra lo de una venta anulada.

@@ -14,7 +14,7 @@ export interface DatosProducto {
   stock: number | null;
   /** Si entra al conteo obligatorio de apertura y cierre de turno. */
   contar_en_turno: boolean;
-  /** Empleado dueño de la mercadería: lo cobrado se le entrega. null = del gimnasio. */
+  /** Empleado dueño de la mercadería: lo cobrado se le entrega. null = del GYM. */
   vendedor_id: string | null;
 }
 

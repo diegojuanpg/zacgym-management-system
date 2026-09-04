@@ -22,7 +22,7 @@ export interface Producto {
   stock: number | null;
   activo: boolean;
   contar_en_turno: boolean;
-  /** Empleado dueño de la mercadería. null = el producto es del gimnasio. */
+  /** Empleado dueño de la mercadería. null = el producto es del GYM. */
   vendedor_id: string | null;
 }
 
@@ -232,8 +232,8 @@ export function ProductoModal({
             </div>
           </div>
 
-          {/* Quién se lleva lo cobrado. Sin vendedor la plata es del gimnasio,
-              que es el caso normal: por eso el vacío es la primera opción. */}
+          {/* Quién se lleva lo cobrado. Sin vendedor la plata es del GYM, que
+              es el caso normal: por eso el vacío es la primera opción. */}
           <div>
             <Label htmlFor="vendedor">Vendedor</Label>
             <Select
@@ -242,7 +242,7 @@ export function ProductoModal({
               value={vendedor}
               onChange={(e) => setVendedor(e.target.value)}
             >
-              <option value="">Del gimnasio</option>
+              <option value="">GYM</option>
               {vendedores.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.nombre}
