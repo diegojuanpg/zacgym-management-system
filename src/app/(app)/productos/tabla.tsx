@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ProductoModal, type Producto } from "@/components/productos/producto-modal";
+import {
+  ProductoModal,
+  type Producto,
+  type OpcionVendedor,
+} from "@/components/productos/producto-modal";
 import { useParametros } from "@/hooks/use-navegacion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +28,13 @@ import {
 const pesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
 /** La tabla del catálogo: solapas por rubro, buscador y filas. */
-export function TablaProductos({ productos: todos }: { productos: Producto[] }) {
+export function TablaProductos({
+  productos: todos,
+  vendedores,
+}: {
+  productos: Producto[];
+  vendedores: OpcionVendedor[];
+}) {
   const parametros = useParametros();
   const busqueda = (parametros.get("q") ?? "").trim();
   const rubro = parametros.get("cat") ?? "todos";
@@ -106,7 +116,7 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
             />
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <ProductoModal categorias={categorias} />
+            <ProductoModal categorias={categorias} vendedores={vendedores} />
             <Buscador inicial={busqueda} placeholder="Buscar producto..." />
           </div>
         </div>
@@ -198,7 +208,7 @@ export function TablaProductos({ productos: todos }: { productos: Producto[] }) 
                       </TableCell>
                       <TableCell numeric>{pesos(p.precio)}</TableCell>
                       <TableCell className="text-center">
-                        <ProductoModal producto={p} categorias={categorias} />
+                        <ProductoModal producto={p} categorias={categorias} vendedores={vendedores} />
                       </TableCell>
                     </TableRow>
                   ))}

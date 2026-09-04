@@ -433,6 +433,7 @@ export type Database = {
           nombre: string
           precio: number
           stock: number | null
+          vendedor_id: string | null
         }
         Insert: {
           activo?: boolean
@@ -444,6 +445,7 @@ export type Database = {
           nombre: string
           precio: number
           stock?: number | null
+          vendedor_id?: string | null
         }
         Update: {
           activo?: boolean
@@ -455,8 +457,17 @@ export type Database = {
           nombre?: string
           precio?: number
           stock?: number | null
+          vendedor_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "productos_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promo_integrantes: {
         Row: {
@@ -1083,6 +1094,8 @@ export type Database = {
           monto: number | null
           producto: string | null
           turno_id: string | null
+          vendedor: string | null
+          vendedor_id: string | null
           venta_creada_en: string | null
           venta_id: string | null
         }
@@ -1120,6 +1133,13 @@ export type Database = {
             columns: ["venta_id"]
             isOneToOne: false
             referencedRelation: "ventas_saldo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
             referencedColumns: ["id"]
           },
           {

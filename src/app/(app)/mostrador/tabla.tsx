@@ -79,6 +79,8 @@ export interface PagoFila {
   turno_id: string;
   creado_en: string;
   anulada_en: string | null;
+  /** El dueño de la mercadería, del producto de la venta. null = del gimnasio. */
+  vendedor: string | null;
 }
 
 /** Un cobro puede tocar varias compras impagas: se muestran como una sola fila. */

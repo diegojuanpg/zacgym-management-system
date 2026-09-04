@@ -19,6 +19,7 @@ import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
 import { CheckInModal } from "@/components/mostrador/checkin-modal";
 import type { Asistencia } from "@/lib/asistencias";
 import { CajaCard, type EstadoCaja, type Alcance } from "@/components/mostrador/caja-card";
+import { VendedoresCard } from "@/components/mostrador/vendedores-card";
 import { efectivoDelDia } from "@/lib/caja";
 import { SelectorDia } from "@/components/mostrador/selector-dia";
 import type { TurnoDelDia, DiferenciaProducto } from "@/components/mostrador/turno-separador";
@@ -118,7 +119,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     ),
     porDia<PagoFila>(
       "pagos_detalle",
-      "id, venta_id, alumno, alumno_id, producto, monto, metodo, caja, turno_id, creado_en, anulada_en",
+      "id, venta_id, alumno, alumno_id, producto, monto, metodo, caja, turno_id, creado_en, anulada_en, vendedor",
     ),
     porDia<MovimientoFila>(
       "movimientos_caja_detalle",
@@ -290,6 +291,21 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     };
   };
 
+  // Lo cobrado de productos que no son del gimnasio, por dueño. Del mismo
+  // recorte que las cajas: con un turno abierto, ese turno; si no, el día.
+  // Entra lo efectivamente cobrado —`no_paga` no y `a_favor` tampoco, que es
+  // plata que ya se cobró antes— y no entra lo de una venta anulada.
+  const deudaPorVendedor = new Map<string, number>();
+  for (const p of pagos ?? []) {
+    if (p.vendedor === null || p.anulada_en !== null) continue;
+    if (p.metodo !== "efectivo" && p.metodo !== "transferencia") continue;
+    if (esHoy && turno && p.turno_id !== turno.id) continue;
+    deudaPorVendedor.set(p.vendedor, (deudaPorVendedor.get(p.vendedor) ?? 0) + p.monto);
+  }
+  const deudas = [...deudaPorVendedor]
+    .map(([nombre, monto]) => ({ nombre, monto }))
+    .sort((a, b) => b.monto - a.monto);
+
   const totales = [
     // Con un turno abierto la pantalla es la de ese turno; sin ninguno, la del
     // dia entero. El primer renglon de la tarjeta lo dice.
@@ -406,10 +422,15 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           </div>
         </div>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* La tarjeta de vendedores aparece solo cuando hay algo que entregar:
+            sin productos de terceros vendidos, un cero no dice nada. */}
+        <section
+          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${deudas.length > 0 ? "xl:grid-cols-3" : ""}`}
+        >
           {totales.map((t) => (
             <CajaCard key={t.etiqueta} {...t} />
           ))}
+          {deudas.length > 0 && <VendedoresCard deudas={deudas} alcance={alcance} />}
         </section>
 
         <FiltrosLocales key={query} inicial={query}>

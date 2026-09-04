@@ -22,6 +22,14 @@ export interface Producto {
   stock: number | null;
   activo: boolean;
   contar_en_turno: boolean;
+  /** Empleado dueño de la mercadería. null = el producto es del gimnasio. */
+  vendedor_id: string | null;
+}
+
+/** Los empleados que pueden figurar como vendedores. Sale de `empleados`. */
+export interface OpcionVendedor {
+  id: string;
+  nombre: string;
 }
 
 const soloNumeros = (v: string) => v.replace(/\D/g, "");
@@ -38,9 +46,11 @@ const NUEVA = "__nueva__";
 export function ProductoModal({
   producto,
   categorias,
+  vendedores,
 }: {
   producto?: Producto;
   categorias: string[];
+  vendedores: OpcionVendedor[];
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
@@ -57,6 +67,7 @@ export function ProductoModal({
   const [activo, setActivo] = React.useState(producto?.activo ?? true);
   const [reponer, setReponer] = React.useState("");
   const [contar, setContar] = React.useState(producto?.contar_en_turno ?? false);
+  const [vendedor, setVendedor] = React.useState(producto?.vendedor_id ?? "");
 
   function abrir() {
     // Al reabrir hay que volver a lo que hay en la base, no a lo tipeado antes.
@@ -70,6 +81,7 @@ export function ProductoModal({
     setActivo(producto?.activo ?? true);
     setReponer("");
     setContar(producto?.contar_en_turno ?? false);
+    setVendedor(producto?.vendedor_id ?? "");
     setError(null);
     setAbierto(true);
   }
@@ -82,6 +94,7 @@ export function ProductoModal({
     stock: llevaStock ? Number(stock) || 0 : null,
     // Sin stock no hay unidades que contar: la base lo rechaza.
     contar_en_turno: llevaStock && contar,
+    vendedor_id: vendedor === "" ? null : vendedor,
   });
 
   async function guardar() {
@@ -217,6 +230,30 @@ export function ProductoModal({
                 <option value="chica">Chica</option>
               </Select>
             </div>
+          </div>
+
+          {/* Quién se lleva lo cobrado. Sin vendedor la plata es del gimnasio,
+              que es el caso normal: por eso el vacío es la primera opción. */}
+          <div>
+            <Label htmlFor="vendedor">Vendedor</Label>
+            <Select
+              id="vendedor"
+              size="large"
+              value={vendedor}
+              onChange={(e) => setVendedor(e.target.value)}
+            >
+              <option value="">Del gimnasio</option>
+              {vendedores.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nombre}
+                </option>
+              ))}
+              {/* El vendedor puede estar dado de baja: sin esto el select no lo
+                  encuentra y al guardar se perdería sin que nadie lo pidiera. */}
+              {producto?.vendedor_id && !vendedores.some((v) => v.id === producto.vendedor_id) && (
+                <option value={producto.vendedor_id}>Vendedor dado de baja</option>
+              )}
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
