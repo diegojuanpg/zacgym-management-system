@@ -312,7 +312,7 @@ function rutLog_(runId, nivel, mensaje, contexto) {
       contentType: 'application/json',
       headers: Object.assign(rutHeaders_(), { Prefer: 'return=minimal' }),
       payload: JSON.stringify([{
-        run_id: runId, pipeline: 'rutinas', nivel: nivel,
+        run_id: runId, pipeline: 'UpdateAthleteProgram', nivel: nivel,
         mensaje: mensaje, contexto: contexto || null,
       }]),
       muteHttpExceptions: true,

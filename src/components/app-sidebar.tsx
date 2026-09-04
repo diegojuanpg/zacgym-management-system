@@ -10,6 +10,7 @@ import {
   ClipboardIcon,
   ClockIcon,
   DollarIcon,
+  LogsIcon,
   MenuIcon,
   MoonIcon,
   StoreIcon,
@@ -29,6 +30,7 @@ const SECCIONES = [
   { href: "/tareas", nombre: "Tareas", icono: ClipboardIcon, incluye: [] },
   { href: "/ventas", nombre: "Ventas", icono: DollarIcon, incluye: [] },
   { href: "/turnos", nombre: "Turnos", icono: ClockIcon, incluye: [] },
+  { href: "/pipelines", nombre: "Pipelines", icono: LogsIcon, incluye: [] },
 ];
 
 /**
@@ -52,6 +54,7 @@ export function AppSidebar({
   enProceso,
   sinCargar,
   revisar,
+  pipelinesMal,
 }: {
   pie: React.ReactNode;
   fijoInicial: boolean;
@@ -59,6 +62,7 @@ export function AppSidebar({
   enProceso: number;
   sinCargar: number;
   revisar: number;
+  pipelinesMal: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -93,6 +97,7 @@ export function AppSidebar({
     ],
     "/ventas": [{ n: sinCargar, color: "red", que: "mensualidades sin cargar" }],
     "/alumnos": [{ n: revisar, color: "red", que: "rutinas para revisar" }],
+    "/pipelines": [{ n: pipelinesMal, color: "red", que: "pipelines con errores o atrasados" }],
   };
 
   return (

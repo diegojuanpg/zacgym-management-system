@@ -27,7 +27,8 @@
     "mail": "xdg-open http://127.0.0.1:55324",
     "test:ingresos": "node --experimental-strip-types scripts/ingresos.test.mjs",
     "test:nombres": "node --experimental-strip-types scripts/nombres.test.mjs",
-    "test:mensualidades": "node --experimental-strip-types scripts/mensualidades.test.mjs"
+    "test:mensualidades": "node --experimental-strip-types scripts/mensualidades.test.mjs",
+    "test:pipelines": "node --experimental-strip-types scripts/pipelines.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

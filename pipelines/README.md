@@ -16,16 +16,29 @@ la URL escrita en cinco lugares. Ahora hay un nucleo compartido —`supaGet_`,
 `supaPatch_`, `supaUpsert_`, `supaRpc_`, `supaLog_`— y todos lo usan.
 
 Las corridas quedan en `pipeline_logs`, con el nombre en la columna `pipeline`.
+Ese nombre es el de la segunda columna de aca abajo, que no es el de la funcion:
+la funcion se sigue llamando como siempre y lo que se renombro es lo que se
+loguea, que es lo que se ve en la pantalla de Pipelines de la app.
 
-| # | pipeline | hora | frecuencia | que hace |
-|---|---|---|---|---|
-| 1 | `syncSheetIds` | 02:00 | diaria | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno. |
-| 2 | `syncCheckins` | cada hora, 5 a 23 | 19x dia | Baja los check-ins de PulsoFlow a `check_ins`. |
-| 3 | `syncMembers` | cada hora, 5 a 23 | 19x dia | Baja las membresias a `alumnos_pulsoflow`. |
-| 4 | `dias` | 03:00 | diaria | Abre la planilla de cada alumno **con membresia ACTIVE** y cuenta los dias programados. |
-| 5 | `rebuildTracking` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
-| 6 | `semanaRutina` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
-| 7 | `rutinasSemanales` | domingos 03:00 | semanal | Avanza o repite el bloque de todo el que entreno esa semana. En `apps-script-control/Rutinas.gs`. Trigger propio: `instalarRutinasSemanales`. |
+| # | funcion | nombre en los logs | hora | frecuencia | que hace |
+|---|---|---|---|---|---|
+| 1 | `syncSheetIds` | `SyncSheetsID` | 02:00 | diaria | Barre Drive buscando las rutinas y le pega el `sheet_id` a cada alumno. |
+| 2 | `syncCheckins` | `SyncCheckins` | cada hora, 5 a 23 | 19x dia | Baja los check-ins de PulsoFlow a `check_ins`. |
+| 3 | `syncMembers` | `SyncMembers` | cada hora, 5 a 23 | 19x dia | Baja las membresias a `alumnos_pulsoflow`. |
+| 4 | `syncDiasEntrenamiento` | `SyncTrainingDays` | 03:00 | diaria | Abre la planilla de cada alumno **con membresia ACTIVE** y cuenta los dias programados. |
+| 5 | `rebuildTracking` | `RebuildDatabase` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
+| 6 | `semanaRutina` | `SyncTrainingDate` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
+| 7 | `rutinasSemanales` | `UpdateAthleteProgram` | domingos 03:00 | semanal | Avanza o repite el bloque de todo el que entreno esa semana. En `apps-script-control/Rutinas.gs`. Trigger propio: `instalarRutinasSemanales`. |
+
+Las corridas viejas quedaron guardadas con los nombres anteriores —`sheetIds`,
+`dias`, `semanaRutina`, `rutinas`—. La vista `pipeline_lineas` del repo de la
+app los traduce, asi que el historial sigue entero. Si se cambia un nombre de
+nuevo, hay que tocar los dos lados: el string del log aca y el `case` de esa
+vista.
+
+Los horarios de esta tabla estan copiados en `src/lib/pipelines.ts` de la app,
+que los usa para saber cuando un pipeline se atraso. Si se mueve una hora aca,
+se mueve alla.
 
 Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
 del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por

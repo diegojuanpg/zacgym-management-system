@@ -433,7 +433,7 @@ function syncSheetIds() {
     const relevo = sidsRelevar_(sidsIndexar_(alumnos));
 
     if (relevo.incompleto) {
-      supaLog_(runId, 'sheetIds', 'error', 'El barrido de Drive no termino, no se escribio nada',
+      supaLog_(runId, 'SyncSheetsID', 'error', 'El barrido de Drive no termino, no se escribio nada',
         { archivos_vistos: relevo.vistos });
       Logger.log('sheetIds: barrido incompleto (' + relevo.vistos + ' archivos). No se escribio nada.');
       return;
@@ -442,7 +442,7 @@ function syncSheetIds() {
     const r = { puestos: 0, pisados: 0, iguales: 0, duplicados: 0, huerfanos: relevo.huerfanos.length };
 
     relevo.huerfanos.forEach(function (h) {
-      supaLog_(runId, 'sheetIds', 'warn', 'Rutina sin alumno: ' + h.motivo, { archivo: h.archivo, sheet_id: h.id });
+      supaLog_(runId, 'SyncSheetsID', 'warn', 'Rutina sin alumno: ' + h.motivo, { archivo: h.archivo, sheet_id: h.id });
     });
 
     Object.keys(relevo.porAlumno).forEach(function (alumnoId) {
@@ -451,7 +451,7 @@ function syncSheetIds() {
 
       if (entrada.ids.length > 1) {
         r.duplicados++;
-        supaLog_(runId, 'sheetIds', 'warn', 'Tiene ' + entrada.ids.length + ' rutinas en Drive, no se toca ninguna',
+        supaLog_(runId, 'SyncSheetsID', 'warn', 'Tiene ' + entrada.ids.length + ' rutinas en Drive, no se toca ninguna',
           { alumno: a.apellido + ', ' + a.nombre, rutinas: entrada.ids });
         return;
       }
@@ -464,24 +464,24 @@ function syncSheetIds() {
       try {
         supaPatch_('alumnos', 'id=eq.' + a.id, { sheet_id: id });
       } catch (e) {
-        supaLog_(runId, 'sheetIds', 'error', 'No se pudo guardar el sheet_id: ' + e.message,
+        supaLog_(runId, 'SyncSheetsID', 'error', 'No se pudo guardar el sheet_id: ' + e.message,
           { alumno: a.apellido + ', ' + a.nombre, sheet_id: id });
         return;
       }
 
       if (a.sheet_id) {
         r.pisados++;
-        supaLog_(runId, 'sheetIds', 'warn', 'Tenia otra rutina y se piso con la de Drive',
+        supaLog_(runId, 'SyncSheetsID', 'warn', 'Tenia otra rutina y se piso con la de Drive',
           { alumno: a.apellido + ', ' + a.nombre, antes: a.sheet_id, ahora: id });
       } else {
         r.puestos++;
       }
     });
 
-    supaLog_(runId, 'sheetIds', 'info', 'Listo', r);
+    supaLog_(runId, 'SyncSheetsID', 'info', 'Listo', r);
     Logger.log('sheetIds: ' + JSON.stringify(r));
   } catch (e) {
-    supaLog_(runId, 'sheetIds', 'error', e.message, null);
+    supaLog_(runId, 'SyncSheetsID', 'error', e.message, null);
     Logger.log('ERROR en syncSheetIds: ' + e.message + ' ' + e.stack);
   } finally {
     lock.releaseLock();
@@ -730,7 +730,7 @@ function syncDiasEntrenamiento(deadline) {
       procesados++;
     } catch (e) {
       errores++;
-      supaLog_(runId, 'dias', 'error', e.message, { email: email });
+      supaLog_(runId, 'SyncTrainingDays', 'error', e.message, { email: email });
     }
   }
 
@@ -1110,7 +1110,7 @@ function semanaRutina() {
           });
         } catch (e) {
           r.errores++;
-          supaLog_(runId, 'semanaRutina', 'error', 'No se pudo guardar: ' + e.message, { alumno: x.a.quien });
+          supaLog_(runId, 'SyncTrainingDate', 'error', 'No se pudo guardar: ' + e.message, { alumno: x.a.quien });
         }
       });
 
@@ -1138,10 +1138,10 @@ function semanaRutina() {
     props.deleteProperty(PROP_SEM_PENDIENTES);
     props.deleteProperty(PROP_SEM_RESUMEN);
     semBorrarTriggers_('semanaRutina');
-    supaLog_(runId, 'semanaRutina', 'info', 'Listo', r);
+    supaLog_(runId, 'SyncTrainingDate', 'info', 'Listo', r);
     Logger.log('semanaRutina: ' + JSON.stringify(r));
   } catch (e) {
-    supaLog_(runId, 'semanaRutina', 'error', e.message, null);
+    supaLog_(runId, 'SyncTrainingDate', 'error', e.message, null);
     Logger.log('ERROR en semanaRutina: ' + e.message + ' ' + e.stack);
   } finally {
     lock.releaseLock();
@@ -1258,9 +1258,9 @@ function runHorario() {
     catch (e) { errores.push(nombre + ': ' + e.message); supaLog_(runId, nombre, 'error', e.message); }
   };
 
-  step('syncCheckins', syncCheckins);
-  step('syncMembers', syncMembers);
-  step('rebuildTracking', rebuildTracking);
+  step('SyncCheckins', syncCheckins);
+  step('SyncMembers', syncMembers);
+  step('RebuildDatabase', rebuildTracking);
 
   if (errores.length) {
     MailApp.sendEmail(CONFIG.EMAIL,
@@ -1273,9 +1273,9 @@ function runDias() {
   const runId = Utilities.getUuid();
   try {
     syncDiasEntrenamiento();
-    supaLog_(runId, 'dias', 'info', 'ok');
+    supaLog_(runId, 'SyncTrainingDays', 'info', 'ok');
   } catch (e) {
-    supaLog_(runId, 'dias', 'error', e.message);
+    supaLog_(runId, 'SyncTrainingDays', 'error', e.message);
     MailApp.sendEmail(CONFIG.EMAIL, 'ZAC pipeline - fallo dias', e.message);
   }
 }
