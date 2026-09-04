@@ -422,6 +422,42 @@ export type Database = {
           },
         ]
       }
+      pipeline_logs: {
+        Row: {
+          alumno_id: string | null
+          contexto: Json | null
+          created_at: string | null
+          gmail: string | null
+          id: number
+          mensaje: string | null
+          nivel: string | null
+          pipeline: string | null
+          run_id: string | null
+        }
+        Insert: {
+          alumno_id?: string | null
+          contexto?: Json | null
+          created_at?: string | null
+          gmail?: string | null
+          id?: number
+          mensaje?: string | null
+          nivel?: string | null
+          pipeline?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          alumno_id?: string | null
+          contexto?: Json | null
+          created_at?: string | null
+          gmail?: string | null
+          id?: number
+          mensaje?: string | null
+          nivel?: string | null
+          pipeline?: string | null
+          run_id?: string | null
+        }
+        Relationships: []
+      }
       productos: {
         Row: {
           activo: boolean
@@ -1164,6 +1200,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pipeline_corridas: {
+        Row: {
+          avisos: number | null
+          errores: number | null
+          fin: string | null
+          inicio: string | null
+          lineas: number | null
+          pipeline: string | null
+          run_id: string | null
+        }
+        Relationships: []
+      }
+      pipeline_lineas: {
+        Row: {
+          alumno_id: string | null
+          contexto: Json | null
+          created_at: string | null
+          gmail: string | null
+          id: number | null
+          mensaje: string | null
+          nivel: string | null
+          pipeline: string | null
+          run_id: string | null
+        }
+        Insert: {
+          alumno_id?: string | null
+          contexto?: Json | null
+          created_at?: string | null
+          gmail?: string | null
+          id?: number | null
+          mensaje?: string | null
+          nivel?: string | null
+          pipeline?: never
+          run_id?: string | null
+        }
+        Update: {
+          alumno_id?: string | null
+          contexto?: Json | null
+          created_at?: string | null
+          gmail?: string | null
+          id?: number | null
+          mensaje?: string | null
+          nivel?: string | null
+          pipeline?: never
+          run_id?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_ultima: {
+        Row: {
+          avisos: number | null
+          errores: number | null
+          fin: string | null
+          inicio: string | null
+          lineas: number | null
+          pipeline: string | null
+          run_id: string | null
+        }
+        Relationships: []
       }
       promos_detalle: {
         Row: {

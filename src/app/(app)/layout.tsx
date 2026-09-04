@@ -6,6 +6,7 @@ import { traerTodo } from "@/lib/traer-todo";
 import { DESDE_CARGA, MENSUALIDADES, pendienteDeCarga, type CargaDeVenta } from "@/lib/mensualidades";
 import { AppSidebar } from "@/components/app-sidebar";
 import { COOKIE_MENU } from "@/lib/menu";
+import { cuantosMal, type Corrida } from "@/lib/pipelines";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
 
@@ -23,19 +24,23 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // `pendienteDeCarga` puede llegar a contar —falta un acuse, o está anulada
   // después de haberse cargado—, así no se traen las miles ya resueltas.
   const supabase = await createClient();
-  const [{ data: abiertas }, mensualidades, { count: revisar }] = await Promise.all([
-    supabase.from("tareas").select("estado").neq("estado", "terminada"),
-    traerTodo<CargaDeVenta>(
-      supabase
-        .from("ventas_saldo")
-        .select("categoria, creado_en, anulada_en, cargada_sheet_en, cargada_app_en")
-        .eq("categoria", MENSUALIDADES)
-        .gte("creado_en", new Date(DESDE_CARGA).toISOString())
-        .or("cargada_sheet_en.is.null,cargada_app_en.is.null,anulada_en.not.is.null"),
-    ),
-    // La vista ya decide quiénes son; acá solo hace falta cuántos.
-    supabase.from("alumnos_revisar_rutina").select("id", { count: "exact", head: true }),
-  ]);
+  const [{ data: abiertas }, mensualidades, { count: revisar }, { data: ultimas }] =
+    await Promise.all([
+      supabase.from("tareas").select("estado").neq("estado", "terminada"),
+      traerTodo<CargaDeVenta>(
+        supabase
+          .from("ventas_saldo")
+          .select("categoria, creado_en, anulada_en, cargada_sheet_en, cargada_app_en")
+          .eq("categoria", MENSUALIDADES)
+          .gte("creado_en", new Date(DESDE_CARGA).toISOString())
+          .or("cargada_sheet_en.is.null,cargada_app_en.is.null,anulada_en.not.is.null"),
+      ),
+      // La vista ya decide quiénes son; acá solo hace falta cuántos.
+      supabase.from("alumnos_revisar_rutina").select("id", { count: "exact", head: true }),
+      // Siete filas: una por pipeline. El circulito avisa del que dejó de correr,
+      // que es lo único que no manda mail solo.
+      supabase.from("pipeline_ultima").select("*"),
+    ]);
 
   async function cerrarSesion() {
     "use server";
@@ -55,6 +60,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         enProceso={abiertas?.filter((t) => t.estado === "en_proceso").length ?? 0}
         sinCargar={mensualidades.filter(pendienteDeCarga).length}
         revisar={revisar ?? 0}
+        pipelinesMal={cuantosMal((ultimas ?? []) as Corrida[])}
         pie={
           <div className="flex flex-col gap-2">
             {/* Solo el mail: el rol no cambia nada de lo que se ve, asi que

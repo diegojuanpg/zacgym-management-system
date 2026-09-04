@@ -309,3 +309,18 @@ export function ClipboardIcon({ className, ...props }: { className?: string } & 
     </svg>
   )
 }
+
+export function LogsIcon({ className, ...props }: { className?: string } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="undefined"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path fillRule="evenodd" clipRule="evenodd" d="M9 2H15V3.5H9V2ZM9 12.5H15V14H9V12.5ZM9.75 7.25H9V8.75H15V7.25H9.75ZM1 12.5H3V14H1V12.5ZM1.75 2H1V3.5H3V2H1.75ZM1 7.25H3V8.75H1V7.25ZM5.75 12.5H5V14H7V12.5H5.75ZM5 2H7V3.5H5V2ZM5.75 7.25H5V8.75H7V7.25H5.75Z" fill="currentColor"/>
+    </svg>
+  )
+}
