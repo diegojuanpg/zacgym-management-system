@@ -67,6 +67,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     { data: promos },
     { data: categorias },
     { data: dias },
+    { data: deudas },
   ] = await Promise.all([
       supabase
         .from("turno_actual")
@@ -104,6 +105,18 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
       supabase.from("tarea_categorias").select("id, nombre").order("nombre"),
       // Los dias que tienen algo cargado: son los unicos elegibles en el calendario.
       supabase.from("dias_con_ventas").select("dia").order("dia"),
+      // Las compras impagas, una por una: es lo que se cobra en el modal. El
+      // historico de la planilla queda afuera, igual que en el balance.
+      supabase
+        .from("ventas_saldo")
+        .select("id, alumno_id, producto, saldo")
+        .gt("saldo", 0)
+        .is("anulada_en", null)
+        .not("turno_id", "is", null)
+        .order("creado_en")
+        .overrideTypes<
+          { id: string; alumno_id: string; producto: string; saldo: number }[]
+        >(),
     ]);
 
   // Todo lo del dia elegido, sin importar en que turno cayo: despues se agrupa.
@@ -432,6 +445,12 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
             <NuevaVentaModal
               alumnos={alumnos ?? []}
               productos={productos ?? []}
+              deudas={(deudas ?? []).map((d) => ({
+                venta_id: d.id,
+                alumno_id: d.alumno_id,
+                producto: d.producto,
+                debe: d.saldo,
+              }))}
               promos={promos ?? []}
               bloqueado={!turno || !esHoy}
               motivoBloqueo={bloqueoPorFecha}

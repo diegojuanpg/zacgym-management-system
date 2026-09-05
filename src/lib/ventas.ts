@@ -26,7 +26,9 @@ export interface ItemMovimiento {
 
 export interface ItemCobro {
   alumno_id: string;
-  /** Lo que entrega contra deudas viejas. Se imputa FIFO a las más antiguas. */
+  /** La compra que está pagando. Sin esto se imputa FIFO a las más viejas. */
+  venta_id?: string;
+  /** Lo que entrega contra esa compra. */
   efectivo: number;
   transferencia: number;
 }

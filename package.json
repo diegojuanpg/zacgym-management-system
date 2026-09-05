@@ -21,6 +21,7 @@
     "test:caja": "node --experimental-strip-types scripts/caja.test.mjs",
     "test:horas": "node --experimental-strip-types scripts/horas.test.mjs",
     "test:credito": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/saldo_a_favor.sql",
+    "test:cobro": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/cobro_por_venta.sql",
     "test:devolucion": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/devolucion.sql",
     "test:rutina": "docker exec -i supabase_db_zacgym-management-system psql -U postgres -q -v ON_ERROR_STOP=1 -f - < supabase/tests/rutina_esperada.sql",
     "smoke:auth": "node --env-file=.env.local scripts/smoke-auth.mjs",

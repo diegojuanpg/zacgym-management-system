@@ -6,7 +6,7 @@ import { recortar } from "@/lib/recorte";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClockIcon } from "@/components/icons";
-import type { Alumno, Producto } from "@/components/mostrador/nueva-venta-modal";
+import type { Alumno, Deuda, Producto } from "@/components/mostrador/nueva-venta-modal";
 import {
   DetalleTurno,
   type DesgloseCaja,
@@ -135,6 +135,7 @@ export function TablaTurnos({
   conteos,
   vendidas,
   alumnos,
+  deudas,
   productos,
 }: {
   cerrados: TurnoCerrado[];
@@ -143,6 +144,7 @@ export function TablaTurnos({
   conteos: ConteoStock[];
   vendidas: { turno_id: string; producto_id: string; cantidad: number }[];
   alumnos: Alumno[];
+  deudas: Deuda[];
   productos: Producto[];
 }) {
   const parametros = useParametros();
@@ -488,6 +490,7 @@ export function TablaTurnos({
                             desde={hora(t.abierto_en)}
                             hasta={t.cerrado_en ? hora(t.cerrado_en) : "23:59"}
                             alumnos={alumnos}
+                            deudas={deudas}
                             productos={productos}
                             corregido={t.corregido_en}
                             cuando={`${fecha(t.abierto_en)}, ${hora(t.abierto_en)}${

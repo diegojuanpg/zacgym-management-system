@@ -22,6 +22,7 @@ import {
   NuevaVentaModal,
   type Alumno,
   type Producto,
+  type Deuda,
 } from "@/components/mostrador/nueva-venta-modal";
 
 /** Lo que hay que contar de un cajón en un turno. */
@@ -62,6 +63,7 @@ export function DetalleTurno({
   hasta,
   alumnos,
   productos,
+  deudas,
   cuando,
   abierto,
   grande,
@@ -79,6 +81,7 @@ export function DetalleTurno({
   hasta: string;
   alumnos: Alumno[];
   productos: Producto[];
+  deudas: Deuda[];
   /** El encabezado del modal: "25/8, 14:18 → 19:19". */
   cuando: string;
   abierto: boolean;
@@ -165,6 +168,7 @@ export function DetalleTurno({
       <NuevaVentaModal
         alumnos={alumnos}
         productos={productos}
+        deudas={deudas}
         corrigiendo={{ turnoId: id, dia, desde, hasta }}
         control={{
           abierto: cargando,

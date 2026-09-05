@@ -84,7 +84,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
     .overrideTypes<{ turno_id: string; producto_id: string; cantidad: number }[]>();
 
   // El modal de carga es el del mostrador: necesita los mismos selectores.
-  const [alumnos, { data: productos }] = await Promise.all([
+  const [alumnos, { data: productos }, deudas] = await Promise.all([
     traerTodo<{ id: string; nombre_completo: string; saldo: number }>(
       supabase.from("alumnos_cuenta").select("id, nombre_completo, saldo").order("nombre_completo"),
     ),
@@ -94,6 +94,16 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
       .eq("activo", true)
       .order("nombre")
       .overrideTypes<{ id: string; nombre: string; precio: number; stock: number | null }[]>(),
+    // Las compras impagas: el modal cobra de a una, como en el mostrador.
+    traerTodo<{ id: string; alumno_id: string; producto: string; saldo: number }>(
+      supabase
+        .from("ventas_saldo")
+        .select("id, alumno_id, producto, saldo")
+        .gt("saldo", 0)
+        .is("anulada_en", null)
+        .not("turno_id", "is", null)
+        .order("creado_en"),
+    ),
   ]);
 
   const query = comoQuery(params);
@@ -108,6 +118,12 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
         vendidas={vendidas ?? []}
         alumnos={alumnos}
         productos={productos ?? []}
+        deudas={deudas.map((d) => ({
+          venta_id: d.id,
+          alumno_id: d.alumno_id,
+          producto: d.producto,
+          debe: d.saldo,
+        }))}
       />
     </FiltrosLocales>
   );

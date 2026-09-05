@@ -45,6 +45,14 @@ export interface Producto {
   stock: number | null;
 }
 
+/** Una compra impaga: es lo que se cobra, de a una. */
+export interface Deuda {
+  venta_id: string;
+  alumno_id: string;
+  producto: string;
+  debe: number;
+}
+
 export interface PromoDeAlumno {
   alumno_id: string;
   promo: string;
@@ -69,8 +77,10 @@ interface FilaMovimiento extends ItemMovimiento {
 
 interface FilaCobro extends ItemCobro {
   clase: "cobro";
+  venta_id: string;
   alumno: string;
-  /** Deuda que tenía al momento de cargar la fila, para mostrar si la salda toda. */
+  producto: string;
+  /** Lo que se debía de esa compra al cargar la fila, para mostrar si la salda. */
   deuda: number;
 }
 
@@ -112,6 +122,7 @@ function repartir(m: Metodo, efe: string, tra: string, sugerido: number) {
 export function NuevaVentaModal({
   alumnos,
   productos,
+  deudas = [],
   promos = [],
   bloqueado = false,
   motivoBloqueo,
@@ -120,6 +131,8 @@ export function NuevaVentaModal({
 }: {
   alumnos: Alumno[];
   productos: Producto[];
+  /** Las compras impagas, una por línea: la solapa de cobro cobra de a una. */
+  deudas?: Deuda[];
   /** A qué promo pertenece cada alumno, para proponer su precio. */
   promos?: PromoDeAlumno[];
   /** Sin turno abierto, o mirando un día pasado: el botón queda muerto. */
@@ -167,6 +180,7 @@ export function NuevaVentaModal({
   const cuentaOp: "cobro" | "devolucion" = pestania === "devolucion" ? "devolucion" : "cobro";
   const [devCaja, setDevCaja] = React.useState<ItemMovimiento["caja"]>("grande");
   const [cobroAlumnoId, setCobroAlumnoId] = React.useState("");
+  const [cobroVentaId, setCobroVentaId] = React.useState("");
   const [cobroMetodo, setCobroMetodo] = React.useState<Metodo>("efectivo");
   const [cobroEfectivo, setCobroEfectivo] = React.useState("");
   const [cobroTransferencia, setCobroTransferencia] = React.useState("");
@@ -229,11 +243,24 @@ export function NuevaVentaModal({
       ? 0
       : aCobrar - cobroLinea.efectivo - cobroLinea.transferencia - cobroLinea.no_paga;
 
-  // --- cobro de deuda: lo que debe hoy, menos lo que ya se cobra en el lote ---
-  const deudores = alumnos.filter((a) => a.saldo - cobradoEnLote(a.id) > 0);
+  // --- cobro de deuda: compra por compra, menos lo que ya se cobra en el lote ---
+  const cobradoDeVenta = (ventaId: string) =>
+    cobros
+      .filter((c) => c.venta_id === ventaId)
+      .reduce((suma, c) => suma + c.efectivo + c.transferencia, 0);
+  const pendientes = deudas
+    .map((d) => ({ ...d, resta: d.debe - cobradoDeVenta(d.venta_id) }))
+    .filter((d) => d.resta > 0);
+  // Los deudores salen de las compras impagas, no del saldo: si el alumno debe
+  // la creatina y pagó de más la cuota, igual hay algo que cobrarle.
+  const deudores = alumnos.filter((a) => pendientes.some((d) => d.alumno_id === a.id));
+  const deudasDelAlumno = pendientes.filter((d) => d.alumno_id === cobroAlumnoId);
+  const deudaElegida = pendientes.find((d) => d.venta_id === cobroVentaId) ?? null;
+  const debeDe = (alumnoId: string) =>
+    pendientes.filter((d) => d.alumno_id === alumnoId).reduce((suma, d) => suma + d.resta, 0);
   const acreedores = alumnos.filter((a) => aFavorDe(a.id) > 0);
   const alumnoCobro = alumnos.find((a) => a.id === cobroAlumnoId);
-  const deudaCobro = Math.max(0, (alumnoCobro?.saldo ?? 0) - cobradoEnLote(cobroAlumnoId));
+  const deudaCobro = deudaElegida?.resta ?? 0;
   const aFavorCobro = aFavorDe(cobroAlumnoId);
   // Vacío = devolverle todo lo que tiene a favor, que es el caso común.
   const devuelve = cobroEfectivo === "" ? aFavorCobro : Number(cobroEfectivo) || 0;
@@ -317,6 +344,10 @@ export function NuevaVentaModal({
       setError("Elegí a quién le estás cobrando.");
       return;
     }
+    if (!deudaElegida) {
+      setError("Elegí qué compra está pagando.");
+      return;
+    }
     const { efectivo, transferencia } = entregaCobro;
     if (efectivo + transferencia <= 0) {
       setError("Poné cuánta plata entregó.");
@@ -328,13 +359,16 @@ export function NuevaVentaModal({
       {
         clase: "cobro",
         alumno_id: alumnoCobro.id,
+        venta_id: deudaElegida.venta_id,
         alumno: alumnoCobro.nombre_completo,
+        producto: deudaElegida.producto,
         efectivo,
         transferencia,
         deuda: deudaCobro,
       },
     ]);
     setCobroAlumnoId("");
+    setCobroVentaId("");
     setCobroEfectivo("");
     setCobroTransferencia("");
     setError(null);
@@ -373,6 +407,7 @@ export function NuevaVentaModal({
       },
     ]);
     setCobroAlumnoId("");
+    setCobroVentaId("");
     setCobroEfectivo("");
     setError(null);
     enfocarPrimero(form);
@@ -383,6 +418,7 @@ export function NuevaVentaModal({
   function cambiarPestania(cual: string) {
     setPestania(cual);
     setCobroAlumnoId("");
+    setCobroVentaId("");
     setCobroMetodo("efectivo");
     setCobroEfectivo("");
     setCobroTransferencia("");
@@ -413,8 +449,9 @@ export function NuevaVentaModal({
         metodo,
         alumno_id,
       })),
-      cobros.map(({ alumno_id, efectivo, transferencia }) => ({
+      cobros.map(({ alumno_id, venta_id, efectivo, transferencia }) => ({
         alumno_id,
+        venta_id,
         efectivo,
         transferencia,
       })),
@@ -717,7 +754,7 @@ export function NuevaVentaModal({
             <div
               className={`grid grid-cols-2 items-end gap-3 ${
                 cuentaOp === "cobro"
-                  ? "sm:grid-cols-[1fr_9rem_minmax(7rem,auto)]"
+                  ? "sm:grid-cols-[1fr_1fr_9rem_minmax(7rem,auto)]"
                   : "sm:grid-cols-[1fr_9rem_7rem_minmax(7rem,auto)]"
               }`}
             >
@@ -730,11 +767,15 @@ export function NuevaVentaModal({
                     value: a.id,
                     label:
                       cuentaOp === "cobro"
-                        ? `${a.nombre_completo.replace(",", "")} — debe ${pesos(a.saldo)}`
+                        ? `${a.nombre_completo.replace(",", "")} — debe ${pesos(debeDe(a.id))}`
                         : `${a.nombre_completo.replace(",", "")} — a favor ${pesos(aFavorDe(a.id))}`,
                   }))}
                   value={cobroAlumnoId}
-                  onValueChange={setCobroAlumnoId}
+                  onValueChange={(id) => {
+                    setCobroAlumnoId(id);
+                    // La compra elegida era del alumno anterior.
+                    setCobroVentaId("");
+                  }}
                   placeholder="Buscar alumno..."
                   emptyMessage={
                     cuentaOp === "cobro" ? "Nadie debe plata" : "Nadie tiene plata a favor"
@@ -744,6 +785,24 @@ export function NuevaVentaModal({
                   autoFocus
                 />
               </div>
+
+              {cuentaOp === "cobro" && (
+                <div>
+                  <Label>Producto</Label>
+                  <Combobox
+                    options={deudasDelAlumno.map((d) => ({
+                      value: d.venta_id,
+                      label: `${d.producto} — ${pesos(d.resta)}`,
+                    }))}
+                    value={cobroVentaId}
+                    onValueChange={setCobroVentaId}
+                    placeholder={cobroAlumnoId === "" ? "Elegí el alumno" : "Qué está pagando..."}
+                    emptyMessage="No le queda nada impago"
+                    width="100%"
+                    clearable
+                  />
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="cobro-metodo">Método</Label>
@@ -782,7 +841,7 @@ export function NuevaVentaModal({
               <div className="flex flex-col items-end">
                 <Label>{cuentaOp === "cobro" ? "Debe" : "A favor"}</Label>
                 <span className="flex h-10 items-center text-heading-20 tabular-nums">
-                  {cobroAlumnoId === ""
+                  {(cuentaOp === "cobro" ? cobroVentaId === "" : cobroAlumnoId === "")
                     ? "—"
                     : pesos(cuentaOp === "cobro" ? deudaCobro : aFavorCobro)}
                 </span>
@@ -840,13 +899,13 @@ export function NuevaVentaModal({
               <span className="text-muted-foreground">
                 {cobroAlumnoId !== "" &&
                   (cuentaOp === "cobro"
-                    ? "Se descuenta de las compras impagas más viejas primero."
+                    ? "La plata entra en esa compra y en ninguna otra."
                     : "Sale del cajón y se descuenta de lo que pagó de más, de lo más viejo primero.")}
               </span>
               <span>
                 {cuentaOp === "cobro" ? (
                   <>
-                    {restaCobro > 0 && cobroAlumnoId !== "" && (
+                    {restaCobro > 0 && cobroVentaId !== "" && (
                       <span className="text-[var(--ds-amber-900)]">
                         Le siguen quedando {pesos(restaCobro)}
                       </span>
@@ -1007,7 +1066,7 @@ export function NuevaVentaModal({
                         ) : f.clase === "cobro" ? (
                           <>
                             <TableCell>{f.alumno}</TableCell>
-                            <TableCell>Cobro de deuda</TableCell>
+                            <TableCell>Cobro · {f.producto}</TableCell>
                             <TableCell>—</TableCell>
                             <TableCell>{nombreMetodo(f.efectivo, f.transferencia)}</TableCell>
                             <TableCell>
