@@ -121,6 +121,9 @@ export default async function FichaAlumnoPage({ params, searchParams }: PageProp
       .from("ventas_saldo")
       .select("id, producto, categoria, cantidad, total, pagado, saldo, creado_en, anulada_en")
       .eq("alumno_id", id)
+      // Solo lo cargado en esta app: el historico importado de la planilla no
+      // cuenta para el balance, asi que tampoco tiene que figurar en la ficha.
+      .not("turno_id", "is", null)
       .order("creado_en", { ascending: false })
       .limit(200)
       .overrideTypes<Compra[]>(),
