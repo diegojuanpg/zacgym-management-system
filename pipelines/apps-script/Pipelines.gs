@@ -1334,6 +1334,21 @@ function instalarTodo() {
   }).join('\n'));
 }
 
+/**
+ * Deja el proyecto sin ningun trigger. Despues de esto no corre nada hasta que
+ * se vuelva a `instalarTodo()`.
+ *
+ * Se lleva tambien el `after()` de reanudacion de `semanaRutina`, asi que su
+ * property queda apuntando a un id muerto: se limpia acá para que la proxima
+ * corrida no crea que hay una cadena en curso.
+ */
+function borrarTriggers() {
+  const ts = ScriptApp.getProjectTriggers();
+  ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  PropertiesService.getScriptProperties().deleteProperty(PROP_SEM_TRIGGER);
+  Logger.log('Borrados ' + ts.length + ' triggers. Correr instalarTodo() para volver a arrancar.');
+}
+
 /** Que hay instalado hoy. No toca nada. */
 function verTriggers() {
   const ts = ScriptApp.getProjectTriggers();
