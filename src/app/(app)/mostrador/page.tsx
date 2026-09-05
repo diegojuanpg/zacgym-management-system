@@ -18,8 +18,12 @@ import { TurnoModal } from "@/components/mostrador/turno-modal";
 import { CerrarTurnoModal } from "@/components/mostrador/cerrar-turno-modal";
 import { CheckInModal } from "@/components/mostrador/checkin-modal";
 import type { Asistencia } from "@/lib/asistencias";
-import { CajaCard, type EstadoCaja, type Alcance } from "@/components/mostrador/caja-card";
-import { VendedoresCard } from "@/components/mostrador/vendedores-card";
+import {
+  CajaCard,
+  type EstadoCaja,
+  type Alcance,
+  type Entrega,
+} from "@/components/mostrador/caja-card";
 import { efectivoDelDia } from "@/lib/caja";
 import { SelectorDia } from "@/components/mostrador/selector-dia";
 import type { TurnoDelDia, DiferenciaProducto } from "@/components/mostrador/turno-separador";
@@ -291,26 +295,39 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
     };
   };
 
-  // Lo cobrado de productos que no son del GYM, por dueño. Del mismo
-  // recorte que las cajas: con un turno abierto, ese turno; si no, el día.
-  // Entra lo efectivamente cobrado —`no_paga` no y `a_favor` tampoco, que es
-  // plata que ya se cobró antes— y no entra lo de una venta anulada.
-  const deudaPorVendedor = new Map<string, number>();
+  // Lo cobrado de productos que no son del GYM, por caja y por dueño. Del mismo
+  // recorte que las cajas: con un turno abierto, ese turno; si no, el día. Entra
+  // lo efectivamente cobrado —`no_paga` no y `a_favor` tampoco, que es plata que
+  // ya se cobró antes— y no entra lo de una venta anulada.
+  //
+  // La caja sale del producto, igual que el resto: el que vende en las dos
+  // aparece en las dos tarjetas, cada una con lo suyo.
+  const porEntregar = new Map<string, Entrega>();
   for (const p of pagos ?? []) {
     if (p.vendedor === null || p.anulada_en !== null) continue;
     if (p.metodo !== "efectivo" && p.metodo !== "transferencia") continue;
     if (esHoy && turno && p.turno_id !== turno.id) continue;
-    deudaPorVendedor.set(p.vendedor, (deudaPorVendedor.get(p.vendedor) ?? 0) + p.monto);
+    const clave = `${p.caja}|${p.vendedor}`;
+    const acumulado = porEntregar.get(clave) ?? {
+      nombre: p.vendedor,
+      efectivo: 0,
+      transferencia: 0,
+    };
+    acumulado[p.metodo] += p.monto;
+    porEntregar.set(clave, acumulado);
   }
-  const deudas = [...deudaPorVendedor]
-    .map(([nombre, monto]) => ({ nombre, monto }))
-    .sort((a, b) => b.monto - a.monto);
+  const entregasDe = (cual: "grande" | "chica") =>
+    [...porEntregar]
+      .filter(([clave]) => clave.startsWith(`${cual}|`))
+      .map(([, entrega]) => entrega)
+      // El que más plata dejó primero: es el que más urge entregar.
+      .sort((a, b) => b.efectivo + b.transferencia - (a.efectivo + a.transferencia));
 
   const totales = [
     // Con un turno abierto la pantalla es la de ese turno; sin ninguno, la del
     // dia entero. El primer renglon de la tarjeta lo dice.
-    { etiqueta: "Caja grande", caja: cajaDe("grande"), alcance },
-    { etiqueta: "Caja chica", caja: cajaDe("chica"), alcance },
+    { etiqueta: "Caja grande", caja: cajaDe("grande"), alcance, entregas: entregasDe("grande") },
+    { etiqueta: "Caja chica", caja: cajaDe("chica"), alcance, entregas: entregasDe("chica") },
   ];
 
   type Registro =
@@ -422,15 +439,10 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
           </div>
         </div>
 
-        {/* La tarjeta de vendedores aparece solo cuando hay algo que entregar:
-            sin productos de terceros vendidos, un cero no dice nada. */}
-        <section
-          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${deudas.length > 0 ? "xl:grid-cols-3" : ""}`}
-        >
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {totales.map((t) => (
             <CajaCard key={t.etiqueta} {...t} />
           ))}
-          {deudas.length > 0 && <VendedoresCard deudas={deudas} alcance={alcance} />}
         </section>
 
         <FiltrosLocales key={query} inicial={query}>
