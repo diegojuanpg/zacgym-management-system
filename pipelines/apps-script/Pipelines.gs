@@ -488,16 +488,6 @@ function syncSheetIds() {
   }
 }
 
-function sidsBorrarTriggers_(nombre) {
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === nombre && t.getEventType() === ScriptApp.EventType.CLOCK) {
-      // Los diarios se distinguen porque no se recrean solos; se borran todos y
-      // `instalarTriggerSheetIds` vuelve a poner el que corresponde.
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-}
-
 /**
  * Cuanto tarda el barrido y que haria, sin escribir nada.
  *
@@ -843,6 +833,8 @@ const SEM = {
 
 const PROP_SEM_PENDIENTES = 'SEMANA_PENDIENTES';
 const PROP_SEM_RESUMEN = 'SEMANA_RESUMEN';
+/** El id del trigger `after()` que reanuda: se borra por id, no por funcion. */
+const PROP_SEM_TRIGGER = 'SEMANA_TRIGGER';
 
 /** Dos bloques visibles a la vez: la planilla quedo a medio actualizar. */
 const SEM_REVISAR = 'Revisar';
@@ -1129,15 +1121,17 @@ function semanaRutina() {
     if (pendientes.length) {
       props.setProperty(PROP_SEM_PENDIENTES, JSON.stringify(pendientes));
       props.setProperty(PROP_SEM_RESUMEN, JSON.stringify(r));
-      semBorrarTriggers_('semanaRutina');
-      ScriptApp.newTrigger('semanaRutina').timeBased().after(SEM.RETRASO_TRIGGER_MS).create();
+      semBorrarTriggers_();
+      const sigue = ScriptApp.newTrigger('semanaRutina')
+        .timeBased().after(SEM.RETRASO_TRIGGER_MS).create();
+      props.setProperty(PROP_SEM_TRIGGER, sigue.getUniqueId());
       Logger.log('semanaRutina: quedan ' + pendientes.length + '. ' + JSON.stringify(r));
       return;
     }
 
     props.deleteProperty(PROP_SEM_PENDIENTES);
     props.deleteProperty(PROP_SEM_RESUMEN);
-    semBorrarTriggers_('semanaRutina');
+    semBorrarTriggers_();
     supaLog_(runId, 'SyncTrainingDate', 'info', 'Listo', r);
     Logger.log('semanaRutina: ' + JSON.stringify(r));
   } catch (e) {
@@ -1148,10 +1142,23 @@ function semanaRutina() {
   }
 }
 
-function semBorrarTriggers_(nombre) {
+/**
+ * Borra el trigger de reanudacion, y solo ese.
+ *
+ * Filtrar por nombre de funcion se llevaba puestos los cuatro triggers diarios
+ * de `TRIGGERS`, que apuntan a la misma `semanaRutina`: la primera corrida
+ * dejaba al pipeline sin horario y no volvia a correr hasta que alguien
+ * ejecutara `instalarTodo()` a mano. Apps Script no distingue un `after()` de
+ * un `everyDays()`, asi que el id del one-shot se guarda al crearlo.
+ */
+function semBorrarTriggers_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty(PROP_SEM_TRIGGER);
+  if (!id) return;
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === nombre) ScriptApp.deleteTrigger(t);
+    if (t.getUniqueId() === id) ScriptApp.deleteTrigger(t);
   });
+  props.deleteProperty(PROP_SEM_TRIGGER);
 }
 
 /** Borra la lista de pendientes para volver a empezar de cero. */
@@ -1159,7 +1166,7 @@ function reiniciarSemanaRutina() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty(PROP_SEM_PENDIENTES);
   props.deleteProperty(PROP_SEM_RESUMEN);
-  semBorrarTriggers_('semanaRutina');
+  semBorrarTriggers_();
   Logger.log('Listo, la proxima corrida arranca de cero.');
 }
 
