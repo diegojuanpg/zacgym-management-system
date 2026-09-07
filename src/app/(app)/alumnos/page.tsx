@@ -27,12 +27,20 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
 
   // Son ~240 filas, una por dia con actividad desde el 01/01/2026: entra entera
   // y el navegador arma con eso los dos modos del grafico.
-  const [{ data: dias }, { data: semanas }, { data: revisar }] = await Promise.all([
+  const [{ data: dias }, { data: semanas }, { data: revisar }, { data: productos }] =
+    await Promise.all([
     supabase.from("checkins_por_dia").select("dia, personas").order("dia"),
     supabase.from("checkins_por_semana").select("lunes, personas").order("lunes"),
     // Quiénes quedaron sin la semana que dejó la corrida del domingo. Sale de la
     // vista y no de esta lista: quién entrenó esa semana no está acá.
     supabase.from("alumnos_revisar_rutina").select("id"),
+    // El catálogo, para cargarle a mano una deuda desde la ficha.
+    supabase
+      .from("productos")
+      .select("id, nombre, precio")
+      .eq("activo", true)
+      .order("nombre")
+      .overrideTypes<{ id: string; nombre: string; precio: number }[]>(),
   ]);
 
   const query = comoQuery(params);
@@ -44,6 +52,7 @@ export default async function AlumnosPage({ searchParams }: PageProps<"/alumnos"
         dias={(dias ?? []) as DiaConCheckins[]}
         semanas={(semanas ?? []) as SemanaConCheckins[]}
         revisar={(revisar ?? []).map((a) => a.id!)}
+        productos={productos ?? []}
       />
     </FiltrosLocales>
   );

@@ -15,7 +15,7 @@ import { TabsUrl } from "@/components/tabs-url";
 import { FiltroColumna } from "@/components/filtro-columna";
 import { MostrarMas } from "@/components/mostrar-mas";
 import { recortar } from "@/lib/recorte";
-import { AlumnoModal } from "@/components/alumnos/alumno-modal";
+import { AlumnoModal, type ProductoParaDeuda } from "@/components/alumnos/alumno-modal";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RelativeTimeCard } from "@/components/ui/relative-time-card";
@@ -109,12 +109,15 @@ export function TablaAlumnos({
   dias,
   semanas,
   revisar,
+  productos,
 }: {
   alumnos: FilaAlumno[];
   dias: DiaConCheckins[];
   semanas: SemanaConCheckins[];
   /** Los que la corrida del domingo dejó sin la semana que corresponde. */
   revisar: string[];
+  /** El catálogo, para cargarle a mano lo que se llevó y no pagó. */
+  productos: ProductoParaDeuda[];
 }) {
   const parametros = useParametros();
   const router = useRouter();
@@ -665,7 +668,9 @@ export function TablaAlumnos({
                           email: a.email,
                           vence: a.vence,
                           activo: a.activo,
+                          saldo: a.saldo,
                         }}
+                        productos={productos}
                       />
                     </TableCell>
                   </TableRow>
