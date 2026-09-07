@@ -234,6 +234,12 @@ vez, con formulas que despues se recalculan solas.
   encuentra— y sin el paso de RMs. Esa es la diferencia con la corrida de los
   domingos, que ademas repite semanas y levanta los RMs antes de mover.
 
+  Por lo mismo necesita a los tres en el proyecto: `Rutinas.gs`,
+  `ShareRutinas.gs` y `Pipelines.gs` —este ultimo por la secret de Supabase,
+  que es una Script Property del proyecto—. Si falta alguno el endpoint lo
+  dice en vez de explotar con un `keepSet_ is not defined`. Ninguno de los
+  archivos pisa nombres de los otros.
+
   Es la unica parte de todo esto que se ejecuta a pedido y no por reloj.
   Puesta en marcha: `crearSecretApi()` una vez —imprime el secret—, y despues
   Implementar > Nueva implementacion > Aplicacion web, "ejecutar como: yo",

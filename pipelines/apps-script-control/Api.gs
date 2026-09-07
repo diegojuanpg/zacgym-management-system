@@ -34,6 +34,13 @@
  * Siempre HTTP 200: Apps Script no deja elegir el codigo, asi que el estado
  * real esta en `ok`. La app lo lee de ahi.
  *
+ * DE QUE DEPENDE
+ *
+ * Los tres archivos tienen que estar en el mismo proyecto de Apps Script:
+ * Rutinas.gs por el motor de rutinas, ShareRutinas.gs por el de Drive, y
+ * Pipelines.gs por la secret de Supabase, que es una Script Property del
+ * proyecto. Falta uno y el endpoint contesta que falta.
+ *
  * PUESTA EN MARCHA
  *
  *   1. `crearSecretApi()` una vez. Imprime el secret: va en la variable
@@ -273,6 +280,12 @@ function apiRutinas_(body) {
  * mail automatico de Drive solo genera preguntas.
  */
 function apiAcceso_(body) {
+  // Sin ShareRutinas.gs en el proyecto esto explota con un
+  // "keepSet_ is not defined" que no le dice nada a nadie.
+  if (typeof compartirArchivo_ !== 'function' || typeof keepSet_ !== 'function') {
+    throw new Error('Falta ShareRutinas.gs en el proyecto de Apps Script: ahi viven '
+      + 'compartirArchivo_, descompartirArchivo_ y keepSet_.');
+  }
   if (typeof body.compartir !== 'boolean') {
     throw new Error('Falta decir si es compartir o descompartir.');
   }
