@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AltaAlumno } from "@/components/mostrador/alta-alumno";
 import { AltaTarea, type AlumnoTarea } from "@/components/mostrador/alta-tarea";
+import { AccesoRutina, ActualizarRutina } from "@/components/mostrador/rutinas-lote";
 import type { Categoria } from "@/lib/tareas";
 import type { Empleado } from "@/lib/turnos";
 import { BotonBloqueado } from "@/components/mostrador/boton-bloqueado";
@@ -12,7 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { Note } from "@/components/ui/note";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-/** Lo que no es plata: alta de alumnos y tareas. */
+/** Lo que no es plata: altas, tareas y las planillas de rutina. */
 export function AccionesModal({
   alumnos,
   categorias,
@@ -48,7 +49,7 @@ export function AccionesModal({
           setAbierto(v);
         }}
         title="Acciones"
-        description="Altas y tareas del mostrador."
+        description="Altas, tareas y rutinas del mostrador."
         className="w-[min(52rem,94vw)]"
       >
         <Tabs
@@ -62,6 +63,8 @@ export function AccionesModal({
           <TabsList>
             <TabsTrigger value="alumno">Alumno nuevo</TabsTrigger>
             <TabsTrigger value="tarea">Tarea</TabsTrigger>
+            <TabsTrigger value="rutina">Actualizar rutina</TabsTrigger>
+            <TabsTrigger value="acceso">Acceso a la rutina</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -71,7 +74,7 @@ export function AccionesModal({
           </Note>
         )}
 
-        {pestania === "alumno" ? (
+        {pestania === "alumno" && (
           <AltaAlumno
             onCreado={(alumno) => {
               setHecho(`${alumno.nombre_completo} quedó cargado.`);
@@ -79,7 +82,8 @@ export function AccionesModal({
               router.refresh();
             }}
           />
-        ) : (
+        )}
+        {pestania === "tarea" && (
           <AltaTarea
             alumnos={alumnos}
             categorias={categorias}
@@ -90,6 +94,10 @@ export function AccionesModal({
             }}
           />
         )}
+        {/* Las dos de rutina no llaman a router.refresh(): lo que tocan está en
+            una planilla de Drive, no en nada que esta pantalla muestre. */}
+        {pestania === "rutina" && <ActualizarRutina alumnos={alumnos} />}
+        {pestania === "acceso" && <AccesoRutina alumnos={alumnos} />}
       </Modal>
     </>
   );
