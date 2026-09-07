@@ -9,6 +9,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
 import { Note } from "@/components/ui/note";
 import { Select } from "@/components/ui/select";
+import { toast } from "@/components/ui/toast";
 import { PlusIcon, XIcon } from "@/components/icons";
 
 /**
@@ -87,6 +88,7 @@ function useLista<M extends string>(alumnos: AlumnoTarea[], modoInicial: M) {
     agregar,
     quitar,
     tandasDe,
+    limpiar: () => setRenglones([]),
     lleno: renglones.length >= MAX_LOTE,
     yaEsta: renglones.some((r) => r.id === alumnoId),
   };
@@ -161,6 +163,8 @@ function FormularioLote<M extends string>({
   opciones,
   aviso,
   textoBoton,
+  verbo,
+  nombre,
   mandar,
 }: {
   alumnos: AlumnoTarea[];
@@ -169,32 +173,73 @@ function FormularioLote<M extends string>({
   opciones: { valor: M; texto: string }[];
   aviso: React.ReactNode;
   textoBoton: (cuantos: number) => string;
+  /** Para los avisos: "Actualizando 3 rutinas" / "3 rutinas actualizadas". */
+  verbo: { gerundio: string; hecho: string };
+  nombre: (cuantos: number) => string;
   mandar: (avisar: (hechos: number) => void) => Promise<{
     resultados: Resultado[];
     error?: string;
   }>;
 }) {
-  const [trabajando, setTrabajando] = React.useState(false);
+  const [enVuelo, setEnVuelo] = React.useState(0);
   const [hechos, setHechos] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [resultados, setResultados] = React.useState<Resultado[] | null>(null);
 
   const etiqueta = (m: M) => opciones.find((o) => o.valor === m)?.texto ?? m;
 
+  /**
+   * Manda la lista y avisa por toast cuando termina.
+   *
+   * El trabajo no depende de que el modal siga abierto: las promesas viven en
+   * el closure de esta función, no en el componente, así que cerrarlo no las
+   * corta. Los `setState` que quedan después no hacen nada si el componente ya
+   * se desmontó, y el aviso sale igual porque el Toaster está montado arriba,
+   * en el layout. Lo único que sí lo corta es recargar o irse de la pantalla.
+   *
+   * La lista se vacía apenas sale el pedido: ya está en camino, y dejarla
+   * llena invitaría a mandarla de nuevo. Es también lo que deja el formulario
+   * libre para armar el próximo mientras este termina.
+   */
   async function enviar() {
-    setTrabajando(true);
+    const total = lista.renglones.length;
     setHechos(0);
     setError(null);
     setResultados(null);
-    const r = await mandar(setHechos);
-    setTrabajando(false);
+    setEnVuelo((n) => n + total);
+
+    const idAviso = toast.loading(`${verbo.gerundio} ${nombre(total)}...`, {
+      duration: Infinity,
+    });
+    const promesa = mandar((n) => {
+      setHechos(n);
+      toast.loading(`${verbo.gerundio} ${nombre(total)}: ${n} de ${total} listos...`, {
+        id: idAviso,
+        duration: Infinity,
+      });
+    });
+    lista.limpiar();
+
+    const r = await promesa;
+    setEnVuelo((n) => n - total);
     setResultados(r.resultados);
     if (r.error) setError(r.error);
-    // Los que salieron bien ya no tienen nada que hacer en la lista. Los que
-    // fallaron quedan para reintentar sin volver a buscarlos, y los de un
-    // pedido que ni salió, también.
-    const hechosOk = new Set(r.resultados.filter((x) => x.ok).map((x) => x.id));
-    lista.renglones.filter((x) => hechosOk.has(x.id)).forEach((x) => lista.quitar(x.id));
+
+    const bien = r.resultados.filter((x) => x.ok).length;
+    const mal = r.resultados.filter((x) => !x.ok);
+    if (r.error) {
+      toast.error(`${r.error} (${bien} de ${total} alcanzaron a hacerse)`, {
+        id: idAviso,
+        duration: 15000,
+      });
+    } else if (mal.length === 0) {
+      toast.success(`${nombre(bien)} ${verbo.hecho}.`, { id: idAviso, duration: 6000 });
+    } else {
+      toast.warning(
+        `${bien} de ${total}. Quedaron afuera: ${mal.map((x) => x.quien).join(", ")}.`,
+        { id: idAviso, duration: 15000 },
+      );
+    }
   }
 
   return (
@@ -214,7 +259,6 @@ function FormularioLote<M extends string>({
             emptyMessage="Ningún alumno coincide"
             width="100%"
             clearable
-            disabled={trabajando}
           />
         </div>
 
@@ -224,7 +268,6 @@ function FormularioLote<M extends string>({
             id={`lote-modo-${etiquetaModo}`}
             size="large"
             value={lista.modo}
-            disabled={trabajando}
             onChange={(e) => lista.setModo(e.target.value as M)}
           >
             {opciones.map((o) => (
@@ -240,7 +283,7 @@ function FormularioLote<M extends string>({
           variant="secondary"
           size="lg"
           prefix={<PlusIcon />}
-          disabled={!lista.alumnoId || trabajando || (lista.lleno && !lista.yaEsta)}
+          disabled={!lista.alumnoId || (lista.lleno && !lista.yaEsta)}
           onClick={lista.agregar}
         >
           Agregar
@@ -267,7 +310,6 @@ function FormularioLote<M extends string>({
                   size="icon-xs"
                   title={`Quitar a ${r.quien}`}
                   aria-label={`Quitar a ${r.quien}`}
-                  disabled={trabajando}
                   onClick={() => lista.quitar(r.id)}
                   className="rounded-full"
                 >
@@ -292,17 +334,16 @@ function FormularioLote<M extends string>({
           type="button"
           size="lg"
           disabled={lista.renglones.length === 0}
-          loading={trabajando}
           onClick={enviar}
         >
           {textoBoton(lista.renglones.length)}
         </Button>
       </div>
 
-      {trabajando && (
+      {enVuelo > 0 && (
         <span className="text-copy-13 text-muted-foreground">
-          {hechos} de {lista.renglones.length} listos. Cada planilla tarda unos segundos y van
-          de a {TANDA}: no cierres el modal.
+          {hechos} de {enVuelo} listos. Podés cerrar el modal y seguir atendiendo: te avisa
+          cuando termina. Van de a {TANDA} y cada planilla tarda unos segundos.
         </span>
       )}
 
@@ -338,8 +379,10 @@ export function ActualizarRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
         { valor: "actual", texto: "Actual" },
         { valor: "proxima", texto: "La que viene" },
       ]}
-      aviso="Busca en la planilla el bloque fechado al lunes de esa semana y lo deja visible. No cambia ninguna fecha."
+      aviso="Busca en la planilla el bloque fechado al lunes de esa semana y lo deja visible. No cambia ninguna fecha. Podés cerrar el modal: te avisa cuando termina."
       textoBoton={(n) => `Actualizar ${n || ""} ${n === 1 ? "rutina" : "rutinas"}`}
+      verbo={{ gerundio: "Actualizando", hecho: "actualizadas" }}
+      nombre={(n) => `${n} ${n === 1 ? "rutina" : "rutinas"}`}
       mandar={(avisar) =>
         enTandas(
           [
@@ -373,8 +416,10 @@ export function AccesoRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
         { valor: "compartir", texto: "Compartir" },
         { valor: "descompartir", texto: "Quitar acceso" },
       ]}
-      aviso="Se comparte como editor con el mail de la ficha, sin notificarle, y sin que pueda re-compartir, descargar, imprimir ni copiar. Quitar acceso se lo saca a todos menos al dueño."
+      aviso="Se comparte como editor con el mail de la ficha, sin notificarle, y sin que pueda re-compartir, descargar, imprimir ni copiar. Quitar acceso se lo saca a todos menos al dueño. Podés cerrar el modal: te avisa cuando termina."
       textoBoton={(n) => `Aplicar${n ? ` a ${n}` : ""}`}
+      verbo={{ gerundio: "Cambiando", hecho: "listos" }}
+      nombre={(n) => `${n} ${n === 1 ? "acceso" : "accesos"}`}
       mandar={(avisar) =>
         enTandas(
           [
