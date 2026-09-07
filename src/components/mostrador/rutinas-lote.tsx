@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { actualizarRutinas, cambiarAccesoRutina } from "@/lib/rutinas";
-import { MAX_LOTE, type Resultado, type Semana } from "@/lib/rutinas-lote";
+import { MAX_LOTE, TANDA, type Resultado, type Semana } from "@/lib/rutinas-lote";
 import type { AlumnoTarea } from "@/components/mostrador/alta-tarea";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
@@ -28,6 +28,31 @@ import { PlusIcon, XIcon } from "@/components/icons";
 interface Elegido {
   id: string;
   quien: string;
+}
+
+/** Lo que devuelven las dos server actions. */
+type Envio = (ids: string[]) => Promise<{ resultados?: Resultado[]; error?: string }>;
+
+/**
+ * Manda el lote en tandas y junta lo que va volviendo.
+ *
+ * Si una tanda se cae entera —se cortó la red, Apps Script no contestó— se
+ * frena ahí y se devuelve lo que ya había: los de las tandas anteriores están
+ * hechos y volver a mandarlos sería avanzarles el bloque dos veces.
+ */
+async function enTandas(
+  ids: string[],
+  mandar: Envio,
+  avisar: (hechos: number) => void,
+): Promise<{ resultados: Resultado[]; error?: string }> {
+  const resultados: Resultado[] = [];
+  for (let i = 0; i < ids.length; i += TANDA) {
+    const r = await mandar(ids.slice(i, i + TANDA));
+    if (r.error) return { resultados, error: r.error };
+    resultados.push(...(r.resultados ?? []));
+    avisar(resultados.length);
+  }
+  return { resultados };
 }
 
 /** El armado del lote, que es igual en las dos pestañas. */
@@ -188,24 +213,25 @@ export function ActualizarRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
   const lote = useLote(alumnos);
   const [semana, setSemana] = React.useState<Semana>("actual");
   const [trabajando, setTrabajando] = React.useState(false);
+  const [hechos, setHechos] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [resultados, setResultados] = React.useState<Resultado[] | null>(null);
 
   async function mandar() {
+    const ids = lote.elegidos.map((e) => e.id);
     setTrabajando(true);
+    setHechos(0);
     setError(null);
     setResultados(null);
-    const r = await actualizarRutinas(
-      lote.elegidos.map((e) => e.id),
-      semana,
-    );
+    const r = await enTandas(ids, (t) => actualizarRutinas(t, semana), setHechos);
     setTrabajando(false);
-    if (r.error) return setError(r.error);
-    setResultados(r.resultados ?? []);
+    setResultados(r.resultados);
+    if (r.error) setError(r.error);
     // Los que salieron bien ya no tienen nada que hacer en la lista; los que
-    // fallaron quedan para reintentar sin volver a buscarlos.
-    const fallados = new Set((r.resultados ?? []).filter((x) => !x.ok).map((x) => x.id));
-    lote.elegidos.filter((e) => !fallados.has(e.id)).forEach((e) => lote.quitar(e.id));
+    // fallaron quedan para reintentar sin volver a buscarlos. Los de una tanda
+    // que ni salió tampoco se tocan.
+    const hechosOk = new Set(r.resultados.filter((x) => x.ok).map((x) => x.id));
+    lote.elegidos.filter((e) => hechosOk.has(e.id)).forEach((e) => lote.quitar(e.id));
   }
 
   return (
@@ -248,7 +274,8 @@ export function ActualizarRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
 
       {trabajando && (
         <span className="text-copy-13 text-muted-foreground">
-          Cada planilla tarda unos segundos. No cierres el modal.
+          {hechos} de {lote.elegidos.length} listos. Cada planilla tarda unos segundos y van de
+          a {TANDA}: no cierres el modal.
         </span>
       )}
 
@@ -275,22 +302,26 @@ export function AccesoRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
   const lote = useLote(alumnos);
   const [que, setQue] = React.useState<"compartir" | "descompartir">("compartir");
   const [trabajando, setTrabajando] = React.useState(false);
+  const [hechos, setHechos] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [resultados, setResultados] = React.useState<Resultado[] | null>(null);
 
   async function mandar() {
+    const ids = lote.elegidos.map((e) => e.id);
     setTrabajando(true);
+    setHechos(0);
     setError(null);
     setResultados(null);
-    const r = await cambiarAccesoRutina(
-      lote.elegidos.map((e) => e.id),
-      que === "compartir",
+    const r = await enTandas(
+      ids,
+      (t) => cambiarAccesoRutina(t, que === "compartir"),
+      setHechos,
     );
     setTrabajando(false);
-    if (r.error) return setError(r.error);
-    setResultados(r.resultados ?? []);
-    const fallados = new Set((r.resultados ?? []).filter((x) => !x.ok).map((x) => x.id));
-    lote.elegidos.filter((e) => !fallados.has(e.id)).forEach((e) => lote.quitar(e.id));
+    setResultados(r.resultados);
+    if (r.error) setError(r.error);
+    const hechosOk = new Set(r.resultados.filter((x) => x.ok).map((x) => x.id));
+    lote.elegidos.filter((e) => hechosOk.has(e.id)).forEach((e) => lote.quitar(e.id));
   }
 
   return (
@@ -331,6 +362,12 @@ export function AccesoRutina({ alumnos }: { alumnos: AlumnoTarea[] }) {
           {lote.elegidos.length ? ` a ${lote.elegidos.length}` : ""}
         </Button>
       </div>
+
+      {trabajando && (
+        <span className="text-copy-13 text-muted-foreground">
+          {hechos} de {lote.elegidos.length} listos. No cierres el modal.
+        </span>
+      )}
 
       {error && (
         <Note type="error" fill>

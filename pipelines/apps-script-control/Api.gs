@@ -47,10 +47,18 @@
  */
 
 const API = {
-  /** Tope de alumnos por lote. Mas que esto no entra en el limite de 6 min. */
+  /** Tope de alumnos por pedido. La app manda de a cinco, en tandas. */
   MAX_LOTE: 10,
-  /** Corta antes del limite duro de Apps Script y contesta lo que alcanzo. */
-  MAX_RUNTIME_MS: 5 * 60 * 1000,
+  /**
+   * Corta y contesta lo que alcanzo a hacer.
+   *
+   * Son 45 segundos y no los 6 minutos de Apps Script porque el que espera del
+   * otro lado es Vercel, que corta la funcion al minuto. Contestando antes, el
+   * que no llego a procesarse vuelve como un error suyo y se reintenta; si en
+   * cambio corta Vercel, la respuesta se pierde entera aunque el trabajo se
+   * haya hecho.
+   */
+  MAX_RUNTIME_MS: 45 * 1000,
   /** Nombre con el que se loguea en `pipeline_logs`. */
   PIPELINE: 'MostradorRutinas',
 };
