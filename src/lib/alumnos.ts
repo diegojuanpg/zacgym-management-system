@@ -148,3 +148,47 @@ export async function borrarAlumno(id: string): Promise<{ error?: string }> {
   revalidatePath("/alumnos");
   return {};
 }
+
+/**
+ * Le carga a mano una compra impaga desde la ficha: el suplemento que se llevó
+ * y todavía no pagó. No hace falta turno abierto —la deuda aparece cuando
+ * aparece— y el stock no se toca: la cosa salió del estante cuando se la llevó.
+ */
+export async function cargarDeuda(
+  alumnoId: string,
+  productoId: string,
+  cantidad: number,
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(cantidad) || cantidad < 1) {
+    return { error: "La cantidad tiene que ser 1 o más." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cargar_deuda", {
+    p_alumno_id: alumnoId,
+    p_producto_id: productoId,
+    p_cantidad: cantidad,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/alumnos");
+  revalidatePath("/mostrador");
+  return {};
+}
+
+/** Ajuste de la cuenta: le queda a favor sin que entre plata a ninguna caja. */
+export async function cargarAFavor(
+  alumnoId: string,
+  monto: number,
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(monto) || monto <= 0) {
+    return { error: "El monto tiene que ser mayor a cero." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cargar_a_favor", {
+    p_alumno_id: alumnoId,
+    p_monto: monto,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/alumnos");
+  revalidatePath("/mostrador");
+  return {};
+}
