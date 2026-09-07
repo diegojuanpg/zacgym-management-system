@@ -31,13 +31,18 @@ import { Button } from "@/components/ui/button";
 
 
 /**
- * Los diez minutos son por las acciones de rutina del modal de Acciones.
+ * El minuto es por las acciones de rutina del modal de Acciones.
  *
- * Las server actions corren en la función de esta ruta y heredan su límite. Un
- * lote de diez planillas se va tranquilo al minuto y medio, y el default de
- * Vercel lo cortaría por la mitad dejando el trabajo hecho pero sin respuesta.
+ * Las server actions corren en la función de esta ruta y heredan su límite; el
+ * default cortaría un lote de planillas por la mitad, dejando el trabajo hecho
+ * pero sin respuesta.
+ *
+ * Sesenta y no más: es el techo del plan Hobby de Vercel y un valor más alto
+ * hace fallar el deploy —el build compila igual y revienta después, al validar
+ * los outputs—. Para que el lote entre en ese minuto, el formulario lo manda en
+ * tandas: `TANDA` en `src/lib/rutinas-lote.ts`.
  */
-export const maxDuration = 600;
+export const maxDuration = 60;
 
 interface TurnoAbierto {
   id: string;

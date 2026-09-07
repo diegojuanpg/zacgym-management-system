@@ -14,6 +14,20 @@
  */
 export const MAX_LOTE = 10;
 
+/**
+ * Cuántos van en cada pedido.
+ *
+ * El lote entero no puede salir de una: la server action corre en la función
+ * de `/mostrador`, que tiene sesenta segundos —el techo del plan—, y diez
+ * planillas a varios segundos cada una no entran. Así que el formulario manda
+ * de a cinco y espera cada tanda antes de la siguiente.
+ *
+ * En serie y no en paralelo a propósito: del otro lado hay un solo proyecto de
+ * Apps Script con sus cuotas, y dos ejecuciones a la vez sobre las mismas
+ * planillas es pedirle problemas.
+ */
+export const TANDA = 5;
+
 /** A qué lunes queda fechada la rutina. */
 export type Semana = "actual" | "proxima";
 
