@@ -5,7 +5,7 @@
  * recibe un lote de alumnos y hace sobre sus planillas lo que el mostrador
  * pidio. Dos acciones:
  *
- *   rutinas  avanza el bloque de rutina al lunes que se indique.
+ *   rutinas  deja visible el bloque fechado al lunes que se indique.
  *   acceso   comparte o descomparte la planilla con el alumno.
  *
  * El motor no se duplica: `rutinas` llama al mismo
@@ -19,6 +19,9 @@
  *   POST <url del web app>
  *   { "secret": "...", "accion": "rutinas", "semana": "actual" | "proxima",
  *     "alumnos": ["<uuid>", ...] }
+ *
+ * Un pedido lleva una sola semana. Si en el mostrador hay alumnos con semanas
+ * distintas, la app manda un pedido por semana.
  *
  *   { "secret": "...", "accion": "acceso", "compartir": true | false,
  *     "alumnos": ["<uuid>", ...] }
@@ -211,15 +214,17 @@ function apiRecorrer_(lote, runId, hacer) {
 // ============================================================
 
 /**
- * Avanza el bloque de rutina de cada alumno del lote.
+ * Deja visible el bloque fechado al lunes que se pidio.
  *
- * `semana` dice a que lunes queda fechado: `actual` es el lunes de esta semana
- * —el caso normal, arreglar a alguien que quedo atrasado— y `proxima` el
- * siguiente, que es lo mismo que hace la corrida de los domingos.
+ * `semana` es cual: `actual` el lunes de esta semana, `proxima` el siguiente.
  *
- * Siempre avanza, nunca repite: repetir es una decision de la corrida
- * automatica cuando el alumno no entreno lo suficiente. Desde el mostrador se
- * pide expresamente para alguien, y lo que se pide es el bloque que sigue.
+ * Busca y muestra, nada mas. No reescribe la fecha del bloque ni toca los RMs:
+ * los bloques ya vienen fechados en la planilla y lo unico que hace falta es
+ * que quede a la vista el que corresponde. Es la diferencia con la corrida de
+ * los domingos, que ademas repite semanas y levanta los RMs antes de mover.
+ *
+ * Por eso `esRepetirSemana` va en false: en true, `procesarYExtraerEntrenamiento_`
+ * le pisa la fecha al bloque que encuentra.
  */
 function apiRutinas_(body) {
   if (body.semana && body.semana !== 'proxima' && body.semana !== 'actual') {
@@ -232,9 +237,6 @@ function apiRutinas_(body) {
   const runId = Utilities.getUuid();
 
   const salida = apiRecorrer_(lote, runId, function (a) {
-    // Los RMs se leen antes de mover el bloque: despues la semana de test ya no
-    // esta visible y no hay de donde sacarlos.
-    realizarTareasPreActualizacion_(a.sheet_id);
     const r = procesarYExtraerEntrenamiento_(a.sheet_id, destino, false, destino);
     if (r.rutinaStatus !== 'Actualizada') {
       throw new Error((r.entrenamientoInfo && r.entrenamientoInfo.error) || 'No se actualizo.');

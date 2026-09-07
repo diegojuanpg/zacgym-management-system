@@ -78,11 +78,16 @@ function revisarLote(alumnos: string[]): string | null {
 }
 
 /**
- * Avanza el bloque de rutina de hasta diez alumnos.
+ * Deja visible, en la planilla de cada alumno, el bloque fechado a esa semana.
  *
- * Cada planilla tarda unos segundos, así que un lote de diez puede irse a un
- * minuto largo. Apps Script corta a los cinco y devuelve como error los que no
- * llegó a hacer: se reintentan mandándolos de nuevo.
+ * Busca y muestra: los bloques ya vienen fechados y lo único que cambia es cuál
+ * queda a la vista. No reescribe fechas ni toca los RMs, que es lo que sí hace
+ * la corrida de los domingos.
+ *
+ * Un pedido lleva una sola semana. El formulario manda uno por semana, y cada
+ * uno en tandas de `TANDA`: cada planilla tarda unos segundos y la función
+ * tiene un minuto. Apps Script corta a los 45 y devuelve como error los que no
+ * llegó a hacer, que se reintentan mandándolos de nuevo.
  */
 export async function actualizarRutinas(
   alumnos: string[],
@@ -102,7 +107,8 @@ export async function actualizarRutinas(
  *
  * Compartir la deja siempre con las tres casillas de Drive destildadas —los
  * editores no pueden re-compartir, y nadie puede descargar, imprimir ni
- * copiar—. Eso lo aplica Apps Script antes de dar el acceso.
+ * copiar— y nunca le manda la notificación de Drive. Eso lo aplica Apps Script
+ * antes de dar el acceso.
  */
 export async function cambiarAccesoRutina(
   alumnos: string[],
