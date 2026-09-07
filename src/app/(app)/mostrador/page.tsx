@@ -121,7 +121,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .select("id, alumno_id, producto, saldo")
         .gt("saldo", 0)
         .is("anulada_en", null)
-        .not("turno_id", "is", null)
+        .neq("origen", "planilla")
         .order("creado_en")
         .overrideTypes<
           { id: string; alumno_id: string; producto: string; saldo: number }[]
