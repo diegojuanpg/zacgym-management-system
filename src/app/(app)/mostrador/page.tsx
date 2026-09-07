@@ -30,6 +30,15 @@ import type { TurnoDelDia, DiferenciaProducto } from "@/components/mostrador/tur
 import { Button } from "@/components/ui/button";
 
 
+/**
+ * Los diez minutos son por las acciones de rutina del modal de Acciones.
+ *
+ * Las server actions corren en la función de esta ruta y heredan su límite. Un
+ * lote de diez planillas se va tranquilo al minuto y medio, y el default de
+ * Vercel lo cortaría por la mitad dejando el trabajo hecho pero sin respuesta.
+ */
+export const maxDuration = 600;
+
 interface TurnoAbierto {
   id: string;
   abierto_en: string;
@@ -112,7 +121,7 @@ export default async function MostradorPage({ searchParams }: PageProps<"/mostra
         .select("id, alumno_id, producto, saldo")
         .gt("saldo", 0)
         .is("anulada_en", null)
-        .not("turno_id", "is", null)
+        .neq("origen", "planilla")
         .order("creado_en")
         .overrideTypes<
           { id: string; alumno_id: string; producto: string; saldo: number }[]

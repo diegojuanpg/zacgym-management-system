@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { editarAlumno, borrarAlumno, type DatosFicha } from "@/lib/alumnos";
+import {
+  editarAlumno,
+  borrarAlumno,
+  cargarDeuda,
+  cargarAFavor,
+  type DatosFicha,
+} from "@/lib/alumnos";
+import { toast } from "@/components/ui/toast";
+import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,16 +20,35 @@ import { Select } from "@/components/ui/select";
 
 export interface AlumnoFicha extends DatosFicha {
   id: string;
+  /** Cuenta corriente: positivo debe, negativo tiene a favor. */
+  saldo: number;
 }
 
-/** Edición de la ficha, y borrado para las que todavía no tienen historia. */
-export function AlumnoModal({ alumno }: { alumno: AlumnoFicha }) {
+export interface ProductoParaDeuda {
+  id: string;
+  nombre: string;
+  precio: number;
+}
+
+/** Edición de la ficha, la cuenta corriente, y borrado para las que no tienen historia. */
+export function AlumnoModal({
+  alumno,
+  productos,
+}: {
+  alumno: AlumnoFicha;
+  productos: ProductoParaDeuda[];
+}) {
   const router = useRouter();
   const [abierto, setAbierto] = React.useState(false);
   const [datos, setDatos] = React.useState<DatosFicha>(alumno);
   const [error, setError] = React.useState<string | null>(null);
   const [guardando, setGuardando] = React.useState(false);
   const [confirmando, setConfirmando] = React.useState(false);
+  // --- cuenta: cargarle a mano una deuda o plata a favor ---
+  const [productoId, setProductoId] = React.useState("");
+  const [cantidad, setCantidad] = React.useState("1");
+  const [aFavor, setAFavor] = React.useState("");
+  const [cargando, setCargando] = React.useState(false);
 
   const set = <C extends keyof DatosFicha>(campo: C, valor: DatosFicha[C]) =>
     setDatos((previos) => ({ ...previos, [campo]: valor }));
@@ -31,6 +58,9 @@ export function AlumnoModal({ alumno }: { alumno: AlumnoFicha }) {
   function abrir() {
     // Al reabrir hay que volver a lo que hay en la base, no a lo tipeado antes.
     setDatos(alumno);
+    setProductoId("");
+    setCantidad("1");
+    setAFavor("");
     setError(null);
     setConfirmando(false);
     setAbierto(true);
@@ -43,6 +73,23 @@ export function AlumnoModal({ alumno }: { alumno: AlumnoFicha }) {
     setGuardando(false);
     if (error) return setError(error);
     setAbierto(false);
+    router.refresh();
+  }
+
+  /** Las dos cargas de cuenta se guardan solas, sin pasar por Guardar. */
+  async function cargar(que: "deuda" | "a favor") {
+    setCargando(true);
+    setError(null);
+    const { error } =
+      que === "deuda"
+        ? await cargarDeuda(alumno.id, productoId, Number(cantidad) || 0)
+        : await cargarAFavor(alumno.id, Number(aFavor) || 0);
+    setCargando(false);
+    if (error) return setError(error);
+    setProductoId("");
+    setCantidad("1");
+    setAFavor("");
+    toast.success(que === "deuda" ? "Deuda cargada" : "Saldo a favor cargado");
     router.refresh();
   }
 
@@ -186,6 +233,78 @@ export function AlumnoModal({ alumno }: { alumno: AlumnoFicha }) {
                 <option value="si">Activo</option>
                 <option value="no">Inactivo</option>
               </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <Label>Cuenta</Label>
+              <span className="text-copy-13 tabular-nums">
+                {alumno.saldo > 0 ? (
+                  <span className="text-[var(--ds-red-900)]">
+                    Debe ${alumno.saldo.toLocaleString("es-AR")}
+                  </span>
+                ) : alumno.saldo < 0 ? (
+                  <span className="text-[var(--ds-green-900)]">
+                    A favor ${(-alumno.saldo).toLocaleString("es-AR")}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Al día</span>
+                )}
+              </span>
+            </div>
+
+            {/* Se llevó algo y lo paga después: queda como una compra impaga y
+                se cobra desde el mostrador, producto por producto. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_5rem_auto]">
+              <Combobox
+                options={productos.map((p) => ({
+                  value: p.id,
+                  label: `${p.nombre} — $${p.precio.toLocaleString("es-AR")}`,
+                }))}
+                value={productoId}
+                onValueChange={setProductoId}
+                placeholder="Qué se llevó..."
+                emptyMessage="No hay productos activos"
+                width="100%"
+                clearable
+              />
+              <Input
+                size="large"
+                inputMode="numeric"
+                aria-label="Cantidad"
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value.replace(/\D/g, ""))}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => cargar("deuda")}
+                loading={cargando}
+                disabled={productoId === ""}
+              >
+                Cargar deuda
+              </Button>
+            </div>
+
+            {/* Ajuste de la cuenta: no entra plata a ninguna caja. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+              <Input
+                size="large"
+                inputMode="numeric"
+                prefix="$"
+                aria-label="Plata a favor"
+                placeholder="Plata a favor"
+                value={aFavor}
+                onChange={(e) => setAFavor(e.target.value.replace(/\D/g, ""))}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => cargar("a favor")}
+                loading={cargando}
+                disabled={aFavor === ""}
+              >
+                Cargar a favor
+              </Button>
             </div>
           </div>
 

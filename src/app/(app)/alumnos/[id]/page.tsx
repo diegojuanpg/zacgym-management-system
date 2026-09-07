@@ -123,7 +123,7 @@ export default async function FichaAlumnoPage({ params, searchParams }: PageProp
       .eq("alumno_id", id)
       // Solo lo cargado en esta app: el historico importado de la planilla no
       // cuenta para el balance, asi que tampoco tiene que figurar en la ficha.
-      .not("turno_id", "is", null)
+      .neq("origen", "planilla")
       .order("creado_en", { ascending: false })
       .limit(200)
       .overrideTypes<Compra[]>(),

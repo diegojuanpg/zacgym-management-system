@@ -263,10 +263,18 @@ function rutFechas_() {
   const hoy = new Date(_ymd_(new Date()) + 'T00:00:00-03:00');
   const dow = hoy.getUTCDay();                  // 0=domingo
   const aLunes = (dow === 0 ? -6 : 1 - dow);    // el domingo cierra la semana, no la abre
-  const lunesEsta0 = new Date(hoy.getTime() + aLunes * 86400000);
+  return rutFechasDe_(new Date(hoy.getTime() + aLunes * 86400000));
+}
+
+/**
+ * Las mismas dos fechas, pero a partir de un lunes dado en vez de hoy.
+ *
+ * `lunes0` es medianoche del lunes que ABRIO la semana que se cierra.
+ */
+function rutFechasDe_(lunes0) {
   return {
-    lunesEsta: new Date(lunesEsta0.getTime() + 12 * 3600000),
-    lunesProx: new Date(lunesEsta0.getTime() + 7 * 86400000 + 12 * 3600000),
+    lunesEsta: new Date(lunes0.getTime() + 12 * 3600000),
+    lunesProx: new Date(lunes0.getTime() + 7 * 86400000 + 12 * 3600000),
   };
 }
 
@@ -305,14 +313,22 @@ function rutGet_(pathQuery) {
   return JSON.parse(res.getContentText());
 }
 
-function rutLog_(runId, nivel, mensaje, contexto) {
+/**
+ * Una linea en `pipeline_logs`.
+ *
+ * `pipeline` es opcional y por defecto es la corrida semanal. Lo que entra por
+ * el mostrador loguea con otro nombre a proposito: la pantalla de Pipelines
+ * mide el atraso con la ultima corrida de cada uno, y una actualizacion a mano
+ * haria pasar por vivo a un trigger muerto.
+ */
+function rutLog_(runId, nivel, mensaje, contexto, pipeline) {
   try {
     UrlFetchApp.fetch(RUT.SUPA_URL + '/rest/v1/pipeline_logs', {
       method: 'post',
       contentType: 'application/json',
       headers: Object.assign(rutHeaders_(), { Prefer: 'return=minimal' }),
       payload: JSON.stringify([{
-        run_id: runId, pipeline: 'UpdateAthleteProgram', nivel: nivel,
+        run_id: runId, pipeline: pipeline || 'UpdateAthleteProgram', nivel: nivel,
         mensaje: mensaje, contexto: contexto || null,
       }]),
       muteHttpExceptions: true,
@@ -847,10 +863,60 @@ const RUTS = {
 };
 const PROP_RUT_SEMANA = 'RUTINAS_SEMANA';
 const PROP_RUT_FALLADOS = 'RUTINAS_FALLADOS';
+const PROP_RUT_FORZADA = 'RUTINAS_SEMANA_FORZADA';
+
+/**
+ * El lunes que abrio la semana que quedo sin cerrar, para `correrSemanaPerdida`.
+ *
+ * Solo se usa cuando el domingo no corrio y se recupera a mano. La corrida
+ * normal no lo mira.
+ */
+const SEMANA_PERDIDA = '2026-08-31';
+
+/**
+ * Las fechas de esta corrida.
+ *
+ * Normalmente son las de hoy. Cuando `correrSemanaPerdida` dejo puesta una
+ * semana forzada, son las de esa semana: la corrida tiene que poder mirar los
+ * check-ins de la semana pasada, y `rutFechas_` mira el reloj.
+ *
+ * Va por property y no por parametro porque la continuacion —el trigger
+ * `after()` que se arma cuando la corrida se queda sin tiempo— llama a
+ * `rutinasSemanales()` sin argumentos: si el override fuera un parametro, el
+ * segundo tramo volveria a las fechas de hoy y abriria otra semana.
+ */
+function rutFechasCorrida_() {
+  const forzada = PropertiesService.getScriptProperties().getProperty(PROP_RUT_FORZADA);
+  return forzada ? rutFechasDe_(rutLunes_(forzada)) : rutFechas_();
+}
+
+/** Medianoche del lunes `yyyy-MM-dd`. Falla si esa fecha no es un lunes. */
+function rutLunes_(ymd) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error('Fecha invalida: ' + ymd);
+  const d = new Date(ymd + 'T00:00:00-03:00');
+  if (isNaN(d.getTime())) throw new Error('Fecha invalida: ' + ymd);
+  if (d.getUTCDay() !== 1) throw new Error(ymd + ' no es un lunes');
+  return d;
+}
+
+/**
+ * Si el umbral decide o no.
+ *
+ * En `false` avanza todo el que haya venido al menos un dia: nadie repite por
+ * no haber llegado a la mitad. La logica del umbral queda entera abajo, lista
+ * para volver a prenderla poniendo esto en `true`.
+ *
+ * Seguir viniendo un dia y quedarse clavado en el mismo bloque era peor que
+ * avanzar de menos: el que baja el ritmo una semana no tiene por que empezar de
+ * nuevo.
+ */
+const UMBRAL_ACTIVO = false;
 
 /**
  * Cuantos dias tiene que haber entrenado para pasar de bloque.
  * 1 o 2 dias -> 1 | 3 o 4 -> 2 | 5 o 6 -> 3. Es la mitad, redondeando arriba.
+ *
+ * Inactivo mientras `UMBRAL_ACTIVO` sea `false`.
  */
 function umbralAvance_(dias) {
   return Math.ceil(dias / 2);
@@ -888,9 +954,10 @@ function rutPatch_(pathQuery, body) {
 /**
  * A quien le toca esta semana y que hay que hacerle.
  *
- * Entra el que hizo al menos un check-in desde el lunes. Avanza el que llego al
- * umbral de sus dias; el resto repite, que es el mismo trabajo con la fecha
- * corrida una semana.
+ * Entra el que hizo al menos un check-in en la semana. Con `UMBRAL_ACTIVO` en
+ * `true` avanza el que llego al umbral de sus dias y el resto repite, que es el
+ * mismo trabajo con la fecha corrida una semana; con el umbral inactivo —como
+ * esta hoy— avanzan todos los de la cola.
  *
  * Los dias salen de `dias_entrenamiento` y no de la vista `alumnos_cuenta`: la
  * vista los toma de `alumnos_tracking`, que recien los tiene despues de un
@@ -902,11 +969,17 @@ function rutPatch_(pathQuery, body) {
 function colaRutinas_(f) {
   const semana = _ymd_(f.lunesProx);
   const desde = _ymd_(f.lunesEsta) + 'T00:00:00-03:00';
+  // La ventana se cierra: en la corrida del domingo no hay nada despues, pero
+  // recuperando una semana a mano ya pasaron dias, y esos check-ins son de la
+  // semana siguiente. Sin el tope entraria a la cola el que no vino esa semana
+  // pero si despues, y contaria dias que no son de la semana que se cierra.
+  const hasta = _ymd_(f.lunesProx) + 'T00:00:00-03:00';
 
   // Dias distintos, no check-ins: dos entradas el mismo dia son un dia.
   const fue = {};
-  rutGetAll_('check_ins?select=user_email,check_in_time&check_in_time=gte.'
-    + encodeURIComponent(desde)).forEach(function (c) {
+  rutGetAll_('check_ins?select=user_email,check_in_time'
+    + '&check_in_time=gte.' + encodeURIComponent(desde)
+    + '&check_in_time=lt.' + encodeURIComponent(hasta)).forEach(function (c) {
     const mail = rutMail_(c.user_email);
     if (!mail) return;
     if (!fue[mail]) fue[mail] = {};
@@ -936,7 +1009,8 @@ function colaRutinas_(f) {
       dias: suyos,
       // Sin dias cargados no hay umbral que aplicar. Repetir es lo conservador:
       // nunca le saltea trabajo que no hizo.
-      accion: (suyos && entreno >= umbralAvance_(suyos)) ? 'avanzar' : 'repetir',
+      accion: !UMBRAL_ACTIVO || (suyos && entreno >= umbralAvance_(suyos))
+        ? 'avanzar' : 'repetir',
       sinDias: !suyos,
     });
   });
@@ -960,7 +1034,7 @@ function rutinasSemanales() {
   const runId = Utilities.getUuid();
 
   try {
-    const f = rutFechas_();
+    const f = rutFechasCorrida_();
     const semana = _ymd_(f.lunesProx);
 
     if (props.getProperty(PROP_RUT_SEMANA) !== semana) {
@@ -1011,12 +1085,17 @@ function rutinasSemanales() {
       return;
     }
 
+    // La corrida termino, asi que la semana forzada ya cumplio. Si quedara
+    // puesta, el domingo que viene el trigger volveria a cerrar esta misma.
+    props.deleteProperty(PROP_RUT_FORZADA);
+
     const fallaron = Object.keys(fallados).length;
     Logger.log('================ RUTINAS DE LA SEMANA ' + semana + ' ================\n'
       + 'avanzados : ' + avanzados + '\nrepetidos : ' + repetidos
       + '\nfallaron  : ' + fallaron);
     rutLog_(runId, fallaron ? 'warn' : 'info', 'rutinas semanales ok',
-      { semana: semana, avanzados: avanzados, repetidos: repetidos, fallaron: fallaron });
+      { semana: semana, avanzados: avanzados, repetidos: repetidos, fallaron: fallaron,
+        umbral: UMBRAL_ACTIVO });
     if (fallaron) {
       MailApp.sendEmail('diegojp2005@gmail.com', 'ZAC rutinas - ' + fallaron + ' fallaron',
         Object.keys(fallados).map(function (id) { return id + ': ' + fallados[id]; }).join('\n'));
@@ -1040,9 +1119,15 @@ function rutBorrarSeguir_() {
   });
 }
 
-/** Que haria la corrida semanal, sin tocar ninguna planilla. */
-function verRutinasSemanales() {
-  const f = rutFechas_();
+/**
+ * Que haria la corrida semanal, sin tocar ninguna planilla.
+ *
+ * Sin argumento usa las fechas de la corrida que toca —hoy, o la semana
+ * forzada si hay una puesta—. `verSemanaPerdida` le pasa las de la semana que
+ * quedo sin cerrar.
+ */
+function verRutinasSemanales(f) {
+  f = f || rutFechasCorrida_();
   const cola = colaRutinas_(f);
   const avanzan = cola.filter(function (a) { return a.accion === 'avanzar'; });
   const repiten = cola.filter(function (a) { return a.accion === 'repetir'; });
@@ -1051,6 +1136,8 @@ function verRutinasSemanales() {
   Logger.log(['RUTINAS — ensayo, no se escribe nada',
     'semana que se cierra : ' + _ymd_(f.lunesEsta),
     'semana que se abre   : ' + _ymd_(f.lunesProx),
+    'umbral               : ' + (UMBRAL_ACTIVO
+      ? 'activo, la mitad de los dias' : 'INACTIVO, avanzan todos'),
     '',
     'en la cola : ' + cola.length,
     '  avanzan  : ' + avanzan.length,
@@ -1059,13 +1146,55 @@ function verRutinasSemanales() {
     cola.slice(0, 40).map(function (a) {
       return '  ' + _pad_(a.accion.toUpperCase(), 9) + _pad_(a.quien, 34)
         + 'entreno ' + a.entreno + ' de ' + (a.dias || '?') + ' dias'
-        + (a.sinDias ? '   SIN DIAS CARGADOS' : '   umbral ' + umbralAvance_(a.dias));
+        + (a.sinDias ? '   SIN DIAS CARGADOS'
+          : (UMBRAL_ACTIVO ? '   umbral ' + umbralAvance_(a.dias) : ''));
     }).join('\n'),
     cola.length > 40 ? '  ... y ' + (cola.length - 40) + ' mas' : '',
   ].join('\n'));
 }
 
-/** Deja el trigger semanal de los domingos a las 3. Idempotente. */
+/**
+ * Ensayo de la recuperacion: que haria `correrSemanaPerdida`, sin escribir.
+ *
+ * Correr esto ANTES. La cola sale de los check-ins de esa semana, que ya
+ * pasaron y no cambian, asi que lo que imprime es exactamente lo que va a
+ * hacer.
+ */
+function verSemanaPerdida() {
+  const f = rutFechasDe_(rutLunes_(SEMANA_PERDIDA));
+  Logger.log('SEMANA PERDIDA: cierra ' + _ymd_(f.lunesEsta)
+    + ', abre ' + _ymd_(f.lunesProx) + '\n');
+  verRutinasSemanales(f);
+}
+
+/**
+ * Cierra la semana que el trigger no corrio, con los check-ins de esa semana.
+ *
+ * Hace falta porque `rutFechas_` mira el reloj: corriendo `rutinasSemanales` un
+ * lunes, la semana que cierra es la que recien empieza —sin check-ins— y la que
+ * abre es la de dentro de siete dias, salteandose una. Poniendo el lunes en
+ * `SEMANA_PERDIDA` la corrida usa las fechas de aquella semana y queda igual
+ * que si hubiera corrido el domingo.
+ *
+ * La property se borra sola cuando la corrida termina.
+ *
+ * ESCRIBE en las planillas de los alumnos. Correr `verSemanaPerdida` primero.
+ */
+function correrSemanaPerdida() {
+  const f = rutFechasDe_(rutLunes_(SEMANA_PERDIDA));
+  PropertiesService.getScriptProperties().setProperty(PROP_RUT_FORZADA, SEMANA_PERDIDA);
+  Logger.log('Semana forzada: cierra ' + _ymd_(f.lunesEsta)
+    + ', abre ' + _ymd_(f.lunesProx));
+  rutinasSemanales();
+}
+
+/**
+ * Deja el trigger semanal de los domingos a las 3. Idempotente.
+ *
+ * `instalarTodo()` de Pipelines.gs ya lo instala —`rutinasSemanales` esta en su
+ * lista `TRIGGERS`—, asi que esto es para reponerlo solo, sin tocar los demas.
+ * Si se cambia la hora hay que cambiarla en los dos lados.
+ */
 function instalarRutinasSemanales() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'rutinasSemanales') ScriptApp.deleteTrigger(t);
@@ -1081,6 +1210,7 @@ function reiniciarRutinasSemanales() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty(PROP_RUT_SEMANA);
   props.deleteProperty(PROP_RUT_FALLADOS);
+  props.deleteProperty(PROP_RUT_FORZADA);
   rutBorrarSeguir_();
   Logger.log('Estado borrado. Ojo: los que ya tienen la semana nueva no vuelven a entrar.');
 }

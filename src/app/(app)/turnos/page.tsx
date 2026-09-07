@@ -101,7 +101,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/turnos">)
         .select("id, alumno_id, producto, saldo")
         .gt("saldo", 0)
         .is("anulada_en", null)
-        .not("turno_id", "is", null)
+        .neq("origen", "planilla")
         .order("creado_en"),
     ),
   ]);
