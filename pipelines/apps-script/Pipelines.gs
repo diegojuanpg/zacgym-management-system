@@ -1299,6 +1299,12 @@ const TRIGGERS = [
   { fn: 'semanaRutina',  tipo: 'diario',  hora: 8,  minuto: 30 },
   { fn: 'semanaRutina',  tipo: 'diario',  hora: 12, minuto: 30 },
   { fn: 'semanaRutina',  tipo: 'diario',  hora: 17, minuto: 30 },
+  // Vive en Rutinas.gs, que es del mismo proyecto. Va aca igual porque
+  // `borrarTriggers()` se lleva todos los del proyecto, no solo los de este
+  // archivo: si el semanal no estuviera en esta lista, el ciclo normal de
+  // borrar-y-reinstalar lo dejaria afuera y nadie se enteraria hasta el
+  // domingo siguiente. Paso una vez: el 2026-09-06 no corrio.
+  { fn: 'rutinasSemanales', tipo: 'semanal', dia: 'SUNDAY', hora: 3 },
 ];
 
 /**
@@ -1319,6 +1325,10 @@ function instalarTodo() {
     let b = ScriptApp.newTrigger(t.fn).timeBased();
     if (t.tipo === 'horario') {
       b = b.everyHours(1);
+    } else if (t.tipo === 'semanal') {
+      // El dia va como string y se resuelve aca: `ScriptApp` no esta disponible
+      // cuando se evalua el `const` de arriba.
+      b = b.onWeekDay(ScriptApp.WeekDay[t.dia]).atHour(t.hora);
     } else {
       b = b.everyDays(1).atHour(t.hora);
       if (t.minuto) b = b.nearMinute(t.minuto);
@@ -1329,7 +1339,8 @@ function instalarTodo() {
   Logger.log('Instalados ' + TRIGGERS.length + ' triggers:\n' + TRIGGERS.map(function (t) {
     return '  ' + (t.tipo === 'horario'
       ? 'cada hora (' + CONFIG.HORA_DESDE + 'h a ' + CONFIG.HORA_HASTA + 'h)'
-      : String(t.hora).padStart(2, '0') + ':' + String(t.minuto || 0).padStart(2, '0') + '      ')
+      : (t.tipo === 'semanal' ? t.dia + ' ' : '')
+        + String(t.hora).padStart(2, '0') + ':' + String(t.minuto || 0).padStart(2, '0') + '      ')
       + '  ' + t.fn;
   }).join('\n'));
 }

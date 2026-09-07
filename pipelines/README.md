@@ -28,7 +28,7 @@ loguea, que es lo que se ve en la pantalla de Pipelines de la app.
 | 4 | `syncDiasEntrenamiento` | `SyncTrainingDays` | 03:00 | diaria | Abre la planilla de cada alumno **con membresia ACTIVE** y cuenta los dias programados. |
 | 5 | `rebuildTracking` | `RebuildDatabase` | cada hora, 5 a 23 | 19x dia | Rearma `alumnos_tracking` con lo de arriba. |
 | 6 | `semanaRutina` | `SyncTrainingDate` | 5:30, 8:30, 12:30, 17:30 | 4x dia | Lee de cada planilla la semana abierta -> columna Semana del listado. |
-| 7 | `rutinasSemanales` | `UpdateAthleteProgram` | domingos 03:00 | semanal | Avanza o repite el bloque de todo el que entreno esa semana. En `apps-script-control/Rutinas.gs`. Trigger propio: `instalarRutinasSemanales`. |
+| 7 | `rutinasSemanales` | `UpdateAthleteProgram` | domingos 03:00 | semanal | Avanza o repite el bloque de todo el que entreno esa semana. En `apps-script-control/Rutinas.gs`, mismo proyecto. |
 
 Las corridas viejas quedaron guardadas con los nombres anteriores —`sheetIds`,
 `dias`, `semanaRutina`, `rutinas`—. La vista `pipeline_lineas` del repo de la
@@ -39,6 +39,12 @@ vista.
 Los horarios de esta tabla estan copiados en `src/lib/pipelines.ts` de la app,
 que los usa para saber cuando un pipeline se atraso. Si se mueve una hora aca,
 se mueve alla.
+
+Los siete triggers salen de la lista `TRIGGERS` de `Pipelines.gs` y los instala
+`instalarTodo()`. El 7 esta en otro archivo pero en el mismo proyecto, asi que
+va en esa lista igual: `borrarTriggers()` borra todos los del proyecto, y
+cuando el semanal no estaba ahi el ciclo de borrar-y-reinstalar lo dejaba
+afuera sin decir nada. Paso el 2026-09-05 y esa semana no corrio.
 
 Los 2, 3 y 5 son un solo trigger (`runHorario`), que se corta fuera del horario
 del gimnasio en vez de tener diecinueve triggers: Apps Script permite 20 por
@@ -204,8 +210,40 @@ vez, con formulas que despues se recalculan solas.
   reusa la secret: las Script Properties son del proyecto, no del archivo. Trae adentro el motor que mueve el bloque, que
   antes vivia en el Code.gs de "Control de usuarios": `RutinasPorAsistencia.gs`
   lo llamaba sin definirlo y fallaba si los dos no estaban en el mismo proyecto.
+  El umbral —entrenar la mitad de los dias propios para avanzar de bloque, si
+  no repetir— esta **inactivo**: `UMBRAL_ACTIVO = false` y avanza todo el que
+  vino al menos un dia. La logica quedo entera, se prende poniendolo en `true`.
+  Si un domingo no corre, la semana no se recupera sola: corriendo
+  `rutinasSemanales` un lunes, `rutFechas_` mira el reloj y cierra la semana que
+  recien empieza —sin check-ins— salteandose una. Para eso estan
+  `SEMANA_PERDIDA` (el lunes que abrio la semana sin cerrar), `verSemanaPerdida`
+  (ensayo) y `correrSemanaPerdida`, que fuerza esas fechas por Script Property
+  para que la continuacion del `after()` tambien las use, y la borra al terminar.
 - `ListadoPlan.gs` junta el plan de cada alumno desde su hoja Pagos.
 - `ShareRutinas.gs` comparte y descomparte planillas en masa.
+- **`Api.gs`** es el Web App que usa el mostrador de la app: un `doPost` con dos
+  acciones, `rutinas` —avanza el bloque de hasta diez alumnos al lunes que se
+  le diga— y `acceso` —comparte o descomparte sus planillas—. No trae motor
+  propio: llama a `procesarYExtraerEntrenamiento_` de `Rutinas.gs` y a
+  `compartirArchivo_` / `descompartirArchivo_` de `ShareRutinas.gs`, que son
+  los mismos que corren desde los triggers.
+
+  Es la unica parte de todo esto que se ejecuta a pedido y no por reloj.
+  Puesta en marcha: `crearSecretApi()` una vez —imprime el secret—, y despues
+  Implementar > Nueva implementacion > Aplicacion web, "ejecutar como: yo",
+  "quien tiene acceso: cualquier usuario". Esa URL `/exec` y el secret van en
+  `APPS_SCRIPT_URL` y `APPS_SCRIPT_SECRET`, en Vercel y en `.env.local`.
+  "Cualquier usuario" es obligatorio para que la app pueda pegarle sin una
+  cuenta de Google: lo que lo protege es el secret, que nunca sale del server.
+
+  Cada vez que se pega codigo nuevo hay que crear una **implementacion nueva**
+  o editar la que hay eligiendo version "nueva": la URL sigue sirviendo la
+  version vieja hasta que eso pasa.
+
+  Loguea en `pipeline_logs` como `MostradorRutinas` y no como
+  `UpdateAthleteProgram`, a proposito: la pantalla de Pipelines mide el atraso
+  con la ultima corrida de cada nombre, y una actualizacion a mano haria pasar
+  por vivo a un trigger muerto.
 
 `backfill/fetch_checkins.py` es aparte: baja el historico completo de check-ins
 de la API de PulsoFlow a un CSV, con un token sacado del browser. Se corre a

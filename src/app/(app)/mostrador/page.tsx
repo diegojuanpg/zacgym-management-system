@@ -30,6 +30,15 @@ import type { TurnoDelDia, DiferenciaProducto } from "@/components/mostrador/tur
 import { Button } from "@/components/ui/button";
 
 
+/**
+ * Los diez minutos son por las acciones de rutina del modal de Acciones.
+ *
+ * Las server actions corren en la función de esta ruta y heredan su límite. Un
+ * lote de diez planillas se va tranquilo al minuto y medio, y el default de
+ * Vercel lo cortaría por la mitad dejando el trabajo hecho pero sin respuesta.
+ */
+export const maxDuration = 600;
+
 interface TurnoAbierto {
   id: string;
   abierto_en: string;
