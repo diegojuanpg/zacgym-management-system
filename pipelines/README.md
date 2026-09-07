@@ -222,11 +222,17 @@ vez, con formulas que despues se recalculan solas.
 - `ListadoPlan.gs` junta el plan de cada alumno desde su hoja Pagos.
 - `ShareRutinas.gs` comparte y descomparte planillas en masa.
 - **`Api.gs`** es el Web App que usa el mostrador de la app: un `doPost` con dos
-  acciones, `rutinas` —avanza el bloque de hasta diez alumnos al lunes que se
-  le diga— y `acceso` —comparte o descomparte sus planillas—. No trae motor
-  propio: llama a `procesarYExtraerEntrenamiento_` de `Rutinas.gs` y a
+  acciones, `rutinas` —deja visible el bloque fechado al lunes que se le diga—
+  y `acceso` —comparte o descomparte sus planillas—. No trae motor propio:
+  llama a `procesarYExtraerEntrenamiento_` de `Rutinas.gs` y a
   `compartirArchivo_` / `descompartirArchivo_` de `ShareRutinas.gs`, que son
   los mismos que corren desde los triggers.
+
+  `rutinas` busca y muestra, no escribe: los bloques ya vienen fechados en la
+  planilla y lo unico que cambia es cual queda a la vista. Va con
+  `esRepetirSemana` en false —en true, el motor le pisa la fecha al bloque que
+  encuentra— y sin el paso de RMs. Esa es la diferencia con la corrida de los
+  domingos, que ademas repite semanas y levanta los RMs antes de mover.
 
   Es la unica parte de todo esto que se ejecuta a pedido y no por reloj.
   Puesta en marcha: `crearSecretApi()` una vez —imprime el secret—, y despues
