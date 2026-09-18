@@ -4,10 +4,18 @@ PulsoFlow es la app donde el gimnasio registra los check-ins: cada vez que un
 alumno entrena, queda la marca de que vino ese día. Es también donde viven las
 membresías, con su plan y su fecha de vencimiento.
 
-El problema es que **es una app cerrada**: no ofrece exportación de datos ni una
-API documentada. Toda la información que el gimnasio genera todos los días vivía
-adentro de un producto de un tercero, y desde afuera lo único que se podía hacer
-era mirarla en pantalla.
+El problema es que **es una app cerrada**. No tiene API pública ni documentada, y
+la única salida de datos que ofrece es un "Descargar Excel" de la lista de
+socios, a mano, desde la pantalla de Miembros:
+
+![Miembros de PulsoFlow](media/pulsoflow-miembros.png)
+
+Eso no alcanza para nada de lo que hacía falta. Un Excel que alguien baja a mano
+no sirve para un proceso que tiene que correr cada hora, y **los check-ins no se
+exportan**: el histórico de asistencias —justo el dato que necesitan las rutinas
+automáticas— solo se puede mirar en pantalla.
+
+![Check-ins del día en PulsoFlow](media/pulsoflow-checkins.png)
 
 Sin esos datos no hay nada de lo demás: ni rutinas automáticas, ni saber quién
 debe, ni un listado de alumnos que se mantenga solo.
@@ -17,8 +25,20 @@ debe, ni un listado de alumnos que se mantenga solo.
 ### 1. Entender cómo habla la app con su servidor
 
 No hay documentación, así que la fuente fue el tráfico de la propia app: qué
-endpoints usa, qué parámetros acepta y qué forma tiene lo que devuelve. De ahí
-salieron los tres que importan:
+endpoints usa, qué parámetros acepta y qué forma tiene lo que devuelve. Abrir el
+panel y mirar qué pide es suficiente para ver el mapa completo:
+
+```
+GET https://api.pulsoflow.app/users/me
+GET https://api.pulsoflow.app/services
+GET https://api.pulsoflow.app/services/{serviceId}/dashboard
+GET https://api.pulsoflow.app/services/{serviceId}/activity?limit=100
+GET https://api.pulsoflow.app/checkins/service/{serviceId}/pending
+GET https://api.pulsoflow.app/memberships/service/{serviceId}?status=PENDING&noPlan=true&limit=20&offset=0
+GET https://api.pulsoflow.app/payments/service/{serviceId}?status=PENDING&limit=1
+```
+
+De todo eso salieron los tres que importan:
 
 | Endpoint | Qué devuelve |
 |---|---|
@@ -202,5 +222,5 @@ La pantalla marca el atraso comparando la última corrida contra el horario
 esperado, así que un trigger que se muere se ve sin tener que entrar a Apps
 Script.
 
-<!-- PENDIENTE: capturas del lado de PulsoFlow y de Apps Script.
+<!-- PENDIENTE: capturas del lado de Apps Script (triggers y log de una corrida).
      Ver docs/media/capturas-pendientes.md -->
