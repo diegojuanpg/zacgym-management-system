@@ -222,5 +222,18 @@ La pantalla marca el atraso comparando la última corrida contra el horario
 esperado, así que un trigger que se muere se ve sin tener que entrar a Apps
 Script.
 
-<!-- PENDIENTE: capturas del lado de Apps Script (triggers y log de una corrida).
-     Ver docs/media/capturas-pendientes.md -->
+Del otro lado, esto es lo que hay en Apps Script: ocho activadores por reloj —los
+cuatro de `semanaRutina` son sus cuatro horarios del día— y `runHorario`, que
+junta los tres pipelines que corren cada hora en una sola ejecución.
+
+![Activadores del proyecto](media/apps-script-triggers.png)
+
+Y así se ve una corrida terminada. Las tres líneas son los tres pipelines de
+`runHorario`, en orden: bajar los check-ins nuevos, bajar las membresías y
+rearmar el cruce.
+
+![Log de una corrida](media/apps-script-log.png)
+
+En el listado de ejecuciones se nota el corte por horario: las corridas de la
+madrugada duran menos de un segundo porque salen sin hacer nada, y las del
+horario del gimnasio, entre 13 y 18 segundos.
