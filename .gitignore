@@ -49,3 +49,8 @@ reporte-import.txt
 
 # artefactos de las capturas (Playwright)
 .playwright-mcp/
+
+# datos reales del gimnasio — nunca al repo
+*.csv
+*.xlsx
+!supabase/demo/*.csv
