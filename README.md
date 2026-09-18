@@ -3,6 +3,11 @@
 Next.js 16 (App Router) + Supabase. Entorno de desarrollo local igual al de Workset:
 app en `localhost`, Supabase en Docker, Mailpit para mails.
 
+**Qué hace el sistema y por qué: [`docs/`](docs/README.md)** — la extracción de
+datos de PulsoFlow, la actualización automática de rutinas, el listado de
+alumnos, el mostrador y el control de caja y stock, con capturas y GIFs. Para
+levantarlo con datos de demostración, [`docs/demo.md`](docs/demo.md).
+
 ## Arranque
 
 ```bash
