@@ -271,24 +271,6 @@ producto faltando seis veces no.**
 - **Pipelines**: Google Apps Script, 7 procesos con triggers de reloj.
 - **Deploy**: Vercel.
 
-## Ver el sistema funcionando
-
-Se levanta en cualquier máquina con Docker, con datos de demostración
-inventados —ningún alumno, importe o teléfono de las capturas corresponde a una
-persona real—:
-
-```bash
-pnpm install
-pnpm db:start
-pnpm db:reset
-docker exec -i supabase_db_zacgym-management-system \
-  psql -U postgres -d postgres < supabase/demo/seed-demo.sql
-pnpm dev
-```
-
-Entrar con `demo@zacgym.test` / `demo-zacgym-2026`. Detalle en
-[docs/demo.md](docs/demo.md).
-
 ## Documentación
 
 | Documento | De qué trata |
