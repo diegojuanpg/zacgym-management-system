@@ -46,3 +46,6 @@ next-env.d.ts
 Hoja Madre*.csv
 alumnos.sql
 reporte-import.txt
+
+# artefactos de las capturas (Playwright)
+.playwright-mcp/
