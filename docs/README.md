@@ -55,6 +55,7 @@ que se ejecuta a pedido y no por reloj es el lote de rutinas del mostrador.
 | [Mostrador: ventas, cobranza y deudas](mostrador.md) | Lo que se carga en el día a día. |
 | [Caja y stock](caja-y-stock.md) | Turnos, conteos y diferencias. |
 | [Demo local](demo.md) | Cómo levantar el sistema con datos de demostración. |
+| [Desarrollo](desarrollo.md) | Arranque, puertos, comandos, cuentas y deploy. |
 
 Detalle técnico de cada pipeline, sus horarios y sus casos borde:
 [`pipelines/README.md`](../pipelines/README.md).
